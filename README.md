@@ -18,6 +18,8 @@ You can try the last release in [the release tab](https://github.com/GoldenForge
 ./gradlew setup installerjar
 ```
 
+builds jar can be found in `projects/forge/build/libs/`
+
 
 ## special thanks to
 
