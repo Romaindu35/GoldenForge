@@ -23,3 +23,4 @@ You can try the last release in [the release tab](https://github.com/GoldenForge
 
 * [Forge](https://github.com/MinecraftForge/MinecraftForge)
 * [Yatopia](https://github.com/YatopiaMC/Yatopia)
+* [Paper](https://github.com/PaperMC/Paper)
