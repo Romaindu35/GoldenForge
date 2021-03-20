@@ -1,7 +1,18 @@
 --- a/net/minecraft/server/dedicated/DedicatedServer.java
 +++ b/net/minecraft/server/dedicated/DedicatedServer.java
-@@ -57,6 +_,7 @@
+@@ -7,6 +_,7 @@
+ import com.mojang.authlib.minecraft.MinecraftSessionService;
+ import com.mojang.datafixers.DataFixer;
+ import java.io.BufferedReader;
++import java.io.File;
+ import java.io.IOException;
+ import java.io.InputStreamReader;
+ import java.net.InetAddress;
+@@ -55,8 +_,10 @@
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.storage.IServerConfiguration;
  import net.minecraft.world.storage.SaveFormat;
++import net.minecraftforge.fml.loading.FMLPaths;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
 +import org.goldenforge.GoldenForgeEntryPoint;
@@ -24,7 +35,14 @@
  
        field_155771_h.info("Loading properties");
        ServerProperties serverproperties = this.field_71340_o.func_219034_a();
-@@ -162,11 +_,13 @@
+@@ -157,16 +_,20 @@
+          return false;
+       } else {
+          this.func_184105_a(new DedicatedPlayerList(this, this.field_240767_f_, this.field_240766_e_));
++         org.spigotmc.SpigotConfig.init(new File(FMLPaths.GFDIR.get().toString(), "spigot.yml"));
++         com.destroystokyo.paper.PaperConfig.init(new File(FMLPaths.GFDIR.get().toString(), "paper.yml"));
+          long i = Util.func_211178_c();
+          this.func_71191_d(serverproperties.field_219026_t);
           SkullTileEntity.func_184293_a(this.func_152358_ax());
           SkullTileEntity.func_184294_a(this.func_147130_as());
           PlayerProfileCache.func_187320_a(this.func_71266_T());
