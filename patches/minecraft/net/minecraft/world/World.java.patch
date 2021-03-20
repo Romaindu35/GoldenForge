@@ -26,7 +26,7 @@
 +   public boolean captureBlockSnapshots = false;
 +   public java.util.ArrayList<net.minecraftforge.common.util.BlockSnapshot> capturedBlockSnapshots = new java.util.ArrayList<>();
 +
-+   //GoldenForge
++   //GoldenForge start
 +   public final org.spigotmc.SpigotWorldConfig spigotConfig; // Spigot
 +   public final com.destroystokyo.paper.PaperWorldConfig paperConfig; // Paper
  

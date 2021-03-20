@@ -1,5 +1,18 @@
 --- a/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
 +++ b/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+@@ -21,10 +_,12 @@
+ import net.minecraft.entity.item.ExperienceOrbEntity;
+ import net.minecraft.entity.monster.IMob;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.network.datasync.DataParameter;
+ import net.minecraft.network.datasync.DataSerializers;
+ import net.minecraft.network.datasync.EntityDataManager;
++import net.minecraft.network.play.server.SPlaySoundEventPacket;
+ import net.minecraft.particles.ParticleTypes;
+ import net.minecraft.pathfinding.Path;
+ import net.minecraft.pathfinding.PathHeap;
 @@ -408,8 +_,8 @@
                 BlockPos blockpos = new BlockPos(k1, l1, i2);
                 BlockState blockstate = this.field_70170_p.func_180495_p(blockpos);
@@ -11,6 +24,35 @@
                       flag1 = this.field_70170_p.func_217377_a(blockpos, false) || flag1;
                    } else {
                       flag = true;
+@@ -507,7 +_,27 @@
+          }
+ 
+          if (this.field_70995_bG == 1 && !this.func_174814_R()) {
+-            this.field_70170_p.func_175669_a(1028, this.func_233580_cy_(), 0);
++            //this.level.globalLevelEvent(1028, this.blockPosition(), 0);
++            // CraftBukkit start - Use relative location for far away sounds
++            // this.world.b(1028, this.getChunkCoordinates(), 0);
++            int viewDistance = ((ServerWorld) this.field_70170_p).func_73046_m().func_184103_al().func_72395_o() * 16; // Paper - updated to use worlds actual view distance incase we have to uncomment this due to removal of player view distance API
++            for (ServerPlayerEntity player : ((ServerWorld)field_70170_p).func_217369_A()) {
++               // final int viewDistance = player.getViewDistance(); // TODO apply view distance api patch
++               // Paper end
++               double deltaX = this.func_226277_ct_() - player.func_226277_ct_();
++               double deltaZ = this.func_226281_cx_() - player.func_226281_cx_();
++               double distanceSquared = deltaX * deltaX + deltaZ * deltaZ;
++               if ( field_70170_p.spigotConfig.dragonDeathSoundRadius > 0 && distanceSquared > field_70170_p.spigotConfig.dragonDeathSoundRadius * field_70170_p.spigotConfig.dragonDeathSoundRadius ) continue; // Spigot
++               if (distanceSquared > viewDistance * viewDistance) {
++                  double deltaLength = Math.sqrt(distanceSquared);
++                  double relativeX = player.func_226277_ct_() + (deltaX / deltaLength) * viewDistance;
++                  double relativeZ = player.func_226281_cx_() + (deltaZ / deltaLength) * viewDistance;
++                  player.field_71135_a.func_147359_a(new SPlaySoundEventPacket(1028, new BlockPos((int) relativeX, (int) this.func_226278_cu_(), (int) relativeZ), 0, true));
++               } else {
++                  player.field_71135_a.func_147359_a(new SPlaySoundEventPacket(1028, new BlockPos((int) this.func_226277_ct_(), (int) this.func_226278_cu_(), (int) this.func_226281_cx_()), 0, true));
++               }
++            }
++            // CraftBukkit end
+          }
+       }
+ 
 @@ -841,5 +_,15 @@
  
     public boolean func_184222_aU() {

@@ -1,5 +1,23 @@
 --- a/net/minecraft/entity/item/HangingEntity.java
 +++ b/net/minecraft/entity/item/HangingEntity.java
+@@ -27,7 +_,7 @@
+    protected static final Predicate<Entity> field_184524_c = (p_210144_0_) -> {
+       return p_210144_0_ instanceof HangingEntity;
+    };
+-   private int field_70520_f;
++   private int field_70520_f; { this.field_70520_f = this.func_145782_y() % this.field_70170_p.spigotConfig.hangingTickFrequency; } // Paper
+    protected BlockPos field_174861_a;
+    protected Direction field_174860_b = Direction.SOUTH;
+ 
+@@ -93,7 +_,7 @@
+             this.func_70076_C();
+          }
+ 
+-         if (this.field_70520_f++ == 100) {
++         if (this.field_70520_f++ == this.field_70170_p.spigotConfig.hangingTickFrequency) {
+             this.field_70520_f = 0;
+             if (!this.field_70128_L && !this.func_70518_d()) {
+                this.func_70106_y();
 @@ -120,6 +_,8 @@
                 int j1 = (j - 1) / -2;
                 blockpos$mutable.func_189533_g(blockpos).func_189534_c(direction, k + i1).func_189534_c(Direction.UP, l + j1);

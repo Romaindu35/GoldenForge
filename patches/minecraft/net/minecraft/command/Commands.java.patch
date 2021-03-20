@@ -1,5 +1,13 @@
 --- a/net/minecraft/command/Commands.java
 +++ b/net/minecraft/command/Commands.java
+@@ -102,6 +_,7 @@
+ import net.minecraft.util.text.event.HoverEvent;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.spigotmc.SpigotConfig;
+ 
+ public class Commands {
+    private static final Logger field_197061_a = LogManager.getLogger();
 @@ -186,6 +_,7 @@
        if (p_i232148_1_.field_237219_d_) {
           PublishCommand.func_198581_a(this.field_197062_b);
@@ -25,3 +33,20 @@
           } catch (CommandException commandexception) {
              p_197059_1_.func_197021_a(commandexception.func_197003_a());
              return 0;
+@@ -258,6 +_,7 @@
+    }
+ 
+    public void func_197051_a(ServerPlayerEntity p_197051_1_) {
++      if (SpigotConfig.tabComplete < 0) return; // Spigot
+       Map<CommandNode<CommandSource>, CommandNode<ISuggestionProvider>> map = Maps.newHashMap();
+       RootCommandNode<ISuggestionProvider> rootcommandnode = new RootCommandNode<>();
+       map.put(this.field_197062_b.getRoot(), rootcommandnode);
+@@ -267,6 +_,8 @@
+ 
+    private void func_197052_a(CommandNode<CommandSource> p_197052_1_, CommandNode<ISuggestionProvider> p_197052_2_, CommandSource p_197052_3_, Map<CommandNode<CommandSource>, CommandNode<ISuggestionProvider>> p_197052_4_) {
+       for(CommandNode<CommandSource> commandnode : p_197052_1_.getChildren()) {
++         if ( !org.spigotmc.SpigotConfig.sendNamespaced && commandnode.getName().contains( ":" ) ) continue; // Spigot
++
+          if (commandnode.canUse(p_197052_3_)) {
+             ArgumentBuilder<ISuggestionProvider, ?> argumentbuilder = (ArgumentBuilder) commandnode.createBuilder();
+             argumentbuilder.requires((p_197060_0_) -> {

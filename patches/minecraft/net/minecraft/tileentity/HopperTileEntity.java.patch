@@ -1,5 +1,30 @@
 --- a/net/minecraft/tileentity/HopperTileEntity.java
 +++ b/net/minecraft/tileentity/HopperTileEntity.java
+@@ -89,9 +_,14 @@
+          this.field_190578_g = this.field_145850_b.func_82737_E();
+          if (!this.func_145888_j()) {
+             this.func_145896_c(0);
+-            this.func_200109_a(() -> {
++            // Spigot start
++            boolean result = this.func_200109_a(() -> {
+                return func_145891_a(this);
+             });
++            if (!result && this.field_145850_b.spigotConfig.hopperCheck > 1) {
++               this.func_145896_c(this.field_145850_b.spigotConfig.hopperCheck);
++            }
++            // Spigot end
+          }
+ 
+       }
+@@ -110,7 +_,7 @@
+             }
+ 
+             if (flag) {
+-               this.func_145896_c(8);
++               this.func_145896_c(field_145850_b.spigotConfig.hopperTransfer); // Spigot
+                this.func_70296_d();
+                return true;
+             }
 @@ -133,6 +_,7 @@
     }
  
@@ -17,6 +42,15 @@
        IInventory iinventory = func_145884_b(p_145891_0_);
        if (iinventory != null) {
           Direction direction = Direction.DOWN;
+@@ -284,7 +_,7 @@
+                      }
+                   }
+ 
+-                  hoppertileentity1.func_145896_c(8 - k);
++                  hoppertileentity1.func_145896_c(hoppertileentity1.field_145850_b.spigotConfig.hopperTransfer - k);
+                }
+             }
+ 
 @@ -325,7 +_,7 @@
        Block block = blockstate.func_177230_c();
        if (block instanceof ISidedInventoryProvider) {

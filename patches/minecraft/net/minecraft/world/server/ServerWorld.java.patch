@@ -17,6 +17,15 @@
  
     public ServerWorld(MinecraftServer p_i241885_1_, Executor p_i241885_2_, SaveFormat.LevelSave p_i241885_3_, IServerWorldInfo p_i241885_4_, RegistryKey<World> p_i241885_5_, DimensionType p_i241885_6_, IChunkStatusListener p_i241885_7_, ChunkGenerator p_i241885_8_, boolean p_i241885_9_, long p_i241885_10_, List<ISpecialSpawner> p_i241885_12_, boolean p_i241885_13_) {
        super(p_i241885_4_, p_i241885_5_, p_i241885_6_, p_i241885_1_::func_213185_aS, false, p_i241885_9_, p_i241885_10_);
+@@ -180,7 +_,7 @@
+       this.field_73061_a = p_i241885_1_;
+       this.field_241104_N_ = p_i241885_12_;
+       this.field_241103_E_ = p_i241885_4_;
+-      this.field_241102_C_ = new ServerChunkProvider(this, p_i241885_3_, p_i241885_1_.func_195563_aC(), p_i241885_1_.func_240792_aT_(), p_i241885_2_, p_i241885_8_, p_i241885_1_.func_184103_al().func_72395_o(), p_i241885_1_.func_230540_aS_(), p_i241885_7_, () -> {
++      this.field_241102_C_ = new ServerChunkProvider(this, p_i241885_3_, p_i241885_1_.func_195563_aC(), p_i241885_1_.func_240792_aT_(), p_i241885_2_, p_i241885_8_, this.spigotConfig.viewDistance, p_i241885_1_.func_230540_aS_(), p_i241885_7_, () -> {
+          return p_i241885_1_.func_241755_D_().func_217481_x();
+       });
+       this.field_85177_Q = new Teleporter(this);
 @@ -200,7 +_,7 @@
        } else {
           this.field_241105_O_ = null;

@@ -32,3 +32,18 @@
                 int i = NetworkSystem.this.field_151273_d.func_241871_k();
                 NetworkManager networkmanager = (NetworkManager)(i > 0 ? new RateLimitedNetworkManager(i) : new NetworkManager(PacketDirection.SERVERBOUND));
                 NetworkSystem.this.field_151272_f.add(networkmanager);
+@@ -122,6 +_,14 @@
+ 
+    public void func_151269_c() {
+       synchronized(this.field_151272_f) {
++         // Spigot Start
++         //this.addPending(); // Paper TODO:
++         // This prevents players from 'gaming' the server, and strategically relogging to increase their position in the tick order
++         if ( org.spigotmc.SpigotConfig.playerShuffle > 0 && MinecraftServer.currentTick % org.spigotmc.SpigotConfig.playerShuffle == 0 )
++         {
++            Collections.shuffle( this.field_151272_f );
++         }
++         // Spigot End
+          Iterator<NetworkManager> iterator = this.field_151272_f.iterator();
+ 
+          while(iterator.hasNext()) {

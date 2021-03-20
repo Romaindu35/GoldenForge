@@ -81,15 +81,29 @@
     }
  
     public boolean func_208619_r() {
-@@ -399,7 +_,7 @@
+@@ -399,8 +_,20 @@
     }
  
     public String toString() {
 -      return "Block{" + Registry.field_212618_g.func_177774_c(this) + "}";
+-   }
 +      return "Block{" + getRegistryName() + "}";
-    }
++   }
++
++   // Spigot start
++   public static float range(float min, float value, float max) {
++      if (value < min) {
++         return min;
++      }
++      if (value > max) {
++         return max;
++      }
++      return value;
++   }
++   // Spigot end
  
     @OnlyIn(Dist.CLIENT)
+    public void func_190948_a(ItemStack p_190948_1_, @Nullable IBlockReader p_190948_2_, List<ITextComponent> p_190948_3_, ITooltipFlag p_190948_4_) {
 @@ -409,6 +_,78 @@
     protected Block func_230328_p_() {
        return this;

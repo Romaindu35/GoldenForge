@@ -70,6 +70,7 @@ import net.minecraftforge.fml.packs.ResourcePackLoader;
 import net.minecraftforge.forgespi.language.IModInfo;
 import net.minecraftforge.network.NetworkFilters;
 import net.minecraftforge.registries.GameData;
+import org.spigotmc.SpigotConfig;
 
 public class ServerLifecycleHooks
 {
@@ -144,7 +145,7 @@ public class ServerLifecycleHooks
     public static boolean handleServerLogin(final CHandshakePacket packet, final NetworkManager manager) {
         if (!allowLogins.get())
         {
-            StringTextComponent text = new StringTextComponent("Server is still starting! Please wait before reconnecting.");
+            StringTextComponent text = new StringTextComponent(SpigotConfig.serverStartingMessage);
             LOGGER.info(SERVERHOOKS,"Disconnecting Player (server is still starting): {}", text.getContents());
             manager.send(new SDisconnectLoginPacket(text));
             manager.disconnect(text);

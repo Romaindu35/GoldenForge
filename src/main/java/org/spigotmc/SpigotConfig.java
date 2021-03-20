@@ -33,7 +33,9 @@ public class SpigotConfig
             + "join us at the IRC or drop by our forums and leave a post.\n"
             + "\n"
             + "IRC: #spigot @ irc.spi.gt ( http://www.spigotmc.org/pages/irc/ )\n"
-            + "Forums: http://www.spigotmc.org/\n";
+            + "Forums: http://www.spigotmc.org/\n"
+            + "\n \n GOLDENFORGE WARNING"
+            + "\n NOT OPTIONS ARE NOT IMPLEMENTED NOW";
     /*========================================================================*/
     public static YamlConfiguration config;
     static int version;
@@ -159,29 +161,21 @@ public class SpigotConfig
     }
 
     public static String whitelistMessage;
-    public static String unknownCommandMessage;
     public static String serverFullMessage;
-    public static String outdatedClientMessage = "Outdated client! Please use {0}";
-    public static String outdatedServerMessage = "Outdated server! I\'m still on {0}";
+    public static String serverStartingMessage;
     private static String transform(String s)
     {
         return ChatColor.translateAlternateColorCodes( '&', s ).replaceAll( "\\\\n", "\n" );
     }
     private static void messages()
     {
-        if (version < 8)
-        {
-            set( "messages.outdated-client", outdatedClientMessage );
-            set( "messages.outdated-server", outdatedServerMessage );
-        }
 
         whitelistMessage = transform( getString( "messages.whitelist", "You are not whitelisted on this server!" ) );
-        unknownCommandMessage = transform( getString( "messages.unknown-command", "Unknown command. Type \"/help\" for help." ) );
         serverFullMessage = transform( getString( "messages.server-full", "The server is full!" ) );
-        outdatedClientMessage = transform( getString( "messages.outdated-client", outdatedClientMessage ) );
-        outdatedServerMessage = transform( getString( "messages.outdated-server", outdatedServerMessage ) );
+        serverStartingMessage = transform( getString( "messages.server-starting", "Server is still starting! Please wait before reconnecting." ) );
     }
 
+    //TODO: implement this
     public static int timeoutTime = 60;
     public static boolean restartOnCrash = true;
     public static String restartScript = "./start.sh";
@@ -195,6 +189,7 @@ public class SpigotConfig
         //WatchdogThread.doStart( timeoutTime, restartOnCrash ); // Paper - moved to PaperConfig
     }
 
+    //TODO: implement bungeecord support
     public static boolean bungee;
     private static void bungee() {
         if ( version < 4 )

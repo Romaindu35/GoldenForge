@@ -1,5 +1,13 @@
 --- a/net/minecraft/entity/item/ItemEntity.java
 +++ b/net/minecraft/entity/item/ItemEntity.java
+@@ -1,5 +_,7 @@
+ package net.minecraft.entity.item;
+ 
++import java.util.Iterator;
++import java.util.List;
+ import java.util.Objects;
+ import java.util.UUID;
+ import javax.annotation.Nullable;
 @@ -38,6 +_,10 @@
     private UUID field_145801_f;
     private UUID field_145802_g;
@@ -51,6 +59,38 @@
 +         if (item.func_190926_b()) {
              this.func_70106_y();
           }
+ 
+@@ -163,17 +_,26 @@
+ 
+    private void func_85054_d() {
+       if (this.func_213857_z()) {
+-         for(ItemEntity itementity : this.field_70170_p.func_175647_a(ItemEntity.class, this.func_174813_aQ().func_72314_b(0.5D, 0.0D, 0.5D), (p_213859_1_) -> {
++
++         // Spigot start
++         double radius = field_70170_p.spigotConfig.itemMerge;
++         List<ItemEntity> list = this.field_70170_p.func_175647_a(ItemEntity.class, this.func_174813_aQ().func_72314_b(radius, radius, radius), (p_213859_1_) -> {
++            // Spigot end
+             return p_213859_1_ != this && p_213859_1_.func_213857_z();
+-         })) {
+-            if (itementity.func_213857_z()) {
+-               this.func_226530_a_(itementity);
++         });
++
++         Iterator iterator = list.iterator();
++
++         while (iterator.hasNext()) {
++            ItemEntity entityitem = (ItemEntity) iterator.next();
++
++            if (entityitem.func_213857_z()) {
++               this.func_226530_a_(entityitem);
+                if (this.field_70128_L) {
+                   break;
+                }
+             }
+          }
+-
+       }
+    }
  
 @@ -202,6 +_,8 @@
           return false;

@@ -1,5 +1,22 @@
 --- a/net/minecraft/server/management/PlayerList.java
 +++ b/net/minecraft/server/management/PlayerList.java
+@@ -85,6 +_,7 @@
+ import net.minecraftforge.api.distmarker.OnlyIn;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.spigotmc.SpigotConfig;
+ 
+ public abstract class PlayerList {
+    public static final File field_152613_a = new File("banned-players.json");
+@@ -94,7 +_,7 @@
+    private static final Logger field_148546_d = LogManager.getLogger();
+    private static final SimpleDateFormat field_72403_e = new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z");
+    private final MinecraftServer field_72400_f;
+-   private final List<ServerPlayerEntity> field_72404_b = Lists.newArrayList();
++   public final List<ServerPlayerEntity> field_72404_b = Lists.newArrayList();
+    private final Map<UUID, ServerPlayerEntity> field_177454_f = Maps.newHashMap();
+    private final BanList field_72401_g = new BanList(field_152613_a);
+    private final IPBanList field_72413_h = new IPBanList(field_152614_b);
 @@ -110,6 +_,7 @@
     private GameType field_72410_m;
     private boolean field_72407_n;
@@ -74,6 +91,24 @@
        this.field_72400_f.func_201300_aS().func_201382_b(p_72367_1_);
        UUID uuid = p_72367_1_.func_110124_au();
        ServerPlayerEntity serverplayerentity = this.field_177454_f.get(uuid);
+@@ -354,7 +_,7 @@
+ 
+          return iformattabletextcomponent1;
+       } else if (!this.func_152607_e(p_206258_2_)) {
+-         return new TranslationTextComponent("multiplayer.disconnect.not_whitelisted");
++         return new TranslationTextComponent(SpigotConfig.whitelistMessage); // Spigot
+       } else if (this.field_72413_h.func_152708_a(p_206258_1_)) {
+          IPBanEntry ipbanentry = this.field_72413_h.func_152709_b(p_206258_1_);
+          IFormattableTextComponent iformattabletextcomponent = new TranslationTextComponent("multiplayer.disconnect.banned_ip.reason", ipbanentry.func_73686_f());
+@@ -364,7 +_,7 @@
+ 
+          return iformattabletextcomponent;
+       } else {
+-         return this.field_72404_b.size() >= this.field_72405_c && !this.func_183023_f(p_206258_2_) ? new TranslationTextComponent("multiplayer.disconnect.server_full") : null;
++         return this.field_72404_b.size() >= this.field_72405_c && !this.func_183023_f(p_206258_2_) ? new TranslationTextComponent(SpigotConfig.serverFullMessage) : null;
+       }
+    }
+ 
 @@ -400,8 +_,8 @@
     }
  

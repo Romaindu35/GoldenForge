@@ -1,6 +1,42 @@
 --- a/net/minecraft/network/play/ServerPlayNetHandler.java
 +++ b/net/minecraft/network/play/ServerPlayNetHandler.java
-@@ -391,9 +_,11 @@
+@@ -150,6 +_,7 @@
+ import net.minecraft.world.server.ServerWorld;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.spigotmc.SpigotConfig;
+ 
+ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+    private static final Logger field_147370_c = LogManager.getLogger();
+@@ -365,7 +_,19 @@
+             double d8 = d5 - this.field_184358_u;
+             double d9 = entity.func_213322_ci().func_189985_c();
+             double d10 = d6 * d6 + d7 * d7 + d8 * d8;
+-            if (d10 - d9 > 100.0D && !this.func_217264_d()) {
++
++            ++this.field_184347_F;
++            int i = this.field_184347_F - this.field_184348_G;
++
++            double speed;
++            if (field_147369_b.field_71075_bZ.field_75100_b) {
++               speed = field_147369_b.field_71075_bZ.func_75093_a() * 20f;
++            } else {
++               speed = field_147369_b.field_71075_bZ.func_75094_b() * 10f;
++            }
++            speed *= 2f; // TODO: Get the speed of the vehicle instead of the player
++
++            if (d10 - d9 > Math.max(100.0D, Math.pow((double) (org.spigotmc.SpigotConfig.movedTooQuicklyMultiplier * (float) i * speed), 2)) && !this.func_217264_d()) {
+                field_147370_c.warn("{} (vehicle of {}) moved too quickly! {},{},{}", entity.func_200200_C_().getString(), this.field_147369_b.func_200200_C_().getString(), d6, d7, d8);
+                this.field_147371_a.func_179290_a(new SMoveVehiclePacket(entity));
+                return;
+@@ -385,15 +_,17 @@
+             d8 = d5 - entity.func_226281_cx_();
+             d10 = d6 * d6 + d7 * d7 + d8 * d8;
+             boolean flag1 = false;
+-            if (d10 > 0.0625D) {
++            if (d10 > SpigotConfig.movedWronglyThreshold) {
+                flag1 = true;
+                field_147370_c.warn("{} (vehicle of {}) moved wrongly! {}", entity.func_200200_C_().getString(), this.field_147369_b.func_200200_C_().getString(), Math.sqrt(d10));
              }
  
              entity.func_70080_a(d3, d4, d5, f, f1);
@@ -21,6 +57,33 @@
     }
  
     public void func_184339_a(CConfirmTeleportPacket p_184339_1_) {
+@@ -804,9 +_,16 @@
+                         i = 1;
+                      }
+ 
++                     double speed;
++                     if (field_147369_b.field_71075_bZ.field_75100_b) {
++                        speed = field_147369_b.field_71075_bZ.func_75093_a() * 20f;
++                     } else {
++                        speed = field_147369_b.field_71075_bZ.func_75094_b() * 10f;
++                     }
++
+                      if (!this.field_147369_b.func_184850_K() && (!this.field_147369_b.func_71121_q().func_82736_K().func_223586_b(GameRules.field_223615_r) || !this.field_147369_b.func_184613_cA())) {
+                         float f2 = this.field_147369_b.func_184613_cA() ? 300.0F : 100.0F;
+-                        if (d11 - d10 > (double)(f2 * (float)i) && !this.func_217264_d()) {
++                        if (d11 - d10 > Math.max(f2, Math.pow((double) (org.spigotmc.SpigotConfig.movedTooQuicklyMultiplier * (float) i * speed), 2)) && !this.func_217264_d()) {
+                            field_147370_c.warn("{} moved too quickly! {},{},{}", this.field_147369_b.func_200200_C_().getString(), d7, d8, d9);
+                            this.func_147364_a(this.field_147369_b.func_226277_ct_(), this.field_147369_b.func_226278_cu_(), this.field_147369_b.func_226281_cx_(), this.field_147369_b.field_70177_z, this.field_147369_b.field_70125_A);
+                            return;
+@@ -832,7 +_,7 @@
+                      d9 = d6 - this.field_147369_b.func_226281_cx_();
+                      d11 = d7 * d7 + d8 * d8 + d9 * d9;
+                      boolean flag1 = false;
+-                     if (!this.field_147369_b.func_184850_K() && d11 > 0.0625D && !this.field_147369_b.func_70608_bn() && !this.field_147369_b.field_71134_c.func_73083_d() && this.field_147369_b.field_71134_c.func_73081_b() != GameType.SPECTATOR) {
++                     if (!this.field_147369_b.func_184850_K() && d11 > SpigotConfig.movedWronglyThreshold && !this.field_147369_b.func_70608_bn() && !this.field_147369_b.field_71134_c.func_73083_d() && this.field_147369_b.field_71134_c.func_73081_b() != GameType.SPECTATOR) {
+                         flag1 = true;
+                         field_147370_c.warn("{} moved wrongly!", (Object)this.field_147369_b.func_200200_C_().getString());
+                      }
 @@ -950,7 +_,9 @@
        Direction direction = blockraytraceresult.func_216354_b();
        this.field_147369_b.func_143004_u();
@@ -42,6 +105,15 @@
 +            if (itextcomponent == null) return;
              this.field_147367_d.func_184103_al().func_232641_a_(itextcomponent, ChatType.CHAT, this.field_147369_b.func_110124_au());
           }
+ 
+@@ -1110,6 +_,8 @@
+    }
+ 
+    private void func_147361_d(String p_147361_1_) {
++      if ( SpigotConfig.logCommands )
++         this.field_147370_c.info(this.field_147369_b.func_200200_C_().getString() + " issued server command: " + p_147361_1_);
+       this.field_147367_d.func_195571_aL().func_197059_a(this.field_147369_b.func_195051_bN(), p_147361_1_);
+    }
  
 @@ -1187,6 +_,7 @@
              if (p_147340_1_.func_149565_c() == CUseEntityPacket.Action.INTERACT) {

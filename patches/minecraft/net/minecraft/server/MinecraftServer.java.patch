@@ -8,23 +8,81 @@
  import net.minecraft.profiler.EmptyProfiler;
  import net.minecraft.profiler.IProfileResult;
  import net.minecraft.profiler.IProfiler;
-@@ -155,8 +_,10 @@
+@@ -155,8 +_,11 @@
  import org.apache.commons.lang3.Validate;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
 +import org.goldenforge.scheduler.GoldenScheduler;
++import org.spigotmc.SpigotConfig;
  
  public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask> implements ISnooperInfo, ICommandSource, AutoCloseable {
 +   private static MinecraftServer SERVER; public static MinecraftServer getServer() { return SERVER; }
     private static final Logger field_147145_h = LogManager.getLogger();
     public static final File field_152367_a = new File("usercache.json");
     public static final WorldSettings field_213219_c = new WorldSettings("Demo World", GameType.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), DatapackCodec.field_234880_a_);
-@@ -226,9 +_,13 @@
+@@ -226,9 +_,70 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;
  
 +   //GoldenForge start
 +   private GoldenScheduler scheduler = new GoldenScheduler(); public GoldenScheduler getScheduler() { return scheduler; }
++
++   public static int currentTick = 0; // Paper - Further improve tick loop
++   // Paper start - Further improve server tick loop
++   public static final int TPS = 20;
++   public static final int TICK_TIME = 1000000000 / TPS;
++   private static final int SAMPLE_INTERVAL = 20; // Paper
++   public final double[] recentTps = new double[ 3 ];
++   private static final long SEC_IN_NANO = 1000000000;
++   private static final long MAX_CATCHUP_BUFFER = TICK_TIME * TPS * 60L;
++   private long lastTick = 0;
++   private long catchupTime = 0;
++   public final RollingAverage tps1 = new RollingAverage(60);
++   public final RollingAverage tps5 = new RollingAverage(60 * 5);
++   public final RollingAverage tps15 = new RollingAverage(60 * 15);
++
++   public static class RollingAverage {
++      private final int size;
++      private long time;
++      private java.math.BigDecimal total;
++      private int index = 0;
++      private final java.math.BigDecimal[] samples;
++      private final long[] times;
++
++      RollingAverage(int size) {
++         this.size = size;
++         this.time = size * SEC_IN_NANO;
++         this.total = dec(TPS).multiply(dec(SEC_IN_NANO)).multiply(dec(size));
++         this.samples = new java.math.BigDecimal[size];
++         this.times = new long[size];
++         for (int i = 0; i < size; i++) {
++            this.samples[i] = dec(TPS);
++            this.times[i] = SEC_IN_NANO;
++         }
++      }
++
++      private static java.math.BigDecimal dec(long t) {
++         return new java.math.BigDecimal(t);
++      }
++      public void add(java.math.BigDecimal x, long t) {
++         time -= times[index];
++         total = total.subtract(samples[index].multiply(dec(times[index])));
++         samples[index] = x;
++         times[index] = t;
++         time += t;
++         total = total.add(x.multiply(dec(t)));
++         if (++index == size) {
++            index = 0;
++         }
++      }
++
++      public double getAverage() {
++         return total.divide(dec(time), 30, java.math.RoundingMode.HALF_UP).doubleValue();
++      }
++   }
++   private static final java.math.BigDecimal TPS_BASE = new java.math.BigDecimal(1E9).multiply(new java.math.BigDecimal(SAMPLE_INTERVAL));
++
++   // Spigot end
 +
 +
     public static <S extends MinecraftServer> S func_240784_a_(Function<Thread, S> p_240784_0_) {
@@ -74,7 +132,19 @@
           }
        }
  
-@@ -566,6 +_,7 @@
+@@ -561,11 +_,19 @@
+          }
+       }
+ 
++      // Spigot start
++      if (org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly) {
++         field_147145_h.info("Saving usercache.json");
++         this.func_152358_ax().func_152658_c();
++      }
++      // Spigot end
++
+       this.func_213211_a(false, true, false);
+ 
        for(ServerWorld serverworld1 : this.func_212370_w()) {
           if (serverworld1 != null) {
              try {
@@ -82,7 +152,7 @@
                 serverworld1.close();
              } catch (IOException ioexception1) {
                 field_147145_h.error("Exception closing the level", (Throwable)ioexception1);
-@@ -614,11 +_,14 @@
+@@ -614,20 +_,42 @@
     protected void func_240802_v_() {
        try {
           if (this.func_71197_b()) {
@@ -93,10 +163,40 @@
              this.func_184107_a(this.field_147147_p);
  
 +            getScheduler().mainThreadHeartbeat(this.field_71315_w); // run all 1 tick delay tasks during init,
++            Arrays.fill( recentTps, 20 );
++            long start = System.nanoTime(), curTime, tickSection = start; // Paper - Further improve server tick loop
++            lastTick = start - TICK_TIME; // Paper
 +
              while(this.field_71317_u) {
-                long i = Util.func_211177_b() - this.field_211151_aa;
-                if (i > 2000L && this.field_211151_aa - this.field_71299_R >= 15000L) {
+-               long i = Util.func_211177_b() - this.field_211151_aa;
+-               if (i > 2000L && this.field_211151_aa - this.field_71299_R >= 15000L) {
++               long i = ((curTime = System.nanoTime()) / (1000L * 1000L)) - this.field_211151_aa; // Paper
++               if (i > 5000L && this.field_211151_aa - this.field_71299_R >= 30000L) {
+                   long j = i / 50L;
+                   field_147145_h.warn("Can't keep up! Is the server overloaded? Running {}ms or {} ticks behind", i, j);
+                   this.field_211151_aa += j * 50L;
+                   this.field_71299_R = this.field_211151_aa;
+                }
+ 
++               if ( ++MinecraftServer.currentTick % SAMPLE_INTERVAL == 0 )
++               {
++                  final long diff = curTime - tickSection;
++                  java.math.BigDecimal currentTps = TPS_BASE.divide(new java.math.BigDecimal(diff), 30, java.math.RoundingMode.HALF_UP);
++                  tps1.add(currentTps, diff);
++                  tps5.add(currentTps, diff);
++                  tps15.add(currentTps, diff);
++                  // Backwards compat with bad plugins
++                  recentTps[0] = tps1.getAverage();
++                  recentTps[1] = tps5.getAverage();
++                  recentTps[2] = tps15.getAverage();
++                  // Paper end
++                  tickSection = curTime;
++               }
++               lastTick = curTime;
++
+                this.field_211151_aa += 50L;
+                LongTickDetector longtickdetector = LongTickDetector.func_233524_a_("Server");
+                this.func_240773_a_(longtickdetector);
 @@ -643,7 +_,10 @@
                 this.func_240795_b_(longtickdetector);
                 this.field_71296_Q = true;
@@ -124,7 +224,7 @@
              this.func_71240_o();
           }
  
-@@ -771,6 +_,7 @@
+@@ -771,12 +_,13 @@
  
     protected void func_71217_p(BooleanSupplier p_71217_1_) {
        long i = Util.func_211178_c();
@@ -132,6 +232,13 @@
        ++this.field_71315_w;
        this.func_71190_q(p_71217_1_);
        if (i - this.field_147142_T >= 5000000000L) {
+          this.field_147142_T = i;
+          this.field_147147_p.func_151319_a(new ServerStatusResponse.Players(this.func_71275_y(), this.func_71233_x()));
+-         GameProfile[] agameprofile = new GameProfile[Math.min(this.func_71233_x(), 12)];
++         GameProfile[] agameprofile = new GameProfile[Math.min(this.func_71233_x(), SpigotConfig.playerSample)];
+          int j = MathHelper.func_76136_a(this.field_147146_q, 0, this.func_71233_x() - agameprofile.length);
+ 
+          for(int k = 0; k < agameprofile.length; ++k) {
 @@ -785,6 +_,7 @@
  
           Collections.shuffle(Arrays.asList(agameprofile));

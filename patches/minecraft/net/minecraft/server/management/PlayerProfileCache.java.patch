@@ -1,0 +1,37 @@
+--- a/net/minecraft/server/management/PlayerProfileCache.java
++++ b/net/minecraft/server/management/PlayerProfileCache.java
+@@ -37,6 +_,7 @@
+ import net.minecraft.entity.player.PlayerEntity;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.spigotmc.SpigotConfig;
+ 
+ public class PlayerProfileCache {
+    private static final Logger field_242114_a = LogManager.getLogger();
+@@ -106,7 +_,7 @@
+       Date date = calendar.getTime();
+       PlayerProfileCache.ProfileEntry playerprofilecache$profileentry = new PlayerProfileCache.ProfileEntry(p_152649_1_, date);
+       this.func_242118_a(playerprofilecache$profileentry);
+-      this.func_152658_c();
++      if (!SpigotConfig.saveUserCacheOnStopOnly) this.func_152658_c();
+    }
+ 
+    private long func_242123_d() {
+@@ -137,7 +_,7 @@
+          }
+       }
+ 
+-      if (flag) {
++      if (flag && !org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly) { // Spigot - skip saving if disabled
+          this.func_152658_c();
+       }
+ 
+@@ -187,7 +_,7 @@
+    public void func_152658_c() {
+       JsonArray jsonarray = new JsonArray();
+       DateFormat dateformat = func_242124_e();
+-      this.func_242117_a(1000).forEach((p_242120_2_) -> {
++      this.func_242117_a(SpigotConfig.userCacheCap).forEach((p_242120_2_) -> {
+          jsonarray.add(func_242119_a(p_242120_2_, dateformat));
+       });
+       String s = this.field_152660_b.toJson((JsonElement)jsonarray);

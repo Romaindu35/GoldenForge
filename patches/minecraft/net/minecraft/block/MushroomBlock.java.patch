@@ -1,5 +1,14 @@
 --- a/net/minecraft/block/MushroomBlock.java
 +++ b/net/minecraft/block/MushroomBlock.java
+@@ -24,7 +_,7 @@
+    }
+ 
+    public void func_225542_b_(BlockState p_225542_1_, ServerWorld p_225542_2_, BlockPos p_225542_3_, Random p_225542_4_) {
+-      if (p_225542_4_.nextInt(25) == 0) {
++      if (p_225542_4_.nextInt(Math.max(1, (int) (100.0F / p_225542_2_.spigotConfig.mushroomModifier) * 25)) == 0) { // Spigot
+          int i = 5;
+          int j = 4;
+ 
 @@ -64,7 +_,7 @@
        if (blockstate.func_235714_a_(BlockTags.field_242171_aD)) {
           return true;
