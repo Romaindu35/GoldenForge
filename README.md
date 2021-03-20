@@ -26,3 +26,6 @@ builds jar can be found in `projects/forge/build/libs/`
 * [Forge](https://github.com/MinecraftForge/MinecraftForge)
 * [Yatopia](https://github.com/YatopiaMC/Yatopia)
 * [Paper](https://github.com/PaperMC/Paper)
+
+
+[![bStats Graph Data](https://bstats.org/signatures/bukkit/GoldenForge.svg)](https://bstats.org/plugin/bukkit/GoldenForge/10746)

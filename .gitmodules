@@ -1,0 +1,7 @@
+[submodule "upstream/Yatopia"]
+	path = upstream/Yatopia
+	url = https://github.com/YatopiaMC/Yatopia
+	branch = ver/1.16.5
+[submodule "upstream/Paper"]
+	path = upstream/Paper
+	url = https://github.com/PaperMC/Paper

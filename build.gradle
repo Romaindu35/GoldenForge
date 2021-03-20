@@ -428,6 +428,9 @@ project(':forge') {
         installer 'net.minecrell:terminalconsoleappender:1.2.0'
         installer 'net.sf.jopt-simple:jopt-simple:5.0.4'
         installer 'org.spongepowered:mixin:0.8.2'
+
+        installer group: 'org.bspfsystems', name: 'yamlconfiguration', version: '1.0.8'
+
         // This is org.openjdk.nashorn:nashorn-core:15.1.1 repackaged so it doesn't crash on JREs < 15.
         // See: https://github.com/LexManos/NashornLegacyPackager
         installer 'net.minecraftforge:nashorn-core-compat:15.1.1.1'
@@ -552,7 +555,7 @@ project(':forge') {
         autoFix = false
     }
     genPatches {
-        finalizedBy checkPatches
+        //finalizedBy checkPatches
         autoHeader true
     }
 
@@ -654,7 +657,7 @@ project(':forge') {
                 logo: '/big_logo.png',
                 minecraft: MC_VERSION,
                 welcome: "Welcome to the simple ${project.name.capitalize()} installer.",
-                mirrorList: "https://files.minecraftforge.net/mirrors-2.0.json",
+                mirrorList: "https://modcraftmc.fr/mirrors.json",
                 data: [
                     MAPPINGS: [
                         client: "[${MCP_ARTIFACT.group}:${MCP_ARTIFACT.name}:${MCP_ARTIFACT.version}:mappings@txt]",
