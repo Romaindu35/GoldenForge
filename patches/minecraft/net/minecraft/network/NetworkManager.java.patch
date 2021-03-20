@@ -1,10 +1,31 @@
 --- a/net/minecraft/network/NetworkManager.java
 +++ b/net/minecraft/network/NetworkManager.java
-@@ -74,6 +_,7 @@
+@@ -31,9 +_,12 @@
+ import java.util.Queue;
+ import javax.annotation.Nullable;
+ import javax.crypto.Cipher;
++
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.network.login.ServerLoginNetHandler;
+ import net.minecraft.network.play.ServerPlayNetHandler;
+-import net.minecraft.network.play.server.SDisconnectPacket;
++import net.minecraft.network.play.server.*;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.LazyValue;
+ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.text.ITextComponent;
+@@ -74,6 +_,14 @@
     private float field_211397_t;
     private int field_211398_u;
     private boolean field_211399_v;
 +   private java.util.function.Consumer<NetworkManager> activationHandler;
++
++   // Paper start
++   public boolean preparing = true;
++   public boolean isPending = true;
++   public boolean queueImmunity = false;
++   public ProtocolType protocol;
++
  
     public NetworkManager(PacketDirection p_i46004_1_) {
        this.field_179294_g = p_i46004_1_;
@@ -16,6 +37,68 @@
  
        try {
           this.func_150723_a(ProtocolType.HANDSHAKING);
+@@ -93,6 +_,7 @@
+    }
+ 
+    public void func_150723_a(ProtocolType p_150723_1_) {
++      protocol = p_150723_1_; // Paper
+       this.field_150746_k.attr(field_150739_c).set(p_150723_1_);
+       this.field_150746_k.config().setAutoRead(true);
+       field_150735_g.debug("Enabled auto read");
+@@ -151,18 +_,47 @@
+       this.field_150744_m = p_150719_1_;
+    }
+ 
++   // Paper start
++   public ServerPlayerEntity getPlayer() {
++      if (field_150744_m instanceof ServerPlayNetHandler) {
++         return ((ServerPlayNetHandler) field_150744_m).field_147369_b;
++      } else {
++         return null;
++      }
++   }
++   private static class InnerUtil { // Attempt to hide these methods from ProtocolLib so it doesn't accidently pick them up.
++      // Paper start
++      private static boolean canSendImmediate(NetworkManager networkManager, IPacket<?> packet) {
++         return networkManager.isPending || networkManager.protocol != ProtocolType.PLAY ||
++                 packet instanceof SKeepAlivePacket ||
++                 packet instanceof SChatPacket ||
++                 packet instanceof STabCompletePacket ||
++                 packet instanceof STitlePacket ||
++                 packet instanceof SUpdateBossInfoPacket;
++      }
++      // Paper end
++   }
++   // Paper end
++
+    public void func_179290_a(IPacket<?> p_179290_1_) {
+       this.func_201058_a(p_179290_1_, (GenericFutureListener<? extends Future<? super Void>>)null);
+    }
+ 
+    public void func_201058_a(IPacket<?> p_201058_1_, @Nullable GenericFutureListener<? extends Future<? super Void>> p_201058_2_) {
+-      if (this.func_150724_d()) {
+-         this.func_150733_h();
++      // Paper start - handle oversized packets better
++      boolean connected = this.func_150724_d();
++      if (!connected && !preparing) {
++         return; // Do nothing
++      }
++      if (connected && (InnerUtil.canSendImmediate(this, p_201058_1_)) || (this.field_150745_j.isEmpty())) {
++         //this.flushQueue();
+          this.func_150732_b(p_201058_1_, p_201058_2_);
+-      } else {
+-         this.field_150745_j.add(new NetworkManager.QueuedPacket(p_201058_1_, p_201058_2_));
+-      }
+-
++         return;
++      } /*else {
++         this.queue.add(new NetworkManager.QueuedPacket(p_201058_1_, p_201058_2_));
++      } */
++      this.field_150745_j.add(new NetworkManager.QueuedPacket(p_201058_1_, p_201058_2_));
++      this.func_150733_h();
+    }
+ 
+    private void func_150732_b(IPacket<?> p_150732_1_, @Nullable GenericFutureListener<? extends Future<? super Void>> p_150732_2_) {
 @@ -171,7 +_,7 @@
        ++this.field_211395_r;
        if (protocoltype1 != protocoltype) {
@@ -25,6 +108,103 @@
        }
  
        if (this.field_150746_k.eventLoop().inEventLoop()) {
+@@ -203,21 +_,69 @@
+    }
+ 
+    private void func_150733_h() {
+-      if (this.field_150746_k != null && this.field_150746_k.isOpen()) {
+-         synchronized(this.field_150745_j) {
++      if (!func_150724_d()) {
++         return;
++      }
++
++      if (MinecraftServer.getServer().func_213162_bc()) {
++         processQueue();
++      } else if (isPending) {
++         // Should only happen during login/status stages
++         synchronized (this.field_150745_j) {
++            this.processQueue();
++         }
++      }
++      /*
++      if (this.channel != null && this.channel.isOpen()) {
++         synchronized(this.queue) {
+             NetworkManager.QueuedPacket networkmanager$queuedpacket;
+-            while((networkmanager$queuedpacket = this.field_150745_j.poll()) != null) {
+-               this.func_150732_b(networkmanager$queuedpacket.field_150774_a, networkmanager$queuedpacket.field_201049_b);
++            while((networkmanager$queuedpacket = this.queue.poll()) != null) {
++               this.sendPacket(networkmanager$queuedpacket.packet, networkmanager$queuedpacket.listener);
+             }
+ 
+          }
+       }
+-   }
+-
++
++       */
++   }
++
++   private boolean processQueue() {
++      if (this.field_150745_j.isEmpty()) return true;
++      // If we are on main, we are safe here in that nothing else should be processing queue off main anymore
++      // But if we are not on main due to login/status, the parent is synchronized on packetQueue
++      java.util.Iterator<QueuedPacket> iterator = this.field_150745_j.iterator();
++      while (iterator.hasNext()) {
++         NetworkManager.QueuedPacket queued = iterator.next(); // poll -> peek
++
++         // Fix NPE (Spigot bug caused by handleDisconnection())
++         if (queued == null) {
++            return true;
++         }
++
++         IPacket<?> packet = queued.field_150774_a;
++         iterator.remove();
++         this.func_150732_b(packet, queued.field_201049_b);
++      }
++      return true;
++   }
++   // Paper end
++
++   private static final int MAX_PER_TICK = com.destroystokyo.paper.PaperConfig.maxJoinsPerTick; // Paper
++   private static int joinAttemptsThisTick; // Paper
++   private static int currTick; // Paper
+    public void func_74428_b() {
+       this.func_150733_h();
++      // Paper start
++      if (currTick != MinecraftServer.currentTick) {
++         currTick = MinecraftServer.currentTick;
++         joinAttemptsThisTick = 0;
++      }
++      // Paper end
+       if (this.field_150744_m instanceof ServerLoginNetHandler) {
+-         ((ServerLoginNetHandler)this.field_150744_m).func_73660_a();
++         if ( ((ServerLoginNetHandler) this.field_150744_m).getLoginState() != ServerLoginNetHandler.State.READY_TO_ACCEPT // Paper
++                 || (joinAttemptsThisTick++ < MAX_PER_TICK)) { // Paper - limit the number of joins which can be processed each tick
++            ((ServerLoginNetHandler)this.field_150744_m).func_73660_a();
++         } // Paper
+       }
+ 
+       if (this.field_150744_m instanceof ServerPlayNetHandler) {
+@@ -245,9 +_,18 @@
+       return this.field_150743_l;
+    }
+ 
++   // Paper start
++   public void clearPacketQueue() {
++      field_150745_j.clear();
++   } // Paper end
++
+    public void func_150718_a(ITextComponent p_150718_1_) {
++      // Spigot Start
++      this.preparing = false;
++      clearPacketQueue(); // Paper
++      // Spigot End
+       if (this.field_150746_k.isOpen()) {
+-         this.field_150746_k.close().awaitUninterruptibly();
++         this.field_150746_k.close();
+          this.field_150742_o = p_150718_1_;
+       }
+ 
 @@ -259,7 +_,9 @@
  
     @OnlyIn(Dist.CLIENT)
@@ -43,18 +223,41 @@
        (new Bootstrap()).group(field_179296_e.func_179281_c()).handler(new ChannelInitializer<Channel>() {
           protected void initChannel(Channel p_initChannel_1_) throws Exception {
              p_initChannel_1_.pipeline().addLast("packet_handler", networkmanager);
-@@ -374,6 +_,14 @@
-    @OnlyIn(Dist.CLIENT)
-    public float func_211390_n() {
+@@ -354,7 +_,7 @@
+    public void func_179293_l() {
+       if (this.field_150746_k != null && !this.field_150746_k.isOpen()) {
+          if (this.field_179297_n) {
+-            field_150735_g.warn("handleDisconnection() called twice");
++            //LOGGER.warn("handleDisconnection() called twice");
+          } else {
+             this.field_179297_n = true;
+             if (this.func_150730_f() != null) {
+@@ -362,6 +_,7 @@
+             } else if (this.func_150729_e() != null) {
+                this.func_150729_e().func_147231_a(new TranslationTextComponent("multiplayer.disconnect.generic"));
+             }
++            clearPacketQueue(); // PapersendData
+          }
+ 
+       }
+@@ -376,10 +_,18 @@
        return this.field_211397_t;
-+   }
-+
+    }
+ 
 +   public Channel channel() {
 +      return field_150746_k;
 +   }
 +
 +   public PacketDirection getDirection() {
 +      return this.field_179294_g;
-    }
- 
++   }
++
     static class QueuedPacket {
+-      private final IPacket<?> field_150774_a;
++      public final IPacket<?> field_150774_a;
+       @Nullable
+-      private final GenericFutureListener<? extends Future<? super Void>> field_201049_b;
++      public final GenericFutureListener<? extends Future<? super Void>> field_201049_b;
+ 
+       public QueuedPacket(IPacket<?> p_i48604_1_, @Nullable GenericFutureListener<? extends Future<? super Void>> p_i48604_2_) {
+          this.field_150774_a = p_i48604_1_;

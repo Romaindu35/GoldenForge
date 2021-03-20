@@ -18,3 +18,12 @@
                 this.func_70227_a(raytraceresult);
                 this.field_70160_al = true;
              }
+@@ -262,7 +_,7 @@
+ 
+    protected void func_225516_i_() {
+       ++this.field_70252_j;
+-      if (this.field_70252_j >= 1200) {
++      if (this.field_70252_j >= (field_70251_a == PickupStatus.CREATIVE_ONLY ? field_70170_p.paperConfig.creativeArrowDespawnRate : (field_70251_a == PickupStatus.DISALLOWED ? field_70170_p.paperConfig.nonPlayerArrowDespawnRate : ((this instanceof TridentEntity) ? field_70170_p.spigotConfig.tridentDespawnRate : field_70170_p.spigotConfig.arrowDespawnRate)))) { // Spigot // Paper - TODO: Extract this to init?
+          this.func_70106_y();
+       }
+ 

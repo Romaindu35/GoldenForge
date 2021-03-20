@@ -1,5 +1,14 @@
 --- a/net/minecraft/network/login/ServerLoginNetHandler.java
 +++ b/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -41,7 +_,7 @@
+    private final byte[] field_147330_e = new byte[4];
+    private final MinecraftServer field_147327_f;
+    public final NetworkManager field_147333_a;
+-   private ServerLoginNetHandler.State field_147328_g = ServerLoginNetHandler.State.HELLO;
++   private ServerLoginNetHandler.State field_147328_g = ServerLoginNetHandler.State.HELLO; public final ServerLoginNetHandler.State getLoginState() { return this.field_147328_g; }; // Paper - OBFHELPER
+    private int field_147336_h;
+    private GameProfile field_147337_i;
+    private final String field_147334_j = "";
 @@ -55,7 +_,13 @@
     }
  
@@ -33,7 +42,7 @@
           public void run() {
              GameProfile gameprofile = ServerLoginNetHandler.this.field_147337_i;
  
-@@ -163,11 +_,11 @@
+@@ -163,12 +_,16 @@
                 ServerLoginNetHandler.this.field_147337_i = ServerLoginNetHandler.this.field_147327_f.func_147130_as().hasJoinedServer(new GameProfile((UUID)null, gameprofile.getName()), s, this.func_191235_a());
                 if (ServerLoginNetHandler.this.field_147337_i != null) {
                    ServerLoginNetHandler.field_147332_c.info("UUID of player {} is {}", ServerLoginNetHandler.this.field_147337_i.getName(), ServerLoginNetHandler.this.field_147337_i.getId());
@@ -45,8 +54,13 @@
 -                  ServerLoginNetHandler.this.field_147328_g = ServerLoginNetHandler.State.READY_TO_ACCEPT;
 +                     ServerLoginNetHandler.this.field_147328_g = ServerLoginNetHandler.State.NEGOTIATING;
                 } else {
++                  // Paper start
++                  if (com.destroystokyo.paper.PaperConfig.authenticationServersDownKickMessage != null) {
++                     ServerLoginNetHandler.this.func_194026_b(new TranslationTextComponent(com.destroystokyo.paper.PaperConfig.authenticationServersDownKickMessage));
++                  } else // Paper end
                    ServerLoginNetHandler.this.func_194026_b(new TranslationTextComponent("multiplayer.disconnect.unverified_username"));
                    ServerLoginNetHandler.field_147332_c.error("Username '{}' tried to join with an invalid session", (Object)gameprofile.getName());
+                }
 @@ -176,7 +_,7 @@
                 if (ServerLoginNetHandler.this.field_147327_f.func_71264_H()) {
                    ServerLoginNetHandler.field_147332_c.warn("Authentication servers are down but will let them in anyway!");
@@ -64,3 +78,12 @@
        this.func_194026_b(new TranslationTextComponent("multiplayer.disconnect.unexpected_query_response"));
     }
  
+@@ -204,7 +_,7 @@
+       return new GameProfile(uuid, p_152506_1_.getName());
+    }
+ 
+-   static enum State {
++   public static enum State {
+       HELLO,
+       KEY,
+       AUTHENTICATING,

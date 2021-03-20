@@ -1,5 +1,27 @@
 --- a/net/minecraft/entity/MobEntity.java
 +++ b/net/minecraft/entity/MobEntity.java
+@@ -20,10 +_,13 @@
+ import net.minecraft.entity.ai.controller.MovementController;
+ import net.minecraft.entity.ai.goal.Goal;
+ import net.minecraft.entity.ai.goal.GoalSelector;
++import net.minecraft.entity.ai.goal.SwimGoal;
+ import net.minecraft.entity.item.BoatEntity;
+ import net.minecraft.entity.item.HangingEntity;
+ import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.item.LeashKnotEntity;
++import net.minecraft.entity.monster.BlazeEntity;
++import net.minecraft.entity.monster.EndermanEntity;
+ import net.minecraft.entity.monster.IMob;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.fluid.Fluid;
+@@ -84,6 +_,7 @@
+    private final BodyController field_70762_j;
+    protected PathNavigator field_70699_by;
+    public final GoalSelector field_70714_bg;
++   @Nullable public SwimGoal goalFloat; // Paper
+    public final GoalSelector field_70715_bh;
+    private LivingEntity field_70696_bz;
+    private final EntitySenses field_70723_bA;
 @@ -198,6 +_,7 @@
  
     public void func_70624_b(@Nullable LivingEntity p_70624_1_) {

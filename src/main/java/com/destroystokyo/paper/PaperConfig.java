@@ -36,14 +36,15 @@ public class PaperConfig {
             + "Discord: https://discord.gg/papermc\n"
             + "IRC: #paper @ irc.esper.net ( https://webchat.esper.net/?channels=paper ) \n"
             + "Website: https://papermc.io/ \n"
-            + "Docs: https://paper.readthedocs.org/ \n";
+            + "Docs: https://paper.readthedocs.org/ \n"
+            + "\n \n GOLDENFORGE WARNING"
+            + "\n NOT OPTIONS ARE NOT IMPLEMENTED NOW";
     /*========================================================================*/
     public static YamlConfiguration config;
     static int version;
     private static boolean verbose;
     private static boolean fatalError;
     /*========================================================================*/
-    private static boolean metricsStarted;
 
     public static void init(File configFile) {
         CONFIG_FILE = configFile;
@@ -175,16 +176,6 @@ public class PaperConfig {
     private static String getString(String path, String def) {
         config.addDefault(path, def);
         return config.getString(path, config.getString(path));
-    }
-
-    public static boolean useDisplayNameInQuit = false;
-    private static void useDisplayNameInQuit() {
-        useDisplayNameInQuit = getBoolean("use-display-name-in-quit-message", useDisplayNameInQuit);
-    }
-
-    public static boolean loadPermsBeforePlugins = true;
-    private static void loadPermsBeforePlugins() {
-        loadPermsBeforePlugins = getBoolean("settings.load-permissions-yml-before-plugins", true);
     }
 
     public static int regionFileCacheSize = 256;

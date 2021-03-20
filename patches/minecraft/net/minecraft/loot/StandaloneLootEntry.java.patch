@@ -1,0 +1,40 @@
+--- a/net/minecraft/loot/StandaloneLootEntry.java
++++ b/net/minecraft/loot/StandaloneLootEntry.java
+@@ -104,8 +_,36 @@
+       }
+ 
+       public int func_186361_a(float p_186361_1_) {
+-         return Math.max(MathHelper.func_76141_d((float)StandaloneLootEntry.this.field_216158_e + (float)StandaloneLootEntry.this.field_216159_f * p_186361_1_), 0);
++         //return Math.max(MathHelper.floor((float)StandaloneLootEntry.this.weight + (float)StandaloneLootEntry.this.quality * p_186361_1_), 0);
++         // Paper start - Offer an alternative loot formula to refactor how luck bonus applies
++         // SEE: https://luckformula.emc.gs for details and data
++         if (lastLuck != null && lastLuck == p_186361_1_) {
++            return lastWeight;
++         }
++         // This is vanilla
++         float qualityModifer = (float) field_216159_f * p_186361_1_;
++         double baseWeight = (field_216158_e + qualityModifer);
++         if (com.destroystokyo.paper.PaperConfig.useAlternativeLuckFormula) {
++            // Random boost to avoid losing precision in the final int cast on return
++            final int weightBoost = 100;
++            baseWeight *= weightBoost;
++            // If we have vanilla 1, bump that down to 0 so nothing is is impacted
++            // vanilla 3 = 300, 200 basis = impact 2%
++            // =($B2*(($B2-100)/100/100))
++            double impacted = baseWeight * ((baseWeight - weightBoost) / weightBoost / 100);
++            // =($B$7/100)
++            float luckModifier = Math.min(100, p_186361_1_ * 10) / 100;
++            // =B2 - (C2 *($B$7/100))
++            baseWeight = Math.ceil(baseWeight - (impacted * luckModifier));
++         }
++         lastLuck = p_186361_1_;
++         lastWeight = (int) Math.max(0, Math.floor(baseWeight));
++         return lastWeight;
+       }
++
++      private Float lastLuck = null;
++      private int lastWeight = 0;
++      // Paper end
+    }
+ 
+    @FunctionalInterface
