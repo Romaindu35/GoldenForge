@@ -6,6 +6,11 @@
 <h3>The most powerfull forge server software (not yet) which aims for high capacity and performance on 1.16.5 modded server.</h3>
 </div>
 
+## Current work
+
+* Async chunk IO
+* Async chunk loading
+
 
 ## Download
 You can try the last release in [the release tab](https://github.com/GoldenForge/GoldenForge/releases). Jenkins not available yet.
