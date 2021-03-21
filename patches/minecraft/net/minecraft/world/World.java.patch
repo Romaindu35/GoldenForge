@@ -1,5 +1,17 @@
 --- a/net/minecraft/world/World.java
 +++ b/net/minecraft/world/World.java
+@@ -3,10 +_,7 @@
+ import com.google.common.collect.Lists;
+ import com.mojang.serialization.Codec;
+ import java.io.IOException;
+-import java.util.Collection;
+-import java.util.Iterator;
+-import java.util.List;
+-import java.util.Random;
++import java.util.*;
+ import java.util.function.Consumer;
+ import java.util.function.Predicate;
+ import java.util.function.Supplier;
 @@ -63,7 +_,7 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -18,7 +30,7 @@
     private final Thread field_217407_c;
     private final boolean field_234916_c_;
     private int field_73008_k;
-@@ -92,8 +_,18 @@
+@@ -92,8 +_,19 @@
     private final WorldBorder field_175728_M;
     private final BiomeManager field_226689_w_;
     private final RegistryKey<World> field_73011_w;
@@ -26,7 +38,8 @@
 +   public boolean captureBlockSnapshots = false;
 +   public java.util.ArrayList<net.minecraftforge.common.util.BlockSnapshot> capturedBlockSnapshots = new java.util.ArrayList<>();
 +
-+   //GoldenForge start
++   //GoldenForge start"connection")
++   public final Map<Explosion.CacheKey, Float> explosionDensityCache = new HashMap<>(); // Paper - Optimize explosions
 +   public final org.spigotmc.SpigotWorldConfig spigotConfig; // Spigot
 +   public final com.destroystokyo.paper.PaperWorldConfig paperConfig; // Paper
  
@@ -230,7 +243,12 @@
              }
           }
        }
-@@ -495,12 +_,15 @@
+@@ -491,16 +_,20 @@
+       }
+ 
+       iprofiler.func_76319_b();
++      spigotConfig.currentPrimedTnt = 0; // Spigot
+    }
  
     public void func_217390_a(Consumer<Entity> p_217390_1_, Entity p_217390_2_) {
        try {

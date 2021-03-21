@@ -145,6 +145,31 @@
                 if (wolfentity.func_70909_n()) {
                    this.field_70718_bc = 100;
                    LivingEntity livingentity = wolfentity.func_70902_q();
+@@ -995,6 +_,7 @@
+             }
+          }
+ 
++         boolean knockbackCancelled = field_70170_p.paperConfig.disableExplosionKnockback && p_70097_1_.func_94541_c() && this instanceof PlayerEntity; // Paper - Disable explosion knockback
+          if (flag1) {
+             if (flag) {
+                this.field_70170_p.func_72960_a(this, (byte)29);
+@@ -1011,7 +_,7 @@
+                } else {
+                   b0 = 2;
+                }
+-
++               if (!knockbackCancelled) // Paper - Disable explosion knockback
+                this.field_70170_p.func_72960_a(this, b0);
+             }
+ 
+@@ -1034,6 +_,7 @@
+             }
+          }
+ 
++         if (knockbackCancelled) this.field_70170_p.func_72960_a(this, (byte) 2); // Paper - Disable explosion knockback
+          if (this.func_233643_dh_()) {
+             if (!this.func_190628_d(p_70097_1_)) {
+                SoundEvent soundevent = this.func_184615_bR();
 @@ -1165,6 +_,7 @@
     }
  

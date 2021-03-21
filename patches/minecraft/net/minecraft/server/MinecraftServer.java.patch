@@ -282,7 +282,7 @@
  
           try {
              serverworld.func_72835_b(p_71190_1_);
-@@ -838,9 +_,11 @@
+@@ -838,9 +_,12 @@
              serverworld.func_72914_a(crashreport);
              throw new ReportedException(crashreport);
           }
@@ -291,6 +291,7 @@
           this.field_71304_b.func_76319_b();
           this.field_71304_b.func_76319_b();
 +         perWorldTickTimes.computeIfAbsent(serverworld.func_234923_W_(), k -> new long[100])[this.field_71315_w % 100] = Util.func_211178_c() - tickStart;
++         serverworld.explosionDensityCache.clear(); // Paper - Optimize explosions
        }
  
        this.field_71304_b.func_219895_b("connection");

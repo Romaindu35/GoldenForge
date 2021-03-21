@@ -1,0 +1,29 @@
+--- a/net/minecraft/util/math/BlockPos.java
++++ b/net/minecraft/util/math/BlockPos.java
+@@ -164,7 +_,25 @@
+    }
+ 
+    public BlockPos func_177972_a(Direction p_177972_1_) {
+-      return new BlockPos(this.func_177958_n() + p_177972_1_.func_82601_c(), this.func_177956_o() + p_177972_1_.func_96559_d(), this.func_177952_p() + p_177972_1_.func_82599_e());
++      //return new BlockPos(this.getX() + p_177972_1_.getStepX(), this.getY() + p_177972_1_.getStepY(), this.getZ() + p_177972_1_.getStepZ());
++      // Paper Start - Optimize BlockPosition
++      switch(p_177972_1_) {
++         case UP:
++            return new BlockPos(this.func_177958_n(), this.func_177956_o() + 1, this.func_177952_p());
++         case DOWN:
++            return new BlockPos(this.func_177958_n(), this.func_177956_o() - 1, this.func_177952_p());
++         case NORTH:
++            return new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() - 1);
++         case SOUTH:
++            return new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() + 1);
++         case WEST:
++            return new BlockPos(this.func_177958_n() - 1, this.func_177956_o(), this.func_177952_p());
++         case EAST:
++            return new BlockPos(this.func_177958_n() + 1, this.func_177956_o(), this.func_177952_p());
++         default:
++            return new BlockPos(this.func_177958_n() + p_177972_1_.func_82601_c(), this.func_177956_o() + p_177972_1_.func_96559_d(), this.func_177952_p() + p_177972_1_.func_82599_e());
++      }
++      // Paper End
+    }
+ 
+    public BlockPos func_177967_a(Direction p_177967_1_, int p_177967_2_) {

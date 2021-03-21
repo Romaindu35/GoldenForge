@@ -1,5 +1,37 @@
 --- a/net/minecraft/world/Explosion.java
 +++ b/net/minecraft/world/Explosion.java
+@@ -12,10 +_,8 @@
+ import java.util.Random;
+ import java.util.Set;
+ import javax.annotation.Nullable;
+-import net.minecraft.block.AbstractFireBlock;
+-import net.minecraft.block.Block;
+-import net.minecraft.block.BlockState;
+-import net.minecraft.block.Blocks;
++
++import net.minecraft.block.*;
+ import net.minecraft.enchantment.ProtectionEnchantment;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.LivingEntity;
+@@ -28,8 +_,10 @@
+ import net.minecraft.loot.LootContext;
+ import net.minecraft.loot.LootParameters;
+ import net.minecraft.particles.ParticleTypes;
++import net.minecraft.tileentity.PistonTileEntity;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.DamageSource;
++import net.minecraft.util.Direction;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+ import net.minecraft.util.math.AxisAlignedBB;
+@@ -41,6 +_,7 @@
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraftforge.api.distmarker.Dist;
+ import net.minecraftforge.api.distmarker.OnlyIn;
++import net.minecraftforge.event.world.PistonEvent;
+ 
+ public class Explosion {
+    private static final ExplosionContext field_242407_a = new ExplosionContext();
 @@ -58,6 +_,7 @@
     private final ExplosionContext field_234893_k_;
     private final List<BlockPos> field_77281_g = Lists.newArrayList();
@@ -8,6 +40,15 @@
  
     @OnlyIn(Dist.CLIENT)
     public Explosion(World p_i45752_1_, @Nullable Entity p_i45752_2_, double p_i45752_3_, double p_i45752_5_, double p_i45752_7_, float p_i45752_9_, List<BlockPos> p_i45752_10_) {
+@@ -78,7 +_,7 @@
+    public Explosion(World p_i231610_1_, @Nullable Entity p_i231610_2_, @Nullable DamageSource p_i231610_3_, @Nullable ExplosionContext p_i231610_4_, double p_i231610_5_, double p_i231610_7_, double p_i231610_9_, float p_i231610_11_, boolean p_i231610_12_, Explosion.Mode p_i231610_13_) {
+       this.field_77287_j = p_i231610_1_;
+       this.field_77283_e = p_i231610_2_;
+-      this.field_77280_f = p_i231610_11_;
++      this.field_77280_f = (float) Math.max(p_i231610_11_, 0.0); // CraftBukkit - clamp bad values
+       this.field_77284_b = p_i231610_5_;
+       this.field_77285_c = p_i231610_7_;
+       this.field_77282_d = p_i231610_9_;
 @@ -86,6 +_,7 @@
        this.field_222260_b = p_i231610_13_;
        this.field_199593_j = p_i231610_3_ == null ? DamageSource.func_94539_a(this) : p_i231610_3_;
@@ -16,6 +57,33 @@
     }
  
     private ExplosionContext func_234894_a_(@Nullable Entity p_234894_1_) {
+@@ -148,14 +_,24 @@
+                   for(float f1 = 0.3F; f > 0.0F; f -= 0.22500001F) {
+                      BlockPos blockpos = new BlockPos(d4, d6, d8);
+                      BlockState blockstate = this.field_77287_j.func_180495_p(blockpos);
+-                     FluidState fluidstate = this.field_77287_j.func_204610_c(blockpos);
++                     if (!blockstate.isDestroyable()) continue; // Paper
++                     FluidState fluidstate = blockstate.func_204520_s(); // Paper
+                      Optional<Float> optional = this.field_234893_k_.func_230312_a_(this, this.field_77287_j, blockpos, blockstate, fluidstate);
+                      if (optional.isPresent()) {
+                         f -= (optional.get() + 0.3F) * 0.3F;
+                      }
+ 
+-                     if (f > 0.0F && this.field_234893_k_.func_230311_a_(this, this.field_77287_j, blockpos, blockstate, f)) {
++                     if (f > 0.0F && this.field_234893_k_.func_230311_a_(this, this.field_77287_j, blockpos, blockstate, f) && blockpos.func_177956_o() < 256 && blockpos.func_177956_o() >= 0) {
+                         set.add(blockpos);
++                        // Paper start - prevent headless pistons from forming
++                        if (!com.destroystokyo.paper.PaperConfig.allowHeadlessPistons && blockstate.func_177230_c() == Blocks.field_196603_bb) {
++                           TileEntity extension = this.field_77287_j.func_175625_s(blockpos);
++                           if (extension instanceof PistonTileEntity && ((PistonTileEntity) extension).func_145867_d()) {
++                              Direction direction = blockstate.func_177229_b(PistonHeadBlock.field_176387_N);
++                              set.add(blockpos.func_177972_a(direction.func_176734_d()));
++                           }
++                        }
++                        // Paper end
+                      }
+ 
+                      d4 += d0 * (double)0.3F;
 @@ -176,6 +_,7 @@
        int j2 = MathHelper.func_76128_c(this.field_77282_d - (double)f2 - 1.0D);
        int j1 = MathHelper.func_76128_c(this.field_77282_d + (double)f2 + 1.0D);
@@ -24,6 +92,28 @@
        Vector3d vector3d = new Vector3d(this.field_77284_b, this.field_77285_c, this.field_77282_d);
  
        for(int k2 = 0; k2 < list.size(); ++k2) {
+@@ -191,18 +_,18 @@
+                   d5 = d5 / d13;
+                   d7 = d7 / d13;
+                   d9 = d9 / d13;
+-                  double d14 = (double)func_222259_a(vector3d, entity);
++                  double d14 = (double)this.getBlockDensity(vector3d, entity); // Paper - Optimize explosions
+                   double d10 = (1.0D - d12) * d14;
+                   entity.func_70097_a(this.func_199591_b(), (float)((int)((d10 * d10 + d10) / 2.0D * 7.0D * (double)f2 + 1.0D)));
+                   double d11 = d10;
+                   if (entity instanceof LivingEntity) {
+-                     d11 = ProtectionEnchantment.func_92092_a((LivingEntity)entity, d10);
++                     d11 = entity instanceof PlayerEntity && field_77287_j.paperConfig.disableExplosionKnockback ? 0 : ProtectionEnchantment.func_92092_a((LivingEntity)entity, d10);
+                   }
+ 
+                   entity.func_213317_d(entity.func_213322_ci().func_72441_c(d5 * d11, d7 * d11, d9 * d11));
+                   if (entity instanceof PlayerEntity) {
+                      PlayerEntity playerentity = (PlayerEntity)entity;
+-                     if (!playerentity.func_175149_v() && (!playerentity.func_184812_l_() || !playerentity.field_71075_bZ.field_75100_b)) {
++                     if (!playerentity.func_175149_v() && (!playerentity.func_184812_l_() || !playerentity.field_71075_bZ.field_75100_b)  && !field_77287_j.paperConfig.disableExplosionKnockback) {
+                         this.field_77288_k.put(playerentity, new Vector3d(d5 * d10, d7 * d10, d9 * d10));
+                      }
+                   }
 @@ -234,11 +_,11 @@
           for(BlockPos blockpos : this.field_77281_g) {
              BlockState blockstate = this.field_77287_j.func_180495_p(blockpos);
@@ -49,11 +139,10 @@
                 this.field_77287_j.func_217381_Z().func_76319_b();
              }
           }
-@@ -322,6 +_,15 @@
- 
+@@ -323,6 +_,96 @@
     public List<BlockPos> func_180343_e() {
        return this.field_77281_g;
-+   }
+    }
 +
 +   public Vector3d getPosition() {
 +      return this.position;
@@ -62,6 +151,88 @@
 +   @Nullable
 +   public Entity getExploder() {
 +      return this.field_77283_e;
-    }
++   }
++
++   // Paper start - Optimize explosions
++   private float getBlockDensity(Vector3d vec3d, Entity entity) {
++      if (!this.field_77287_j.paperConfig.optimizeExplosions) {
++         return func_222259_a(vec3d, entity);
++      }
++      CacheKey key = new CacheKey(this, entity.func_174813_aQ());
++      Float blockDensity = this.field_77287_j.explosionDensityCache.get(key);
++      if (blockDensity == null) {
++         blockDensity = func_222259_a(vec3d, entity);
++         this.field_77287_j.explosionDensityCache.put(key, blockDensity);
++      }
++
++      return blockDensity;
++   }
++
++   static class CacheKey {
++      private final World world;
++      private final double posX, posY, posZ;
++      private final double minX, minY, minZ;
++      private final double maxX, maxY, maxZ;
++
++      public CacheKey(Explosion explosion, AxisAlignedBB aabb) {
++         this.world = explosion.field_77287_j;
++         this.posX = explosion.field_77284_b;
++         this.posY = explosion.field_77285_c;
++         this.posZ = explosion.field_77282_d;
++         this.minX = aabb.field_72340_a;
++         this.minY = aabb.field_72338_b;
++         this.minZ = aabb.field_72339_c;
++         this.maxX = aabb.field_72336_d;
++         this.maxY = aabb.field_72337_e;
++         this.maxZ = aabb.field_72334_f;
++      }
++
++      @Override
++      public boolean equals(Object o) {
++         if (this == o) return true;
++         if (o == null || getClass() != o.getClass()) return false;
++
++         CacheKey cacheKey = (CacheKey) o;
++
++         if (Double.compare(cacheKey.posX, posX) != 0) return false;
++         if (Double.compare(cacheKey.posY, posY) != 0) return false;
++         if (Double.compare(cacheKey.posZ, posZ) != 0) return false;
++         if (Double.compare(cacheKey.minX, minX) != 0) return false;
++         if (Double.compare(cacheKey.minY, minY) != 0) return false;
++         if (Double.compare(cacheKey.minZ, minZ) != 0) return false;
++         if (Double.compare(cacheKey.maxX, maxX) != 0) return false;
++         if (Double.compare(cacheKey.maxY, maxY) != 0) return false;
++         if (Double.compare(cacheKey.maxZ, maxZ) != 0) return false;
++         return world.equals(cacheKey.world);
++      }
++
++      @Override
++      public int hashCode() {
++         int result;
++         long temp;
++         result = world.hashCode();
++         temp = Double.doubleToLongBits(posX);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(posY);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(posZ);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(minX);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(minY);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(minZ);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(maxX);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(maxY);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         temp = Double.doubleToLongBits(maxZ);
++         result = 31 * result + (int) (temp ^ (temp >>> 32));
++         return result;
++      }
++   }
++   // Paper end
  
     public static enum Mode {
+       NONE,
