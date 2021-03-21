@@ -20,7 +20,7 @@
     private static final Logger field_147145_h = LogManager.getLogger();
     public static final File field_152367_a = new File("usercache.json");
     public static final WorldSettings field_213219_c = new WorldSettings("Demo World", GameType.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), DatapackCodec.field_234880_a_);
-@@ -226,9 +_,70 @@
+@@ -226,9 +_,78 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;
  
@@ -40,6 +40,14 @@
 +   public final RollingAverage tps1 = new RollingAverage(60);
 +   public final RollingAverage tps5 = new RollingAverage(60 * 5);
 +   public final RollingAverage tps15 = new RollingAverage(60 * 15);
++
++   public double[] getTPS() {
++      return new double[] {
++              tps1.getAverage(),
++              tps5.getAverage(),
++              tps15.getAverage()
++      };
++   }
 +
 +   public static class RollingAverage {
 +      private final int size;
