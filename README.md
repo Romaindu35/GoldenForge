@@ -13,7 +13,8 @@
 
 
 ## Download
-You can try the last release in [the release tab](https://github.com/GoldenForge/GoldenForge/releases). Jenkins not available yet.
+You can try the last stable release in [the release tab](https://github.com/GoldenForge/GoldenForge/releases). 
+nightly builds can be foudn on [Jenkins](http://download.modcraftmc.fr:8080/job/GoldenForge/) !
 
 
 ## Compiling from sources
