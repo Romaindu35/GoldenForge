@@ -8,7 +8,7 @@
  import net.minecraft.profiler.EmptyProfiler;
  import net.minecraft.profiler.IProfileResult;
  import net.minecraft.profiler.IProfiler;
-@@ -155,8 +_,11 @@
+@@ -155,9 +_,12 @@
  import org.apache.commons.lang3.Validate;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -16,10 +16,12 @@
 +import org.spigotmc.SpigotConfig;
  
  public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask> implements ISnooperInfo, ICommandSource, AutoCloseable {
+-   private static final Logger field_147145_h = LogManager.getLogger();
 +   private static MinecraftServer SERVER; public static MinecraftServer getServer() { return SERVER; }
-    private static final Logger field_147145_h = LogManager.getLogger();
++   public static final Logger field_147145_h = LogManager.getLogger();
     public static final File field_152367_a = new File("usercache.json");
     public static final WorldSettings field_213219_c = new WorldSettings("Demo World", GameType.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), DatapackCodec.field_234880_a_);
+    protected final SaveFormat.LevelSave field_71310_m;
 @@ -226,9 +_,78 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;

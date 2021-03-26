@@ -1,0 +1,75 @@
+--- a/net/minecraft/world/chunk/storage/RegionSectionCache.java
++++ b/net/minecraft/world/chunk/storage/RegionSectionCache.java
+@@ -30,9 +_,9 @@
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
+-public class RegionSectionCache<R> implements AutoCloseable {
++public class RegionSectionCache<R> extends RegionFileCache implements AutoCloseable { // Paper - nuke IOWorker
+    private static final Logger field_219120_a = LogManager.getLogger();
+-   private final IOWorker field_227173_b_;
++   //private final IOWorker worker; Paper - nuke IOWorker
+    private final Long2ObjectMap<Optional<R>> field_219121_b = new Long2ObjectOpenHashMap<>();
+    private final LongLinkedOpenHashSet field_219122_d = new LongLinkedOpenHashSet();
+    private final Function<Runnable, Codec<R>> field_235988_e_;
+@@ -41,11 +_,12 @@
+    private final DefaultTypeReferences field_219126_h;
+ 
+    public RegionSectionCache(File p_i231897_1_, Function<Runnable, Codec<R>> p_i231897_2_, Function<Runnable, R> p_i231897_3_, DataFixer p_i231897_4_, DefaultTypeReferences p_i231897_5_, boolean p_i231897_6_) {
++      super(p_i231897_1_, p_i231897_6_);
+       this.field_235988_e_ = p_i231897_2_;
+       this.field_219124_f = p_i231897_3_;
+       this.field_219125_g = p_i231897_4_;
+       this.field_219126_h = p_i231897_5_;
+-      this.field_227173_b_ = new IOWorker(p_i231897_1_, p_i231897_6_, p_i231897_1_.getName());
++      //this.worker = new IOWorker(p_i231897_1_, p_i231897_6_, p_i231897_1_.getName());
+    }
+ 
+    protected void func_219115_a(BooleanSupplier p_219115_1_) {
+@@ -99,13 +_,18 @@
+    }
+ 
+    private void func_219107_b(ChunkPos p_219107_1_) {
+-      this.func_235992_a_(p_219107_1_, NBTDynamicOps.field_210820_a, this.func_223138_c(p_219107_1_));
++      this.readColumn(p_219107_1_, this.func_223138_c(p_219107_1_));
++   }
++
++   private void readColumn(ChunkPos p_219107_1_, CompoundNBT compound) {
++      this.func_235992_a_(p_219107_1_, NBTDynamicOps.field_210820_a, compound);
++      // Paper end
+    }
+ 
+    @Nullable
+    private CompoundNBT func_223138_c(ChunkPos p_223138_1_) {
+       try {
+-         return this.field_227173_b_.func_227090_a_(p_223138_1_);
++         return this.func_219099_e(p_223138_1_);
+       } catch (IOException ioexception) {
+          field_219120_a.error("Error reading chunk {} data from disk", p_223138_1_, ioexception);
+          return null;
+@@ -149,7 +_,13 @@
+       Dynamic<INBT> dynamic = this.func_235991_a_(p_219117_1_, NBTDynamicOps.field_210820_a);
+       INBT inbt = dynamic.getValue();
+       if (inbt instanceof CompoundNBT) {
+-         this.field_227173_b_.func_227093_a_(p_219117_1_, (CompoundNBT)inbt);
++         try {
++            this.func_219100_a(p_219117_1_, (CompoundNBT) inbt);
++         } catch (IOException ioexception) {
++            field_219120_a.error("Error writing data to disk", ioexception);
++         } // Paper - nuke IOWorker // TODO make this write async
++
++         //this.worker.store(p_219117_1_, (CompoundNBT)inbt);
+       } else {
+          field_219120_a.error("Expected compound tag, got {}", (Object)inbt);
+       }
+@@ -206,7 +_,7 @@
+ 
+    }
+ 
+-   public void close() throws IOException {
+-      this.field_227173_b_.close();
+-   }
++//   public void close() throws IOException {
++//      this.worker.close();
++//   }
+ }

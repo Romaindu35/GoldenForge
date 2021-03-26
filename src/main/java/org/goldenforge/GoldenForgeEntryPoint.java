@@ -1,5 +1,6 @@
 package org.goldenforge;
 
+import net.minecraftforge.fml.ModList;
 import org.goldenforge.metrics.Metrics;
 
 public class GoldenForgeEntryPoint {
@@ -10,7 +11,7 @@ public class GoldenForgeEntryPoint {
         Metrics metrics = new Metrics(pluginId);
 
         // Optional: Add custom charts
-        //metrics.addCustomChart(new Metrics.SimplePie("chart_id", () -> "My value"));
+        metrics.addCustomChart(new Metrics.SingleLineChart("Mods counts", () -> ModList.get().getMods().size()));
 
     }
 }
