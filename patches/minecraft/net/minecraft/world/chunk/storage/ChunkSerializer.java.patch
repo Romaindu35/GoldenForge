@@ -1,5 +1,23 @@
 --- a/net/minecraft/world/chunk/storage/ChunkSerializer.java
 +++ b/net/minecraft/world/chunk/storage/ChunkSerializer.java
+@@ -58,6 +_,17 @@
+ public class ChunkSerializer {
+    private static final Logger field_222658_a = LogManager.getLogger();
+ 
++   // Paper start
++   public static ChunkStatus getStatus(CompoundNBT compound) {
++      if (compound == null) {
++         return null;
++      }
++
++      // Note: Copied from below
++      return ChunkStatus.getStatus(compound.func_74775_l("Level").func_74779_i("Status"));
++   }
++   // Paper end
++
+    public static ChunkPrimer func_222656_a(ServerWorld p_222656_0_, TemplateManager p_222656_1_, PointOfInterestManager p_222656_2_, ChunkPos p_222656_3_, CompoundNBT p_222656_4_) {
+       ChunkGenerator chunkgenerator = p_222656_0_.func_72863_F().func_201711_g();
+       BiomeProvider biomeprovider = chunkgenerator.func_202090_b();
 @@ -132,6 +_,7 @@
           ichunk = new Chunk(p_222656_0_.func_201672_e(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, (p_222648_1_) -> {
              func_222650_a(compoundnbt, p_222648_1_);
