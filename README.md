@@ -1,4 +1,4 @@
-<img width="200" src="https://modcraftmc.fr/assets/img/gold_spin.gif" alt="GoldenForge" align="right">
+<img width="200" src="https://modcraftmc.fr/gold_spin.gif" alt="GoldenForge" align="right">
 <div align="left">
 <h1>GoldenForge</h1>
 
