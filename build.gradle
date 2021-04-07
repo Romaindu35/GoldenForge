@@ -197,7 +197,7 @@ project(':forge') {
     }
 
     /*Util.getVersion(GIT_INFO, MC_VERSION) */
-    version = '1.16.5-36.1.0'
+    version = '1.16.5-36.1.4'
     println('Forge Version: ' + version)
 
     patcher {
