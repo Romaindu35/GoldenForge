@@ -1,5 +1,18 @@
 --- a/net/minecraft/world/gen/WorldGenRegion.java
 +++ b/net/minecraft/world/gen/WorldGenRegion.java
+@@ -106,6 +_,12 @@
+       return this.func_217348_a(p_212866_1_, p_212866_2_, ChunkStatus.field_223226_a_);
+    }
+ 
++   @org.jetbrains.annotations.Nullable
++   @Override
++   public IChunk getChunkIfLoadedImmediately(int x, int z) {
++      return this.func_217353_a(x, z, ChunkStatus.field_222617_m, false);
++   }
++
+    @Nullable
+    public IChunk func_217353_a(int p_217353_1_, int p_217353_2_, ChunkStatus p_217353_3_, boolean p_217353_4_) {
+       IChunk ichunk;
 @@ -173,11 +_,11 @@
  
     public boolean func_241212_a_(BlockPos p_241212_1_, boolean p_241212_2_, @Nullable Entity p_241212_3_, int p_241212_4_) {

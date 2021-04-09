@@ -31,7 +31,7 @@
     protected long field_211151_aa = Util.func_211177_b();
     private long field_213213_ab;
     private boolean field_213214_ac;
-@@ -226,9 +_,78 @@
+@@ -226,9 +_,79 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;
  
@@ -39,6 +39,7 @@
 +   private GoldenScheduler scheduler = new GoldenScheduler(); public GoldenScheduler getScheduler() { return scheduler; }
 +
 +   public static int currentTick = 0; // Paper - Further improve tick loop
++   public java.util.Queue<Runnable> processQueue = new java.util.concurrent.ConcurrentLinkedQueue<Runnable>();
 +   // Paper start - Further improve server tick loop
 +   public static final int TPS = 20;
 +   public static final int TICK_TIME = 1000000000 / TPS;

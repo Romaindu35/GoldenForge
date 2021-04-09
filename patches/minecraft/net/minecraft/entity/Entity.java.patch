@@ -15,13 +15,14 @@
  import net.minecraft.world.server.ServerWorld;
  import net.minecraft.world.server.TicketType;
  import net.minecraftforge.api.distmarker.Dist;
-@@ -109,16 +_,17 @@
+@@ -109,16 +_,18 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
 -public abstract class Entity implements INameable, ICommandSource {
 +public abstract class Entity extends net.minecraftforge.common.capabilities.CapabilityProvider<Entity> implements INameable, ICommandSource, net.minecraftforge.common.extensions.IForgeEntity {
     protected static final Logger field_184243_a = LogManager.getLogger();
++   boolean preserveMotion = true; // Paper - keep initial motion on first setPositionRotation
     private static final AtomicInteger field_213331_b = new AtomicInteger();
     private static final List<ItemStack> field_190535_b = Collections.emptyList();
     private static final AxisAlignedBB field_174836_a = new AxisAlignedBB(0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D);
@@ -211,6 +212,20 @@
        }
  
     }
+@@ -1132,6 +_,13 @@
+    }
+ 
+    public void func_70012_b(double p_70012_1_, double p_70012_3_, double p_70012_5_, float p_70012_7_, float p_70012_8_) {
++      // Paper - cancel entity velocity if teleported
++      if (!preserveMotion) {
++         this.field_213327_at = Vector3d.field_186680_a;
++      } else {
++         this.preserveMotion = false;
++      }
++      // Paper end
+       this.func_226286_f_(p_70012_1_, p_70012_3_, p_70012_5_);
+       this.field_70177_z = p_70012_7_;
+       this.field_70125_A = p_70012_8_;
 @@ -1377,6 +_,7 @@
           if (this.field_184238_ar) {
              p_189511_1_.func_74757_a("Glowing", this.field_184238_ar);

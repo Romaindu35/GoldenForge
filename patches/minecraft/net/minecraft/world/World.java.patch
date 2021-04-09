@@ -12,6 +12,14 @@
  import java.util.function.Consumer;
  import java.util.function.Predicate;
  import java.util.function.Supplier;
+@@ -55,6 +_,7 @@
+ import net.minecraft.world.gen.Heightmap;
+ import net.minecraft.world.lighting.WorldLightManager;
+ import net.minecraft.world.server.ChunkHolder;
++import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.storage.ISpawnWorldInfo;
+ import net.minecraft.world.storage.IWorldInfo;
+ import net.minecraft.world.storage.MapData;
 @@ -63,7 +_,7 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -55,6 +63,20 @@
        this.field_72984_F = p_i241925_4_;
        this.field_72986_A = p_i241925_1_;
        this.field_234921_x_ = p_i241925_3_;
+@@ -155,6 +_,13 @@
+       return this.func_212866_a_(p_175726_1_.func_177958_n() >> 4, p_175726_1_.func_177952_p() >> 4);
+    }
+ 
++   // Paper start - if loaded
++   @Nullable
++   @Override
++   public final IChunk getChunkIfLoadedImmediately(int x, int z) {
++      return ((ServerWorld)this).func_72863_F().getChunkAtIfLoadedImmediately(x, z);
++   }
++
+    public Chunk func_212866_a_(int p_212866_1_, int p_212866_2_) {
+       return (Chunk)this.func_217348_a(p_212866_1_, p_212866_2_, ChunkStatus.field_222617_m);
+    }
 @@ -180,17 +_,45 @@
        } else {
           Chunk chunk = this.func_175726_f(p_241211_1_);

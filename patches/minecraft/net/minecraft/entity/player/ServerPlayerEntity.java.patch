@@ -1,9 +1,13 @@
 --- a/net/minecraft/entity/player/ServerPlayerEntity.java
 +++ b/net/minecraft/entity/player/ServerPlayerEntity.java
-@@ -175,6 +_,10 @@
+@@ -175,6 +_,14 @@
     public int field_71138_i;
     public boolean field_71136_j;
  
++   public ServerWorld getWorldServer() {
++      return (ServerWorld) this.field_70170_p;
++   }
++
 +   // Paper start
 +   public boolean needsChunkCenterUpdate; // Paper - no-tick view distance
 +   public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleHashSet = new com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<>(this); // Paper; // Paper
