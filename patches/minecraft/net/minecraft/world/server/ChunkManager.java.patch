@@ -580,15 +580,92 @@
  
     }
  
-@@ -942,7 +_,7 @@
+@@ -941,17 +_,30 @@
+       });
     }
  
-    protected void func_219210_a(Entity p_219210_1_) {
+-   protected void func_219210_a(Entity p_219210_1_) {
 -      if (!(p_219210_1_ instanceof EnderDragonPartEntity)) {
++   public void func_219210_a(Entity p_219210_1_) {
++      org.spigotmc.AsyncCatcher.catchOp("entity track"); // Spigot
++      // Paper start - ignore and warn about illegal addEntity calls instead of crashing server
++      if (p_219210_1_.field_70170_p != this.field_219255_i || this.field_219272_z.containsKey(p_219210_1_.func_145782_y())) {
++         new Throwable("[ERROR] Illegal PlayerChunkMap::addEntity for world " + this.field_219255_i.func_234923_W_().func_240901_a_()
++                 + ": " + p_219210_1_  + (this.field_219272_z.containsKey(p_219210_1_.func_145782_y()) ? " ALREADY CONTAINED (This would have crashed your server)" : ""))
++                 .printStackTrace();
++         return;
++      }
++      // GoldenForge - not needed
++      //if (p_219210_1_ instanceof ServerPlayerEntity && ((ServerPlayerEntity) p_219210_1_).supressTrackerForLogin) return; // Delay adding to tracker until after list packets
++      // Paper end
 +      if (!(p_219210_1_ instanceof net.minecraftforge.entity.PartEntity)) {
           EntityType<?> entitytype = p_219210_1_.func_200600_R();
           int i = entitytype.func_233602_m_() * 16;
++         i = org.spigotmc.TrackingRange.getEntityTrackingRange(p_219210_1_, i); // Spigot
           int j = entitytype.func_220332_l();
+          if (this.field_219272_z.containsKey(p_219210_1_.func_145782_y())) {
+             throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException("Entity is already tracked!"));
+          } else {
+             ChunkManager.EntityTracker chunkmanager$entitytracker = new ChunkManager.EntityTracker(p_219210_1_, i, j, entitytype.func_220340_m());
++            p_219210_1_.tracker = chunkmanager$entitytracker; // Paper - Fast access to tracker
+             this.field_219272_z.put(p_219210_1_.func_145782_y(), chunkmanager$entitytracker);
+-            chunkmanager$entitytracker.func_219397_a(this.field_219255_i.func_217369_A());
++            chunkmanager$entitytracker.updatePlayers(p_219210_1_.getPlayersInTrackRange());
+             if (p_219210_1_ instanceof ServerPlayerEntity) {
+                ServerPlayerEntity serverplayerentity = (ServerPlayerEntity)p_219210_1_;
+                this.func_219234_a(serverplayerentity, true);
+@@ -968,6 +_,7 @@
+    }
+ 
+    protected void func_219231_b(Entity p_219231_1_) {
++      org.spigotmc.AsyncCatcher.catchOp("entity untrack"); // Spigot
+       if (p_219231_1_ instanceof ServerPlayerEntity) {
+          ServerPlayerEntity serverplayerentity = (ServerPlayerEntity)p_219231_1_;
+          this.func_219234_a(serverplayerentity, false);
+@@ -981,10 +_,41 @@
+       if (chunkmanager$entitytracker1 != null) {
+          chunkmanager$entitytracker1.func_219396_a();
+       }
+-
+-   }
++      p_219231_1_.tracker = null; // Paper - We're no longer tracked
++
++   }
++
++   // Paper start - optimised tracker
++   private final void processTrackQueue() {
++      //this.world.timings.tracker1.startTiming();
++      try {
++         for (EntityTracker tracker : this.field_219272_z.values()) {
++            // update tracker entry
++            tracker.updatePlayers(tracker.field_219403_c.getPlayersInTrackRange());
++         }
++      } finally {
++        //this.world.timings.tracker1.stopTiming();
++      }
++
++
++      //this.world.timings.tracker2.startTiming();
++      try {
++         for (EntityTracker tracker : this.field_219272_z.values()) {
++            tracker.field_219402_b.func_219453_a();
++         }
++      } finally {
++         //this.world.timings.tracker2.stopTiming();
++      }
++   }
++   // Paper end - optimised tracker
+ 
+    protected void func_219169_g() {
++      // Paper start - optimized tracker
++      if (true) {
++         this.processTrackQueue();
++         return;
++      }
++      // Paper end - optimized tracker
+       List<ServerPlayerEntity> list = Lists.newArrayList();
+       List<ServerPlayerEntity> list1 = this.field_219255_i.func_217369_A();
+ 
 @@ -1028,7 +_,7 @@
  
     }
@@ -598,3 +675,161 @@
        if (p_219180_2_[0] == null) {
           p_219180_2_[0] = new SChunkDataPacket(p_219180_3_, 65535);
           p_219180_2_[1] = new SUpdateLightPacket(p_219180_3_.func_76632_l(), this.field_219256_j, true);
+@@ -1038,20 +_,45 @@
+       DebugPacketSender.func_218802_a(this.field_219255_i, p_219180_3_.func_76632_l());
+       List<Entity> list = Lists.newArrayList();
+       List<Entity> list1 = Lists.newArrayList();
+-
+-      for(ChunkManager.EntityTracker chunkmanager$entitytracker : this.field_219272_z.values()) {
+-         Entity entity = chunkmanager$entitytracker.field_219403_c;
+-         if (entity != p_219180_1_ && entity.field_70176_ah == p_219180_3_.func_76632_l().field_77276_a && entity.field_70164_aj == p_219180_3_.func_76632_l().field_77275_b) {
+-            chunkmanager$entitytracker.func_219400_b(p_219180_1_);
+-            if (entity instanceof MobEntity && ((MobEntity)entity).func_110166_bE() != null) {
+-               list.add(entity);
+-            }
+-
+-            if (!entity.func_184188_bt().isEmpty()) {
+-               list1.add(entity);
+-            }
++      // Paper start - optimise entity tracker
++      // use the chunk entity list, not the whole trackedEntities map...
++      Entity[] entities = p_219180_3_.entities.getRawData();
++      for (int i = 0, size = p_219180_3_.entities.size(); i < size; ++i) {
++         Entity entity = entities[i];
++         if (entity == p_219180_1_) {
++            continue;
++         }
++         ChunkManager.EntityTracker tracker = this.field_219272_z.get(entity.func_145782_y());
++         if (tracker != null) { // dumb plugins... move on...
++            tracker.func_219400_b(p_219180_1_);
++         }
++
++         // keep the vanilla logic here - this is REQUIRED or else passengers and their vehicles disappear!
++         // (and god knows what the leash thing is)
++
++         if (entity instanceof MobEntity && ((MobEntity)entity).func_110166_bE() != null) {
++            list.add(entity);
++         }
++
++         if (!entity.field_184244_h.isEmpty()) { // Paper - do not copy list
++            list1.add(entity);
+          }
+       }
++      // Paper end - optimise entity tracker
++
++//      for(ChunkManager.EntityTracker chunkmanager$entitytracker : this.entityMap.values()) {
++//         Entity entity = chunkmanager$entitytracker.entity;
++//         if (entity != p_219180_1_ && entity.xChunk == p_219180_3_.getPos().x && entity.zChunk == p_219180_3_.getPos().z) {
++//            chunkmanager$entitytracker.updatePlayer(p_219180_1_);
++//            if (entity instanceof MobEntity && ((MobEntity)entity).getLeashHolder() != null) {
++//               list.add(entity);
++//            }
++//
++//            if (!entity.getPassengers().isEmpty()) {
++//               list1.add(entity);
++//            }
++//         }
++//      }
+ 
+       if (!list.isEmpty()) {
+          for(Entity entity1 : list) {
+@@ -1077,12 +_,16 @@
+       });
+    }
+ 
+-   class EntityTracker {
++   public class EntityTracker {
+       private final TrackedEntity field_219402_b;
+       private final Entity field_219403_c;
+       private final int field_219404_d;
+       private SectionPos field_219405_e;
+-      private final Set<ServerPlayerEntity> field_219406_f = Sets.newHashSet();
++      // Paper start
++      // Replace trackedPlayers Set with a Map. The value is true until the player receives
++      // their first update (which is forced to have absolute coordinates), false afterward.
++      public java.util.Map<ServerPlayerEntity, Boolean> trackedPlayerMap = new java.util.HashMap<>();
++      private final Set<ServerPlayerEntity> field_219406_f = trackedPlayerMap.keySet();
+ 
+       public EntityTracker(Entity p_i50468_2_, int p_i50468_3_, int p_i50468_4_, boolean p_i50468_5_) {
+          this.field_219402_b = new TrackedEntity(ChunkManager.this.field_219255_i, p_i50468_2_, p_i50468_4_, p_i50468_5_, this::func_219391_a);
+@@ -1091,6 +_,42 @@
+          this.field_219405_e = SectionPos.func_218157_a(p_i50468_2_);
+       }
+ 
++      // Paper start - use distance map to optimise tracker
++      com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> lastTrackerCandidates;
++
++      final void updatePlayers(com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newTrackerCandidates) {
++         com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> oldTrackerCandidates = this.lastTrackerCandidates;
++         this.lastTrackerCandidates = newTrackerCandidates;
++
++         if (newTrackerCandidates != null) {
++            Object[] rawData = newTrackerCandidates.getBackingSet();
++            for (int i = 0, len = rawData.length; i < len; ++i) {
++               Object raw = rawData[i];
++               if (!(raw instanceof ServerPlayerEntity)) {
++                  continue;
++               }
++               ServerPlayerEntity player = (ServerPlayerEntity)raw;
++               this.func_219400_b(player);
++            }
++         }
++
++         if (oldTrackerCandidates == newTrackerCandidates) {
++            // this is likely the case.
++            // means there has been no range changes, so we can just use the above for tracking.
++            return;
++         }
++
++         // stuff could have been removed, so we need to check the trackedPlayers set
++         // for players that were removed
++
++         for (ServerPlayerEntity player : this.field_219406_f.toArray(new ServerPlayerEntity[0])) { // avoid CME
++            if (newTrackerCandidates == null || !newTrackerCandidates.contains(player)) {
++               this.func_219400_b(player);
++            }
++         }
++      }
++      // Paper end - use distance map to optimise tracker
++
+       public boolean equals(Object p_equals_1_) {
+          if (p_equals_1_ instanceof ChunkManager.EntityTracker) {
+             return ((ChunkManager.EntityTracker)p_equals_1_).field_219403_c.func_145782_y() == this.field_219403_c.func_145782_y();
+@@ -1126,6 +_,7 @@
+       }
+ 
+       public void func_219399_a(ServerPlayerEntity p_219399_1_) {
++         org.spigotmc.AsyncCatcher.catchOp("player tracker clear"); // Spigot
+          if (this.field_219406_f.remove(p_219399_1_)) {
+             this.field_219402_b.func_219454_a(p_219399_1_);
+          }
+@@ -1133,10 +_,17 @@
+       }
+ 
+       public void func_219400_b(ServerPlayerEntity p_219400_1_) {
++         org.spigotmc.AsyncCatcher.catchOp("player tracker update"); // Spigot
+          if (p_219400_1_ != this.field_219403_c) {
+-            Vector3d vector3d = p_219400_1_.func_213303_ch().func_178788_d(this.field_219402_b.func_219456_b());
++            //Vector3d vector3d = p_219400_1_.position().subtract(this.serverEntity.sentPos());
++            // Paper start - remove allocation of Vec3D here
++            //Vec3D vec3d = entityplayer.getPositionVector().d(this.tracker.getPositionVector()); // MC-155077, SPIGOT-5113
++            double vec3d_dx = p_219400_1_.func_226277_ct_() - this.field_219403_c.func_226277_ct_();
++            double vec3d_dy = p_219400_1_.func_226278_cu_() - this.field_219403_c.func_226278_cu_();
++            double vec3d_dz = p_219400_1_.func_226281_cx_() - this.field_219403_c.func_226281_cx_();
++            // Paper end - remove allocation of Vec3D here
+             int i = Math.min(this.func_229843_b_(), (ChunkManager.this.field_219247_A - 1) * 16);
+-            boolean flag = vector3d.field_72450_a >= (double)(-i) && vector3d.field_72450_a <= (double)i && vector3d.field_72449_c >= (double)(-i) && vector3d.field_72449_c <= (double)i && this.field_219403_c.func_174827_a(p_219400_1_);
++            boolean flag = vec3d_dx >= (double) (-i) && vec3d_dx <= (double) i && vec3d_dz >= (double) (-i) && vec3d_dz <= (double)i && this.field_219403_c.func_174827_a(p_219400_1_);
+             if (flag) {
+                boolean flag1 = this.field_219403_c.field_98038_p;
+                if (!flag1) {
+@@ -1167,7 +_,8 @@
+ 
+          for(Entity entity : collection) {
+             int j = entity.func_200600_R().func_233602_m_() * 16;
+-            if (j > i) {
++            j = org.spigotmc.TrackingRange.getEntityTrackingRange(entity, j); // Paper
++            if (j < i) { // Paper - we need the lowest range thanks to the fact that our tracker doesn't account for passenger logic
+                i = j;
+             }
+          }

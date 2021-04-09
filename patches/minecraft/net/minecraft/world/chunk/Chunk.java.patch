@@ -242,7 +242,7 @@
                    this.field_76637_e.func_175690_a(p_177436_1_, tileentity1);
                 } else {
                    tileentity1.func_145836_u();
-@@ -321,11 +_,13 @@
+@@ -321,11 +_,14 @@
           k = this.field_76645_j.length - 1;
        }
  
@@ -251,16 +251,18 @@
        p_76612_1_.field_70176_ah = this.field_212816_F.field_77276_a;
        p_76612_1_.field_70162_ai = k;
        p_76612_1_.field_70164_aj = this.field_212816_F.field_77275_b;
++      this.entities.add(p_76612_1_); // Paper - per chunk entity list
        this.field_76645_j[k].add(p_76612_1_);
 +      this.func_76630_e(); // Forge - ensure chunks are marked to save after an entity add
     }
  
     public void func_201607_a(Heightmap.Type p_201607_1_, long[] p_201607_2_) {
-@@ -346,6 +_,7 @@
+@@ -346,6 +_,8 @@
        }
  
        this.field_76645_j[p_76608_2_].remove(p_76608_1_);
 +      this.func_76630_e(); // Forge - ensure chunks are marked to save after entity removals
++      this.entities.remove(p_76608_1_); // Paper
     }
  
     public int func_201576_a(Heightmap.Type p_201576_1_, int p_201576_2_, int p_201576_3_) {

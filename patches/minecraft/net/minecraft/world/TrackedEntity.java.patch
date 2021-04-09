@@ -1,6 +1,17 @@
 --- a/net/minecraft/world/TrackedEntity.java
 +++ b/net/minecraft/world/TrackedEntity.java
-@@ -81,9 +_,8 @@
+@@ -72,18 +_,17 @@
+    }
+ 
+    public void func_219453_a() {
+-      List<Entity> list = this.field_219461_c.func_184188_bt();
++      List<Entity> list = this.field_219461_c.field_184244_h; // Paper - do not copy list
+       if (!list.equals(this.field_219474_p)) {
+-         this.field_219474_p = list;
++         this.field_219474_p = com.google.common.collect.ImmutableList.copyOf(list); // Paper - only copy list if something has changed;
+          this.field_219464_f.accept(new SSetPassengersPacket(this.field_219461_c));
+       }
+ 
        if (this.field_219461_c instanceof ItemFrameEntity && this.field_219472_n % 10 == 0) {
           ItemFrameEntity itemframeentity = (ItemFrameEntity)this.field_219461_c;
           ItemStack itemstack = itemframeentity.func_82335_i();
@@ -12,7 +23,33 @@
              for(ServerPlayerEntity serverplayerentity : this.field_219460_b.func_217369_A()) {
                 mapdata.func_76191_a(serverplayerentity, itemstack);
                 IPacket<?> ipacket = ((FilledMapItem)itemstack.func_77973_b()).func_150911_c(itemstack, this.field_219460_b, serverplayerentity);
-@@ -187,12 +_,14 @@
+@@ -114,15 +_,20 @@
+             ++this.field_219473_o;
+             int l = MathHelper.func_76141_d(this.field_219461_c.field_70177_z * 256.0F / 360.0F);
+             int k1 = MathHelper.func_76141_d(this.field_219461_c.field_70125_A * 256.0F / 360.0F);
+-            Vector3d vector3d = this.field_219461_c.func_213303_ch().func_178788_d(SEntityPacket.func_218744_a(this.field_219465_g, this.field_219466_h, this.field_219467_i));
+-            boolean flag3 = vector3d.func_189985_c() >= (double)7.6293945E-6F;
++            //Vector3d vector3d = this.entity.position().subtract(SEntityPacket.packetToEntity(this.xp, this.yp, this.zp));
++            // Paper start - reduce allocation of Vec3D here
++            double vec3d_dx = this.field_219461_c.func_226277_ct_() - 2.44140625E-4D*(this.field_219465_g);
++            double vec3d_dy = this.field_219461_c.func_226278_cu_() - 2.44140625E-4D*(this.field_219466_h);
++            double vec3d_dz = this.field_219461_c.func_226281_cx_() - 2.44140625E-4D*(this.field_219467_i);
++            boolean flag3 = (vec3d_dx * vec3d_dx + vec3d_dy * vec3d_dy + vec3d_dz * vec3d_dz) >= 7.62939453125E-6D;
++            // Paper end - reduce allocation of Vec3D here
+             IPacket<?> ipacket1 = null;
+             boolean flag4 = flag3 || this.field_219472_n % 60 == 0;
+             boolean flag = Math.abs(l - this.field_219468_j) >= 1 || Math.abs(k1 - this.field_219469_k) >= 1;
+             if (this.field_219472_n > 0 || this.field_219461_c instanceof AbstractArrowEntity) {
+-               long i = SEntityPacket.func_218743_a(vector3d.field_72450_a);
+-               long j = SEntityPacket.func_218743_a(vector3d.field_72448_b);
+-               long k = SEntityPacket.func_218743_a(vector3d.field_72449_c);
++               long i = SEntityPacket.func_218743_a(vec3d_dx);
++               long j = SEntityPacket.func_218743_a(vec3d_dy);
++               long k = SEntityPacket.func_218743_a(vec3d_dz);
+                boolean flag1 = i < -32768L || i > 32767L || j < -32768L || j > 32767L || k < -32768L || k > 32767L;
+                if (!flag1 && this.field_219473_o <= 400 && !this.field_219475_q && this.field_219476_r == this.field_219461_c.func_233570_aj_()) {
+                   if ((!flag4 || !flag) && !(this.field_219461_c instanceof AbstractArrowEntity)) {
+@@ -187,17 +_,22 @@
     public void func_219454_a(ServerPlayerEntity p_219454_1_) {
        this.field_219461_c.func_184203_c(p_219454_1_);
        p_219454_1_.func_152339_d(this.field_219461_c);
@@ -27,3 +64,12 @@
     }
  
     public void func_219452_a(Consumer<IPacket<?>> p_219452_1_) {
+       if (this.field_219461_c.field_70128_L) {
+-         field_219459_a.warn("Fetching packet for removed entity " + this.field_219461_c);
++         //LOGGER.warn("Fetching packet for removed entity " + this.entity);
++         // CraftBukkit start - Remove useless error spam, just return
++         return;
++         // CraftBukkit end
+       }
+ 
+       IPacket<?> ipacket = this.field_219461_c.func_213297_N();
