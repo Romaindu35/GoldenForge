@@ -1,5 +1,373 @@
 --- a/net/minecraft/world/server/ChunkManager.java
 +++ b/net/minecraft/world/server/ChunkManager.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.server;
+ 
++import com.destroystokyo.paper.util.MCUtil;
+ import com.google.common.collect.ImmutableList;
+ import com.google.common.collect.Iterables;
+ import com.google.common.collect.Lists;
+@@ -49,12 +_,11 @@
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.network.DebugPacketSender;
+ import net.minecraft.network.IPacket;
+-import net.minecraft.network.play.server.SChunkDataPacket;
+-import net.minecraft.network.play.server.SMountEntityPacket;
+-import net.minecraft.network.play.server.SSetPassengersPacket;
+-import net.minecraft.network.play.server.SUpdateChunkPositionPacket;
+-import net.minecraft.network.play.server.SUpdateLightPacket;
++import net.minecraft.network.play.ServerPlayNetHandler;
++import net.minecraft.network.play.client.CMoveVehiclePacket;
++import net.minecraft.network.play.server.*;
+ import net.minecraft.profiler.IProfiler;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.CSVWriter;
+ import net.minecraft.util.ClassInheritanceMultiMap;
+ import net.minecraft.util.Util;
+@@ -91,6 +_,7 @@
+ import org.apache.commons.lang3.mutable.MutableBoolean;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.spigotmc.AsyncCatcher;
+ 
+ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProvider {
+    private static final Logger field_219250_d = LogManager.getLogger();
+@@ -99,9 +_,10 @@
+    private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219252_f = this.field_219251_e.clone();
+    private final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219253_g = new Long2ObjectLinkedOpenHashMap<>();
+    private final LongSet field_219254_h = new LongOpenHashSet();
+-   private final ServerWorld field_219255_i;
++   public final ServerWorld field_219255_i;
+    private final ServerWorldLightManager field_219256_j;
+    private final ThreadTaskExecutor<Runnable> field_219257_k;
++   public final java.util.concurrent.Executor mainInvokingExecutor; // Paper
+    private final ChunkGenerator field_219258_l;
+    private final Supplier<DimensionSavedDataManager> field_219259_m;
+    private final PointOfInterestManager field_219260_n;
+@@ -109,7 +_,7 @@
+    private boolean field_219262_p;
+    private final ChunkTaskPriorityQueueSorter field_219263_q;
+    private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219264_r;
+-   private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s;
++   public final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s;
+    private final IChunkStatusListener field_219266_t;
+    private final ChunkManager.ProxyTicketManager field_219267_u;
+    private final AtomicInteger field_219268_v = new AtomicInteger();
+@@ -121,6 +_,160 @@
+    private final Queue<Runnable> field_223181_A = Queues.newConcurrentLinkedQueue();
+    private int field_219247_A;
+ 
++   // CraftBukkit start - recursion-safe executor for Chunk loadCallback() and unloadCallback()
++   public final CallbackExecutor callbackExecutor = new CallbackExecutor();
++   public static final class CallbackExecutor implements java.util.concurrent.Executor, Runnable {
++
++      // Paper start - replace impl with recursive safe multi entry queue
++      // it's possible to schedule multiple tasks currently, so it's vital we change this impl
++      // If we recurse into the executor again, we will append to another queue, ensuring task order consistency
++      private java.util.ArrayDeque<Runnable> queued = new java.util.ArrayDeque<>();
++
++      @Override
++      public void execute(Runnable runnable) {
++         AsyncCatcher.catchOp("Callback Executor execute");
++         if (queued == null) {
++            queued = new java.util.ArrayDeque<>();
++         }
++         queued.add(runnable);
++      }
++
++      @Override
++      public void run() {
++         AsyncCatcher.catchOp("Callback Executor run");
++         if (queued == null) {
++            return;
++         }
++         java.util.ArrayDeque<Runnable> queue = queued;
++         queued = null;
++         Runnable task;
++         while ((task = queue.pollFirst()) != null) {
++            task.run();
++         }
++      }
++      // Paper end
++   };
++   // CraftBukkit end
++
++   final CallbackExecutor chunkLoadConversionCallbackExecutor = new CallbackExecutor(); // Paper
++
++   // Paper start - optimise ChunkManager#isOutsideRange
++   private final com.destroystokyo.paper.util.misc.PooledLinkedHashSets<ServerPlayerEntity> pooledLinkedPlayerHashSets = new com.destroystokyo.paper.util.misc.PooledLinkedHashSets<>();
++   // A note about the naming used here:
++   // Previously, mojang used a "spawn range" of 8 for controlling both ticking and
++   // mob spawn range. However, spigot makes the spawn range configurable by
++   // checking if the chunk is in the tick range (8) and the spawn range
++   // obviously this means a spawn range > 8 cannot be implemented
++
++   // these maps are named after spigot's uses
++   public final com.destroystokyo.paper.util.misc.PlayerAreaMap playerMobSpawnMap; // this map is absent from updateMaps since it's controlled at the start of the chunkproviderserver tick
++   public final com.destroystokyo.paper.util.misc.PlayerAreaMap playerChunkTickRangeMap;
++   // Paper end - optimise ChunkManager#isOutsideRange
++   // Paper start - no-tick view distance
++   int noTickViewDistance;
++   public final int getRawNoTickViewDistance() {
++      return this.noTickViewDistance;
++   }
++   public final int getEffectiveNoTickViewDistance() {
++      return this.noTickViewDistance == -1 ? this.getEffectiveViewDistance() : this.noTickViewDistance;
++   }
++   public final int getLoadViewDistance() {
++      return Math.max(this.getEffectiveViewDistance(), this.getEffectiveNoTickViewDistance());
++   }
++
++   public final int getEffectiveViewDistance() {
++      // TODO this needs to be checked on update
++      // Mojang currently sets it to +1 of the configured view distance. So subtract one to get the one we really want.
++      return this.field_219247_A - 1;
++   }
++
++   public final com.destroystokyo.paper.util.misc.PlayerAreaMap playerViewDistanceBroadcastMap;
++   public final com.destroystokyo.paper.util.misc.PlayerAreaMap playerViewDistanceTickMap;
++   public final com.destroystokyo.paper.util.misc.PlayerAreaMap playerViewDistanceNoTickMap;
++   // Paper end - no-tick view distance
++
++   static final org.spigotmc.TrackingRange.TrackingRangeType[] TRACKING_RANGE_TYPES = org.spigotmc.TrackingRange.TrackingRangeType.values();
++   public final com.destroystokyo.paper.util.misc.PlayerAreaMap[] playerEntityTrackerTrackMaps;
++   final int[] entityTrackerTrackRanges;
++
++   void addPlayerToDistanceMaps(ServerPlayerEntity player) {
++      int chunkX = MCUtil.getChunkCoordinate(player.func_226277_ct_());
++      int chunkZ = MCUtil.getChunkCoordinate(player.func_226281_cx_());
++      // Note: players need to be explicitly added to distance maps before they can be updated
++      // Paper start - use distance map to optimise entity tracker
++      for (int i = 0, len = TRACKING_RANGE_TYPES.length; i < len; ++i) {
++         com.destroystokyo.paper.util.misc.PlayerAreaMap trackMap = this.playerEntityTrackerTrackMaps[i];
++         int trackRange = this.entityTrackerTrackRanges[i];
++
++         trackMap.add(player, chunkX, chunkZ, Math.min(trackRange, this.getEffectiveViewDistance()));
++      }
++      // Paper end - use distance map to optimise entity tracker
++      // Paper start - optimise PlayerChunkMap#isOutsideRange
++      this.playerChunkTickRangeMap.add(player, chunkX, chunkZ, TicketManager.MOB_SPAWN_RANGE);
++      // Paper end - optimise PlayerChunkMap#isOutsideRange
++      // Paper start - no-tick view distance
++      int effectiveTickViewDistance = this.getEffectiveViewDistance();
++      int effectiveNoTickViewDistance = Math.max(this.getEffectiveNoTickViewDistance(), effectiveTickViewDistance);
++
++      if (!this.func_219187_b(player)) {
++         this.playerViewDistanceTickMap.add(player, chunkX, chunkZ, effectiveTickViewDistance);
++         this.playerViewDistanceNoTickMap.add(player, chunkX, chunkZ, effectiveNoTickViewDistance + 2); // clients need chunk 1 neighbour, and we need another 1 for sending those extra neighbours (as we require neighbours to send)
++      }
++
++      player.needsChunkCenterUpdate = true;
++      this.playerViewDistanceBroadcastMap.add(player, chunkX, chunkZ, effectiveNoTickViewDistance + 1); // clients need an extra neighbour to render the full view distance configured
++      player.needsChunkCenterUpdate = false;
++      // Paper end - no-tick view distance
++   }
++
++   void removePlayerFromDistanceMaps(ServerPlayerEntity player) {
++      // Paper start - use distance map to optimise tracker
++      for (int i = 0, len = TRACKING_RANGE_TYPES.length; i < len; ++i) {
++         this.playerEntityTrackerTrackMaps[i].remove(player);
++      }
++      // Paper end - use distance map to optimise tracker
++      // Paper start - optimise PlayerChunkMap#isOutsideRange
++      this.playerMobSpawnMap.remove(player);
++      this.playerChunkTickRangeMap.remove(player);
++      // Paper end - optimise PlayerChunkMap#isOutsideRange
++      // Paper start - no-tick view distance
++      this.playerViewDistanceBroadcastMap.remove(player);
++      this.playerViewDistanceTickMap.remove(player);
++      this.playerViewDistanceNoTickMap.remove(player);
++      // Paper end - no-tick view distance
++   }
++
++   void updateMaps(ServerPlayerEntity player) {
++      int chunkX = MCUtil.getChunkCoordinate(player.func_226277_ct_());
++      int chunkZ = MCUtil.getChunkCoordinate(player.func_226281_cx_());
++      // Note: players need to be explicitly added to distance maps before they can be updated
++      // Paper start - use distance map to optimise entity tracker
++      for (int i = 0, len = TRACKING_RANGE_TYPES.length; i < len; ++i) {
++         com.destroystokyo.paper.util.misc.PlayerAreaMap trackMap = this.playerEntityTrackerTrackMaps[i];
++         int trackRange = this.entityTrackerTrackRanges[i];
++
++         trackMap.update(player, chunkX, chunkZ, Math.min(trackRange, this.getEffectiveViewDistance()));
++      }
++      // Paper end - use distance map to optimise entity tracker
++      // Paper start - optimise PlayerChunkMap#isOutsideRange
++      this.playerChunkTickRangeMap.update(player, chunkX, chunkZ, TicketManager.MOB_SPAWN_RANGE);
++      // Paper end - optimise PlayerChunkMap#isOutsideRange
++      // Paper start - no-tick view distance
++      int effectiveTickViewDistance = this.getEffectiveViewDistance();
++      int effectiveNoTickViewDistance = Math.max(this.getEffectiveNoTickViewDistance(), effectiveTickViewDistance);
++
++      if (!this.func_219187_b(player)) {
++         this.playerViewDistanceTickMap.update(player, chunkX, chunkZ, effectiveTickViewDistance);
++         this.playerViewDistanceNoTickMap.update(player, chunkX, chunkZ, effectiveNoTickViewDistance + 2); // clients need chunk 1 neighbour, and we need another 1 for sending those extra neighbours (as we require neighbours to send)
++      }
++
++      player.needsChunkCenterUpdate = true;
++      this.playerViewDistanceBroadcastMap.update(player, chunkX, chunkZ, effectiveNoTickViewDistance + 1); // clients need an extra neighbour to render the full view distance configured
++      player.needsChunkCenterUpdate = false;
++      // Paper end - no-tick view distance
++   }
++   // Paper end
++
+    public ChunkManager(ServerWorld p_i232602_1_, SaveFormat.LevelSave p_i232602_2_, DataFixer p_i232602_3_, TemplateManager p_i232602_4_, Executor p_i232602_5_, ThreadTaskExecutor<Runnable> p_i232602_6_, IChunkLightProvider p_i232602_7_, ChunkGenerator p_i232602_8_, IChunkStatusListener p_i232602_9_, Supplier<DimensionSavedDataManager> p_i232602_10_, int p_i232602_11_, boolean p_i232602_12_) {
+       super(new File(p_i232602_2_.func_237291_a_(p_i232602_1_.func_234923_W_()), "region"), p_i232602_3_, p_i232602_12_);
+       this.field_219269_w = p_i232602_4_;
+@@ -128,6 +_,15 @@
+       this.field_219255_i = p_i232602_1_;
+       this.field_219258_l = p_i232602_8_;
+       this.field_219257_k = p_i232602_6_;
++      // Paper start
++      this.mainInvokingExecutor = (run) -> {
++         if (MCUtil.isMainThread()) {
++            run.run();
++         } else {
++            p_i232602_6_.execute(run);
++         }
++      };
++      // Paper end
+       DelegatedTaskExecutor<Runnable> delegatedtaskexecutor = DelegatedTaskExecutor.func_213144_a(p_i232602_5_, "worldgen");
+       ITaskExecutor<Runnable> itaskexecutor = ITaskExecutor.func_213140_a("main", p_i232602_6_::func_212871_a_);
+       this.field_219266_t = p_i232602_9_;
+@@ -136,10 +_,127 @@
+       this.field_219264_r = this.field_219263_q.func_219087_a(delegatedtaskexecutor, false);
+       this.field_219265_s = this.field_219263_q.func_219087_a(itaskexecutor, false);
+       this.field_219256_j = new ServerWorldLightManager(p_i232602_7_, this, this.field_219255_i.func_230315_m_().func_218272_d(), delegatedtaskexecutor1, this.field_219263_q.func_219087_a(delegatedtaskexecutor1, false));
+-      this.field_219267_u = new ChunkManager.ProxyTicketManager(p_i232602_5_, p_i232602_6_);
++      this.field_219267_u = new ChunkManager.ProxyTicketManager(p_i232602_5_, p_i232602_6_); this.field_219267_u.chunkMap = this; // Paper
+       this.field_219259_m = p_i232602_10_;
+       this.field_219260_n = new PointOfInterestManager(new File(this.field_219270_x, "poi"), p_i232602_3_, p_i232602_12_);
+       this.func_219175_a(p_i232602_11_);
++
++      // Paper start - use distance map to optimise entity tracker
++      this.playerEntityTrackerTrackMaps = new com.destroystokyo.paper.util.misc.PlayerAreaMap[TRACKING_RANGE_TYPES.length];
++      this.entityTrackerTrackRanges = new int[TRACKING_RANGE_TYPES.length];
++
++      org.spigotmc.SpigotWorldConfig spigotWorldConfig = this.field_219255_i.spigotConfig;
++
++      for (int ordinal = 0, len = TRACKING_RANGE_TYPES.length; ordinal < len; ++ordinal) {
++         org.spigotmc.TrackingRange.TrackingRangeType trackingRangeType = TRACKING_RANGE_TYPES[ordinal];
++         int configuredSpigotValue;
++         switch (trackingRangeType) {
++            case PLAYER:
++               configuredSpigotValue = spigotWorldConfig.playerTrackingRange;
++               break;
++            case ANIMAL:
++               configuredSpigotValue = spigotWorldConfig.animalTrackingRange;
++               break;
++            case MONSTER:
++               configuredSpigotValue = spigotWorldConfig.monsterTrackingRange;
++               break;
++            case MISC:
++               configuredSpigotValue = spigotWorldConfig.miscTrackingRange;
++               break;
++            case OTHER:
++               configuredSpigotValue = spigotWorldConfig.otherTrackingRange;
++               break;
++            case ENDERDRAGON:
++               configuredSpigotValue = EntityType.field_200802_p.defaultTrackingRangeSupplier() * 16;
++               break;
++            default:
++               throw new IllegalStateException("Missing case for enum " + trackingRangeType);
++         }
++         configuredSpigotValue = MinecraftServer.getServer().func_230512_b_(configuredSpigotValue);
++
++         int trackRange = (configuredSpigotValue >>> 4) + ((configuredSpigotValue & 15) != 0 ? 1 : 0);
++         this.entityTrackerTrackRanges[ordinal] = trackRange;
++
++         this.playerEntityTrackerTrackMaps[ordinal] = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets);
++      }
++      // Paper end - use distance map to optimise entity tracker
++
++      // Paper start - optimise ChunkManager#isOutsideRange
++      this.playerChunkTickRangeMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets,
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 ChunkHolder playerChunk = ChunkManager.this.func_219220_a(MCUtil.getCoordinateKey(rangeX, rangeZ));
++                 if (playerChunk != null) {
++                    playerChunk.playersInChunkTickRange = newState;
++                 }
++              },
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 ChunkHolder playerChunk = ChunkManager.this.func_219220_a(MCUtil.getCoordinateKey(rangeX, rangeZ));
++                 if (playerChunk != null) {
++                    playerChunk.playersInChunkTickRange = newState;
++                 }
++              });
++      this.playerMobSpawnMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets,
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 ChunkHolder playerChunk = ChunkManager.this.func_219220_a(MCUtil.getCoordinateKey(rangeX, rangeZ));
++                 if (playerChunk != null) {
++                    playerChunk.playersInMobSpawnRange = newState;
++                 }
++              },
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 ChunkHolder playerChunk = ChunkManager.this.func_219220_a(MCUtil.getCoordinateKey(rangeX, rangeZ));
++                 if (playerChunk != null) {
++                    playerChunk.playersInMobSpawnRange = newState;
++                 }
++              });
++      // Paper end - optimise ChunkManager#isOutsideRange
++      // Paper start - no-tick view distance
++      this.setNoTickViewDistance(this.field_219255_i.paperConfig.noTickViewDistance);
++      this.playerViewDistanceTickMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets,
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 //checkHighPriorityChunks(player);
++                 if (newState.size() != 1) {
++                    return;
++                 }
++                 Chunk chunk = ChunkManager.this.field_219255_i.func_72863_F().getChunkAtIfLoadedMainThreadNoCache(rangeX, rangeZ);
++                 if (chunk == null || !chunk.areNeighboursLoaded(2)) {
++                    return;
++                 }
++
++                 ChunkPos chunkPos = new ChunkPos(rangeX, rangeZ);
++                 ChunkManager.this.field_219255_i.func_72863_F().registerTickingTicket(TicketType.field_219490_c, chunkPos, 31, chunkPos); // entity ticking level, TODO check on update
++              },
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 if (newState != null) {
++                    return;
++                 }
++                 ChunkPos chunkPos = new ChunkPos(rangeX, rangeZ);
++                 ChunkManager.this.field_219255_i.func_72863_F().releaseTickingTicket(TicketType.field_219490_c, chunkPos, 31, chunkPos); // entity ticking level, TODO check on update
++                 ChunkManager.this.field_219255_i.func_72863_F().clearPriorityTickets(chunkPos);
++              }, (player, prevPos, newPos) -> {
++         //player.lastHighPriorityChecked = -1; // reset and recheck
++         //checkHighPriorityChunks(player);
++      });
++      this.playerViewDistanceNoTickMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets);
++      this.playerViewDistanceBroadcastMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets,
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 if (player.needsChunkCenterUpdate) {
++                    player.needsChunkCenterUpdate = false;
++                    player.field_71135_a.func_147359_a(new SUpdateChunkPositionPacket(currPosX, currPosZ));
++                 }
++                 ChunkManager.this.func_219199_a(player, new ChunkPos(rangeX, rangeZ), new IPacket[2], false, true); // unloaded, loaded
++              },
++              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
++                 ChunkManager.this.func_219199_a(player, new ChunkPos(rangeX, rangeZ), null, true, false); // unloaded, loaded
++              });
++      // Paper end - no-tick view distance
+    }
+ 
+    private static double func_219217_a(ChunkPos p_219217_0_, Entity p_219217_1_) {
+@@ -176,7 +_,7 @@
+    }
+ 
+    @Nullable
+-   protected ChunkHolder func_219220_a(long p_219220_1_) {
++   public ChunkHolder func_219220_a(long p_219220_1_) {
+       return this.field_219251_e.get(p_219220_1_);
+    }
+ 
 @@ -400,6 +_,7 @@
              if (this.field_219253_g.remove(p_219212_1_, p_219212_3_) && p_219185_5_ != null) {
                 if (p_219185_5_ instanceof Chunk) {
@@ -24,7 +392,74 @@
              this.func_219100_a(chunkpos, compoundnbt);
              this.func_241088_a_(chunkpos, chunkstatus.func_202129_d());
              return true;
-@@ -734,6 +_,7 @@
+@@ -712,32 +_,62 @@
+    }
+ 
+    protected void func_219175_a(int p_219175_1_) {
+-      int i = MathHelper.func_76125_a(p_219175_1_ + 1, 3, 33);
+-      if (i != this.field_219247_A) {
+-         int j = this.field_219247_A;
+-         this.field_219247_A = i;
+-         this.field_219267_u.func_219354_b(this.field_219247_A);
+-
+-         for(ChunkHolder chunkholder : this.field_219251_e.values()) {
+-            ChunkPos chunkpos = chunkholder.func_219277_h();
+-            IPacket<?>[] ipacket = new IPacket[2];
+-            this.func_219097_a(chunkpos, false).forEach((p_219224_4_) -> {
+-               int k = func_219215_b(chunkpos, p_219224_4_, true);
+-               boolean flag = k <= j;
+-               boolean flag1 = k <= this.field_219247_A;
+-               this.func_219199_a(p_219224_4_, chunkpos, ipacket, flag, flag1);
+-            });
++      int j = MathHelper.func_76125_a(p_219175_1_ + 1, 3, 33); // Paper - diff on change, these make the lower view distance limit 2 and the upper 32
++
++      if (j != this.field_219247_A) {
++         int k = this.field_219247_A;
++
++         this.field_219247_A = j;
++         this.setNoTickViewDistance(this.getRawNoTickViewDistance()); //Paper - no-tick view distance - propagate changes to no-tick, which does the actual chunk loading/sending
++      }
++//      int i = MathHelper.clamp(p_219175_1_ + 1, 3, 33);
++//      if (i != this.viewDistance) {
++//         int j = this.viewDistance;
++//         this.viewDistance = i;
++//         this.distanceManager.updatePlayerTickets(this.viewDistance);
++//
++//         for(ChunkHolder chunkholder : this.updatingChunkMap.values()) {
++//            ChunkPos chunkpos = chunkholder.getPos();
++//            IPacket<?>[] ipacket = new IPacket[2];
++//            this.getPlayers(chunkpos, false).forEach((p_219224_4_) -> {
++//               int k = checkerboardDistance(chunkpos, p_219224_4_, true);
++//               boolean flag = k <= j;
++//               boolean flag1 = k <= this.viewDistance;
++//               this.updateChunkTracking(p_219224_4_, chunkpos, ipacket, flag, flag1);
++//            });
++//         }
++//      }
++
++   }
++
++   // Paper start - no-tick view distance
++   public final void setNoTickViewDistance(int viewDistance) {
++      viewDistance = viewDistance == -1 ? -1 : MathHelper.func_76125_a(viewDistance, 2, 32);
++
++      this.noTickViewDistance = viewDistance;
++      int loadViewDistance = this.getLoadViewDistance();
++      this.field_219267_u.setNoTickViewDistance(loadViewDistance + 2 + 2); // add 2 to account for the change to 31 -> 33 tickets // see notes in the distance map updating for the other + 2
++
++      if (this.field_219255_i != null && this.field_219255_i.field_217491_A != null) { // this can be called from constructor, where these aren't set
++         for (ServerPlayerEntity player : this.field_219255_i.field_217491_A) {
++            ServerPlayNetHandler connection = player.field_71135_a;
++            if (connection != null) {
++               // moved in from PlayerList
++               connection.func_147359_a(new SUpdateViewDistancePacket(loadViewDistance));
++            }
++            this.updateMaps(player);
+          }
+       }
+-
+    }
++   // Paper end - no-tick view distance
  
     protected void func_219199_a(ServerPlayerEntity p_219199_1_, ChunkPos p_219199_2_, IPacket<?>[] p_219199_3_, boolean p_219199_4_, boolean p_219199_5_) {
        if (p_219199_1_.field_70170_p == this.field_219255_i) {
@@ -32,6 +467,119 @@
           if (p_219199_5_ && !p_219199_4_) {
              ChunkHolder chunkholder = this.func_219219_b(p_219199_2_.func_201841_a());
              if (chunkholder != null) {
+-               Chunk chunk = chunkholder.func_219298_c();
++               Chunk chunk = chunkholder.getSendingChunk(); // Paper - no-tick view distance
+                if (chunk != null) {
+                   this.func_219180_a(p_219199_1_, p_219199_3_, chunk);
+                }
+@@ -827,20 +_,22 @@
+          if (!flag) {
+             this.field_219267_u.func_219341_a(SectionPos.func_218157_a(p_219234_1_), p_219234_1_);
+          }
++         this.addPlayerToDistanceMaps(p_219234_1_); // Paper - distance maps
+       } else {
+          SectionPos sectionpos = p_219234_1_.func_213842_M();
+          this.field_219271_y.func_219443_a(sectionpos.func_218155_u().func_201841_a(), p_219234_1_);
+          if (!flag1) {
+             this.field_219267_u.func_219367_b(sectionpos, p_219234_1_);
+          }
++         this.removePlayerFromDistanceMaps(p_219234_1_); // Paper - distance maps
+       }
+ 
+-      for(int l = i - this.field_219247_A; l <= i + this.field_219247_A; ++l) {
+-         for(int k = j - this.field_219247_A; k <= j + this.field_219247_A; ++k) {
+-            ChunkPos chunkpos = new ChunkPos(l, k);
+-            this.func_219199_a(p_219234_1_, chunkpos, new IPacket[2], !p_219234_2_, p_219234_2_);
+-         }
+-      }
++//      for(int l = i - this.viewDistance; l <= i + this.viewDistance; ++l) {
++//         for(int k = j - this.viewDistance; k <= j + this.viewDistance; ++k) {
++//            ChunkPos chunkpos = new ChunkPos(l, k);
++//            this.updateChunkTracking(p_219234_1_, chunkpos, new IPacket[2], !p_219234_2_, p_219234_2_);
++//         }
++//      }
+ 
+    }
+ 
+@@ -892,41 +_,43 @@
+          }
+       }
+ 
+-      int k = sectionpos.func_218149_a();
+-      int l = sectionpos.func_218148_c();
+-      if (Math.abs(k - l1) <= this.field_219247_A * 2 && Math.abs(l - i2) <= this.field_219247_A * 2) {
+-         int k2 = Math.min(l1, k) - this.field_219247_A;
+-         int i3 = Math.min(i2, l) - this.field_219247_A;
+-         int j3 = Math.max(l1, k) + this.field_219247_A;
+-         int k3 = Math.max(i2, l) + this.field_219247_A;
+-
+-         for(int l3 = k2; l3 <= j3; ++l3) {
+-            for(int k1 = i3; k1 <= k3; ++k1) {
+-               ChunkPos chunkpos1 = new ChunkPos(l3, k1);
+-               boolean flag5 = func_219232_a(chunkpos1, k, l) <= this.field_219247_A;
+-               boolean flag6 = func_219232_a(chunkpos1, l1, i2) <= this.field_219247_A;
+-               this.func_219199_a(p_219183_1_, chunkpos1, new IPacket[2], flag5, flag6);
+-            }
+-         }
+-      } else {
+-         for(int i1 = k - this.field_219247_A; i1 <= k + this.field_219247_A; ++i1) {
+-            for(int j1 = l - this.field_219247_A; j1 <= l + this.field_219247_A; ++j1) {
+-               ChunkPos chunkpos = new ChunkPos(i1, j1);
+-               boolean flag3 = true;
+-               boolean flag4 = false;
+-               this.func_219199_a(p_219183_1_, chunkpos, new IPacket[2], true, false);
+-            }
+-         }
+-
+-         for(int j2 = l1 - this.field_219247_A; j2 <= l1 + this.field_219247_A; ++j2) {
+-            for(int l2 = i2 - this.field_219247_A; l2 <= i2 + this.field_219247_A; ++l2) {
+-               ChunkPos chunkpos2 = new ChunkPos(j2, l2);
+-               boolean flag7 = false;
+-               boolean flag8 = true;
+-               this.func_219199_a(p_219183_1_, chunkpos2, new IPacket[2], false, true);
+-            }
+-         }
+-      }
++      this.updateMaps(p_219183_1_);
++
++//      int k = sectionpos.x();
++//      int l = sectionpos.z();
++//      if (Math.abs(k - l1) <= this.viewDistance * 2 && Math.abs(l - i2) <= this.viewDistance * 2) {
++//         int k2 = Math.min(l1, k) - this.viewDistance;
++//         int i3 = Math.min(i2, l) - this.viewDistance;
++//         int j3 = Math.max(l1, k) + this.viewDistance;
++//         int k3 = Math.max(i2, l) + this.viewDistance;
++//
++//         for(int l3 = k2; l3 <= j3; ++l3) {
++//            for(int k1 = i3; k1 <= k3; ++k1) {
++//               ChunkPos chunkpos1 = new ChunkPos(l3, k1);
++//               boolean flag5 = checkerboardDistance(chunkpos1, k, l) <= this.viewDistance;
++//               boolean flag6 = checkerboardDistance(chunkpos1, l1, i2) <= this.viewDistance;
++//               this.updateChunkTracking(p_219183_1_, chunkpos1, new IPacket[2], flag5, flag6);
++//            }
++//         }
++//      } else {
++//         for(int i1 = k - this.viewDistance; i1 <= k + this.viewDistance; ++i1) {
++//            for(int j1 = l - this.viewDistance; j1 <= l + this.viewDistance; ++j1) {
++//               ChunkPos chunkpos = new ChunkPos(i1, j1);
++//               boolean flag3 = true;
++//               boolean flag4 = false;
++//               this.updateChunkTracking(p_219183_1_, chunkpos, new IPacket[2], true, false);
++//            }
++//         }
++//
++//         for(int j2 = l1 - this.viewDistance; j2 <= l1 + this.viewDistance; ++j2) {
++//            for(int l2 = i2 - this.viewDistance; l2 <= i2 + this.viewDistance; ++l2) {
++//               ChunkPos chunkpos2 = new ChunkPos(j2, l2);
++//               boolean flag7 = false;
++//               boolean flag8 = true;
++//               this.updateChunkTracking(p_219183_1_, chunkpos2, new IPacket[2], false, true);
++//            }
++//         }
++//      }
+ 
+    }
+ 
 @@ -942,7 +_,7 @@
     }
  
@@ -41,3 +589,12 @@
           EntityType<?> entitytype = p_219210_1_.func_200600_R();
           int i = entitytype.func_233602_m_() * 16;
           int j = entitytype.func_220332_l();
+@@ -1028,7 +_,7 @@
+ 
+    }
+ 
+-   private void func_219180_a(ServerPlayerEntity p_219180_1_, IPacket<?>[] p_219180_2_, Chunk p_219180_3_) {
++   public void func_219180_a(ServerPlayerEntity p_219180_1_, IPacket<?>[] p_219180_2_, Chunk p_219180_3_) {
+       if (p_219180_2_[0] == null) {
+          p_219180_2_[0] = new SChunkDataPacket(p_219180_3_, 65535);
+          p_219180_2_[1] = new SUpdateLightPacket(p_219180_3_.func_76632_l(), this.field_219256_j, true);

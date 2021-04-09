@@ -1,6 +1,27 @@
 --- a/net/minecraft/world/chunk/Chunk.java
 +++ b/net/minecraft/world/chunk/Chunk.java
-@@ -58,7 +_,7 @@
+@@ -28,10 +_,12 @@
+ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.boss.dragon.EnderDragonEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonPartEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.fluid.Fluid;
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.fluid.Fluids;
+ import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.network.IPacket;
+ import net.minecraft.network.PacketBuffer;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.ClassInheritanceMultiMap;
+@@ -51,14 +_,13 @@
+ import net.minecraft.world.gen.feature.structure.Structure;
+ import net.minecraft.world.gen.feature.structure.StructureStart;
+ import net.minecraft.world.lighting.WorldLightManager;
+-import net.minecraft.world.server.ChunkHolder;
+-import net.minecraft.world.server.ServerWorld;
++import net.minecraft.world.server.*;
+ import net.minecraftforge.api.distmarker.Dist;
+ import net.minecraftforge.api.distmarker.OnlyIn;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -9,14 +30,175 @@
     private static final Logger field_150817_t = LogManager.getLogger();
     @Nullable
     public static final ChunkSection field_186036_a = null;
-@@ -92,6 +_,7 @@
+@@ -84,17 +_,166 @@
+    private Supplier<ChunkHolder.LocationType> field_217329_u;
+    @Nullable
+    private Consumer<Chunk> field_217330_v;
+-   private final ChunkPos field_212816_F;
++   private final ChunkPos field_212816_F; public final long coordinateKey; public final int locX; public final int locZ; // Paper - cache coordinate key
+    private volatile boolean field_217331_x;
+ 
++   public final com.destroystokyo.paper.util.maplist.EntityList entities = new com.destroystokyo.paper.util.maplist.EntityList();
++   public ChunkHolder playerChunk;
++
++   static final int NEIGHBOUR_CACHE_RADIUS = 3;
++   public static int getNeighbourCacheRadius() {
++      return NEIGHBOUR_CACHE_RADIUS;
++   }
++
++   boolean loadedTicketLevel;
++   private long neighbourChunksLoadedBitset;
++   private final Chunk[] loadedNeighbourChunks = new Chunk[(NEIGHBOUR_CACHE_RADIUS * 2 + 1) * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)];
++
++   private static int getNeighbourIndex(final int relativeX, final int relativeZ) {
++      // index = (relativeX + NEIGHBOUR_CACHE_RADIUS) + (relativeZ + NEIGHBOUR_CACHE_RADIUS) * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)
++      // optimised variant of the above by moving some of the ops to compile time
++      return relativeX + (relativeZ * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)) + (NEIGHBOUR_CACHE_RADIUS + NEIGHBOUR_CACHE_RADIUS * ((NEIGHBOUR_CACHE_RADIUS * 2 + 1)));
++   }
++
++   public final Chunk getRelativeNeighbourIfLoaded(final int relativeX, final int relativeZ) {
++      return this.loadedNeighbourChunks[getNeighbourIndex(relativeX, relativeZ)];
++   }
++
++   public final boolean isNeighbourLoaded(final int relativeX, final int relativeZ) {
++      return (this.neighbourChunksLoadedBitset & (1L << getNeighbourIndex(relativeX, relativeZ))) != 0;
++   }
++
++   public final void setNeighbourLoaded(final int relativeX, final int relativeZ, final Chunk chunk) {
++      if (chunk == null) {
++         throw new IllegalArgumentException("Chunk must be non-null, neighbour: (" + relativeX + "," + relativeZ + "), chunk: " + this.field_212816_F);
++      }
++      final long before = this.neighbourChunksLoadedBitset;
++      final int index = getNeighbourIndex(relativeX, relativeZ);
++      this.loadedNeighbourChunks[index] = chunk;
++      this.neighbourChunksLoadedBitset |= (1L << index);
++      this.onNeighbourChange(before, this.neighbourChunksLoadedBitset);
++   }
++
++   public final void setNeighbourUnloaded(final int relativeX, final int relativeZ) {
++      final long before = this.neighbourChunksLoadedBitset;
++      final int index = getNeighbourIndex(relativeX, relativeZ);
++      this.loadedNeighbourChunks[index] = null;
++      this.neighbourChunksLoadedBitset &= ~(1L << index);
++      this.onNeighbourChange(before, this.neighbourChunksLoadedBitset);
++   }
++
++   public final void resetNeighbours() {
++      final long before = this.neighbourChunksLoadedBitset;
++      this.neighbourChunksLoadedBitset = 0L;
++      java.util.Arrays.fill(this.loadedNeighbourChunks, null);
++      this.onNeighbourChange(before, 0L);
++   }
++
++   protected void onNeighbourChange(final long bitsetBefore, final long bitsetAfter) {
++      // Paper start - no-tick view distance
++      ServerChunkProvider chunkProviderServer = ((ServerWorld)this.field_76637_e).func_72863_F();
++      ChunkManager chunkMap = chunkProviderServer.field_217237_a;
++      // this code handles the addition of ticking tickets - the distance map handles the removal
++      if (!areNeighboursLoaded(bitsetBefore, 2) && areNeighboursLoaded(bitsetAfter, 2)) {
++         if (chunkMap.playerViewDistanceTickMap.getObjectsInRange(this.coordinateKey) != null) {
++            // now we're ready for entity ticking
++            chunkProviderServer.field_217243_i.execute(() -> {
++               // double check that this condition still holds.
++               if (Chunk.this.areNeighboursLoaded(2) && chunkMap.playerViewDistanceTickMap.getObjectsInRange(Chunk.this.coordinateKey) != null) {
++                  chunkProviderServer.registerTickingTicket(TicketType.field_219490_c, Chunk.this.field_212816_F, 31, Chunk.this.field_212816_F); // 31 -> entity ticking, TODO check on update
++               }
++            });
++         }
++      }
++
++      // this code handles the chunk sending
++      if (!areNeighboursLoaded(bitsetBefore, 1) && areNeighboursLoaded(bitsetAfter, 1)) {
++         if (chunkMap.playerViewDistanceBroadcastMap.getObjectsInRange(this.coordinateKey) != null) {
++            // now we're ready to send
++            chunkMap.field_219265_s.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219081_a(chunkMap.func_219220_a(this.coordinateKey), (() -> { // Copied frm PlayerChunkMap
++               // double check that this condition still holds.
++               if (!Chunk.this.areNeighboursLoaded(1)) {
++                  return;
++               }
++               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> inRange = chunkMap.playerViewDistanceBroadcastMap.getObjectsInRange(Chunk.this.coordinateKey);
++               if (inRange == null) {
++                  return;
++               }
++
++               // broadcast
++               Object[] backingSet = inRange.getBackingSet();
++               IPacket[] chunkPackets = new IPacket[10];
++               for (int index = 0, len = backingSet.length; index < len; ++index) {
++                  Object temp = backingSet[index];
++                  if (!(temp instanceof ServerPlayerEntity)) {
++                     continue;
++                  }
++                  ServerPlayerEntity player = (ServerPlayerEntity)temp;
++                  chunkMap.func_219180_a(player, chunkPackets, Chunk.this);
++               }
++            })));
++         }
++      }
++      // Paper end - no-tick view distance
++   }
++
++   public final boolean isAnyNeighborsLoaded() {
++      return neighbourChunksLoadedBitset != 0;
++   }
++   public final boolean areNeighboursLoaded(final int radius) {
++      return Chunk.areNeighboursLoaded(this.neighbourChunksLoadedBitset, radius);
++   }
++
++   public static boolean areNeighboursLoaded(final long bitset, final int radius) {
++      // index = relativeX + (relativeZ * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)) + (NEIGHBOUR_CACHE_RADIUS + NEIGHBOUR_CACHE_RADIUS * ((NEIGHBOUR_CACHE_RADIUS * 2 + 1)))
++      switch (radius) {
++         case 0: {
++            return (bitset & (1L << getNeighbourIndex(0, 0))) != 0;
++         }
++         case 1: {
++            long mask = 0L;
++            for (int dx = -1; dx <= 1; ++dx) {
++               for (int dz = -1; dz <= 1; ++dz) {
++                  mask |= (1L << getNeighbourIndex(dx, dz));
++               }
++            }
++            return (bitset & mask) == mask;
++         }
++         case 2: {
++            long mask = 0L;
++            for (int dx = -2; dx <= 2; ++dx) {
++               for (int dz = -2; dz <= 2; ++dz) {
++                  mask |= (1L << getNeighbourIndex(dx, dz));
++               }
++            }
++            return (bitset & mask) == mask;
++         }
++         case 3: {
++            long mask = 0L;
++            for (int dx = -3; dx <= 3; ++dx) {
++               for (int dz = -3; dz <= 3; ++dz) {
++                  mask |= (1L << getNeighbourIndex(dx, dz));
++               }
++            }
++            return (bitset & mask) == mask;
++         }
++
++         default:
++            throw new IllegalArgumentException("Radius not recognized: " + radius);
++      }
++   }
++   // Paper end
++
+    public Chunk(World p_i225780_1_, ChunkPos p_i225780_2_, BiomeContainer p_i225780_3_) {
+       this(p_i225780_1_, p_i225780_2_, p_i225780_3_, UpgradeData.field_196994_a, EmptyTickList.func_205388_a(), EmptyTickList.func_205388_a(), 0L, (ChunkSection[])null, (Consumer<Chunk>)null);
     }
  
     public Chunk(World p_i225781_1_, ChunkPos p_i225781_2_, BiomeContainer p_i225781_3_, UpgradeData p_i225781_4_, ITickList<Block> p_i225781_5_, ITickList<Fluid> p_i225781_6_, long p_i225781_7_, @Nullable ChunkSection[] p_i225781_9_, @Nullable Consumer<Chunk> p_i225781_10_) {
 +      super(Chunk.class);
        this.field_76645_j = new ClassInheritanceMultiMap[16];
        this.field_76637_e = p_i225781_1_;
-       this.field_212816_F = p_i225781_2_;
+-      this.field_212816_F = p_i225781_2_;
++      this.locX = p_i225781_2_.field_77276_a; this.locZ = p_i225781_2_.field_77275_b; // Paper - reduce need for field look ups
++      this.field_212816_F = p_i225781_2_; this.coordinateKey = ChunkPos.func_77272_a(locX, locZ); // Paper - cache long key
+       this.field_196967_n = p_i225781_4_;
+ 
+       for(Heightmap.Type heightmap$type : Heightmap.Type.values()) {
 @@ -119,7 +_,7 @@
              field_150817_t.warn("Could not set level chunk sections, array length is {} instead of {}", p_i225781_9_.length, this.field_76652_q.length);
           }

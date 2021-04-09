@@ -1,5 +1,249 @@
 --- a/net/minecraft/world/server/ChunkHolder.java
 +++ b/net/minecraft/world/server/ChunkHolder.java
+@@ -1,6 +_,8 @@
+ package net.minecraft.world.server;
+ 
++import com.destroystokyo.paper.util.MCUtil;
+ import com.mojang.datafixers.util.Either;
++import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+ import it.unimi.dsi.fastutil.shorts.ShortArraySet;
+ import it.unimi.dsi.fastutil.shorts.ShortSet;
+ import java.util.List;
+@@ -35,6 +_,7 @@
+ import net.minecraft.world.lighting.WorldLightManager;
+ import net.minecraftforge.api.distmarker.Dist;
+ import net.minecraftforge.api.distmarker.OnlyIn;
++import org.goldenforge.GoldenForge;
+ 
+ public class ChunkHolder {
+    public static final Either<IChunk, ChunkHolder.IChunkLoadingError> field_219306_a = Either.right(ChunkHolder.IChunkLoadingError.field_219055_b);
+@@ -44,14 +_,14 @@
+    private static final List<ChunkStatus> field_219310_e = ChunkStatus.func_222582_a();
+    private static final ChunkHolder.LocationType[] field_219311_f = ChunkHolder.LocationType.values();
+    private final AtomicReferenceArray<CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>>> field_219312_g = new AtomicReferenceArray<>(field_219310_e.size());
+-   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_222983_h = field_219309_d;
+-   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219313_h = field_219309_d;
+-   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219314_i = field_219309_d;
++   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_222983_h = field_219309_d; private int fullChunkCreateCount; private volatile boolean isFullChunkReady; // Paper - cache chunk ticking stage
++   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219313_h = field_219309_d; private volatile boolean isTickingReady; // Paper - cache chunk ticking stage
++   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219314_i = field_219309_d; private volatile boolean isEntityTickingReady; // Paper - cache chunk ticking stage
+    private CompletableFuture<IChunk> field_219315_j = CompletableFuture.completedFuture((IChunk)null);
+    private int field_219316_k;
+    private int field_219317_l;
+-   private int field_219318_m;
+-   private final ChunkPos field_219319_n;
++   volatile private int field_219318_m; public final int getCurrentPriority() { return field_219318_m; } // Paper - OBFHELPER - make volatile since this is concurrently accessed
++   public final ChunkPos field_219319_n;
+    private boolean field_244382_p;
+    private final ShortSet[] field_244383_q = new ShortSet[16];
+    private int field_219324_s;
+@@ -62,6 +_,198 @@
+    private boolean field_219329_x;
+    private boolean field_244384_x;
+ 
++   // Paper start
++   // optimise isOutsideOfRange
++   private final ChunkManager chunkMap; // Paper
++   public ServerWorld getWorld() { return chunkMap.field_219255_i; } // Paper
++   com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> playersInMobSpawnRange;
++   com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> playersInChunkTickRange;
++
++   void updateRanges() {
++      long key = MCUtil.getCoordinateKey(this.field_219319_n);
++      this.playersInMobSpawnRange = this.chunkMap.playerMobSpawnMap.getObjectsInRange(key);
++      this.playersInChunkTickRange = this.chunkMap.playerChunkTickRangeMap.getObjectsInRange(key);
++   }
++   // end - optimise isOutsideOfRange
++   // optimize chunk status progression without jumping through thread pool
++   public boolean canAdvanceStatus() {
++      ChunkStatus status = getChunkHolderStatus();
++      IChunk chunk = getAvailableChunkNow();
++      return chunk != null && (status == null || chunk.func_201589_g().func_209003_a(getNextStatus(status)));
++   }
++   // end - optimize chunk status progression without jumping through thread pool
++   // no-tick view distance
++   public final Chunk getSendingChunk() {
++      // it's important that we use getChunkAtIfLoadedImmediately to mirror the chunk sending logic used
++      // in Chunk's neighbour callback
++      Chunk ret = this.chunkMap.field_219255_i.func_72863_F().getChunkAtIfLoadedImmediately(this.field_219319_n.field_77276_a, this.field_219319_n.field_77275_b);
++      if (ret != null && ret.areNeighboursLoaded(1)) {
++         return ret;
++      }
++      return null;
++   }
++   // end - no-tick view distance
++   // Chunk gen/load priority system
++   volatile int neighborPriority = -1;
++   volatile int priorityBoost = 0;
++   public final java.util.concurrent.ConcurrentHashMap<ChunkHolder, ChunkStatus> neighbors = new java.util.concurrent.ConcurrentHashMap<>();
++   public final Long2ObjectOpenHashMap<Integer> neighborPriorities = new Long2ObjectOpenHashMap<>();
++
++   private int getDemandedPriority() {
++      int priority = neighborPriority; // if we have a neighbor priority, use it
++      int myPriority = getMyPriority();
++
++      if (priority == -1 || (field_219317_l <= 33 && priority > myPriority)) {
++         priority = myPriority;
++      }
++
++      return Math.max(1, Math.min(Math.max(field_219317_l, ChunkManager.field_219249_a), priority));
++   }
++
++   private int getMyPriority() {
++      if (priorityBoost == TicketManager.URGENT_PRIORITY) {
++         return 2; // Urgent - ticket level isn't always 31 so 33-30 = 3, but allow 1 more tasks to go below this for dependents
++      }
++      return field_219317_l - priorityBoost;
++   }
++
++   private int getNeighborsPriority() {
++      return (neighborPriorities.isEmpty() ? getMyPriority() : getDemandedPriority()) + 1;
++   }
++
++   public void onNeighborRequest(ChunkHolder neighbor, ChunkStatus status) {
++      neighbor.setNeighborPriority(this, getNeighborsPriority());
++      this.neighbors.compute(neighbor, (playerChunk, currentWantedStatus) -> {
++         if (currentWantedStatus == null || !currentWantedStatus.func_209003_a(status)) {
++            //System.out.println(this + " request " + neighbor + " at " + status + " currently " + currentWantedStatus);
++            return status;
++         } else {
++            //System.out.println(this + " requested " + neighbor + " at " + status + " but thats lower than other wanted status " + currentWantedStatus);
++            return currentWantedStatus;
++         }
++      });
++
++   }
++
++   public void onNeighborDone(ChunkHolder neighbor, ChunkStatus chunkstatus, IChunk chunk) {
++      this.neighbors.compute(neighbor, (playerChunk, wantedStatus) -> {
++         if (wantedStatus != null && chunkstatus.func_209003_a(wantedStatus)) {
++            //System.out.println(this + " neighbor done at " + neighbor + " for status " + chunkstatus + " wanted " + wantedStatus);
++            neighbor.removeNeighborPriority(this);
++            return null;
++         } else {
++            //System.out.println(this + " neighbor finished our previous request at " + neighbor + " for status " + chunkstatus + " but we now want instead " + wantedStatus);
++            return wantedStatus;
++         }
++      });
++   }
++
++   private void removeNeighborPriority(ChunkHolder requester) {
++      synchronized (neighborPriorities) {
++         neighborPriorities.remove(requester.field_219319_n.func_201841_a());
++         recalcNeighborPriority();
++      }
++      checkPriority();
++   }
++
++
++   private void setNeighborPriority(ChunkHolder requester, int priority) {
++      synchronized (neighborPriorities) {
++         neighborPriorities.put(requester.field_219319_n.func_201841_a(), Integer.valueOf(priority));
++         recalcNeighborPriority();
++      }
++      checkPriority();
++   }
++
++   private void recalcNeighborPriority() {
++      neighborPriority = -1;
++      if (!neighborPriorities.isEmpty()) {
++         synchronized (neighborPriorities) {
++            for (Integer neighbor : neighborPriorities.values()) {
++               if (neighbor < neighborPriority || neighborPriority == -1) {
++                  neighborPriority = neighbor;
++               }
++            }
++         }
++      }
++   }
++   private void checkPriority() {
++      GoldenForge.LOGGER.warn("checkPriority() is not implemented yet!");
++      //if (getCurrentPriority() != getDemandedPriority()) this.chunkMap.queueHolderUpdate(this);
++   }
++
++   public final double getDistance(ServerPlayerEntity player) {
++      return getDistance(player.func_226277_ct_(), player.func_226281_cx_());
++   }
++   public final double getDistance(double blockX, double blockZ) {
++      int cx = MCUtil.fastFloor(blockX) >> 4;
++      int cz = MCUtil.fastFloor(blockZ) >> 4;
++      final double x = field_219319_n.field_77276_a - cx;
++      final double z = field_219319_n.field_77275_b - cz;
++      return (x * x) + (z * z);
++   }
++
++   public final double getDistanceFrom(BlockPos pos) {
++      return getDistance(pos.func_177958_n(), pos.func_177952_p());
++   }
++
++   @Override
++   public String toString() {
++      return "ChunkHolder{" +
++              "pos=" + field_219319_n +
++              ", ticketLevel=" + field_219317_l + "/" + func_219278_b(this.field_219317_l) +
++              ", chunkHolderStatus=" + getChunkHolderStatus() +
++              ", neighborPriority=" + getNeighborsPriority() +
++              ", priority=(" + field_219317_l + " - " + priorityBoost +" vs N " + neighborPriority + ") = " + getDemandedPriority() + " A " + getCurrentPriority() +
++              '}';
++   }
++
++   // Paper start - "real" get full chunk immediately
++   public final Chunk getFullChunkIfCached() {
++      // Note: Copied from above without ticket level check
++      CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> statusFuture = this.func_219301_a(ChunkStatus.field_222617_m);
++      Either<IChunk, ChunkHolder.IChunkLoadingError> either = (Either<IChunk, ChunkHolder.IChunkLoadingError>) statusFuture.getNow(null);
++      return either == null ? null : (Chunk) either.left().orElse(null);
++   }
++
++   public IChunk getAvailableChunkNow() {
++      // TODO can we just getStatusFuture(EMPTY)?
++      for (ChunkStatus curr = ChunkStatus.field_222617_m, next = curr.func_222593_e(); curr != next; curr = next, next = next.func_222593_e()) {
++         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.func_219301_a(curr);
++         Either<IChunk, ChunkHolder.IChunkLoadingError> either = future.getNow(null);
++         if (either == null || !either.left().isPresent()) {
++            continue;
++         }
++         return either.left().get();
++      }
++      return null;
++   }
++
++   public ChunkStatus getChunkHolderStatus() {
++      for (ChunkStatus curr = ChunkStatus.field_222617_m, next = curr.func_222593_e(); curr != next; curr = next, next = next.func_222593_e()) {
++         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.func_219301_a(curr);
++         Either<IChunk, ChunkHolder.IChunkLoadingError> either = future.getNow(null);
++         if (either == null || !either.left().isPresent()) {
++            continue;
++         }
++         return curr;
++      }
++      return null;
++   }
++   public static ChunkStatus getNextStatus(ChunkStatus status) {
++      if (status == ChunkStatus.field_222617_m) {
++         return status;
++      }
++      return field_219310_e.get(status.func_222584_c() + 1);
++   }
++   public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> getStatusFutureUncheckedMain(ChunkStatus chunkstatus) {
++      return ensureMain(func_219301_a(chunkstatus));
++   }
++   public <T> CompletableFuture<T> ensureMain(CompletableFuture<T> future) {
++      return future.thenApplyAsync(r -> r, chunkMap.mainInvokingExecutor);
++   }
++   // Paper end
++
+    public ChunkHolder(ChunkPos p_i50716_1_, int p_i50716_2_, WorldLightManager p_i50716_3_, ChunkHolder.IListener p_i50716_4_, ChunkHolder.IPlayerProvider p_i50716_5_) {
+       this.field_219319_n = p_i50716_1_;
+       this.field_219326_u = p_i50716_3_;
+@@ -71,6 +_,7 @@
+       this.field_219317_l = this.field_219316_k;
+       this.field_219318_m = this.field_219316_k;
+       this.func_219292_a(p_i50716_2_);
++      this.chunkMap = (ChunkManager) p_i50716_5_; // Paper
+    }
+ 
+    public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_219301_a(ChunkStatus p_219301_1_) {
 @@ -204,7 +_,7 @@
     }
  

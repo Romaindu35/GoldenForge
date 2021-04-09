@@ -11,7 +11,7 @@ public class GoldenForgeEntryPoint {
         Metrics metrics = new Metrics(pluginId);
 
         // Optional: Add custom charts
-        metrics.addCustomChart(new Metrics.SingleLineChart("Mods counts", () -> ModList.get().getMods().size()));
+        //metrics.addCustomChart(new Metrics.SingleLineChart("Mods counts", () -> ModList.get().getMods().size()));
 
     }
 }

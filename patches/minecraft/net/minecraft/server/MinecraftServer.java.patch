@@ -22,6 +22,15 @@
     public static final File field_152367_a = new File("usercache.json");
     public static final WorldSettings field_213219_c = new WorldSettings("Demo World", GameType.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), DatapackCodec.field_234880_a_);
     protected final SaveFormat.LevelSave field_71310_m;
+@@ -204,7 +_,7 @@
+    private final GameProfileRepository field_152365_W;
+    private final PlayerProfileCache field_152366_X;
+    private long field_147142_T;
+-   private final Thread field_175590_aa;
++   public final Thread field_175590_aa;
+    protected long field_211151_aa = Util.func_211177_b();
+    private long field_213213_ab;
+    private boolean field_213214_ac;
 @@ -226,9 +_,78 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;

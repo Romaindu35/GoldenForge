@@ -26,4 +26,8 @@ public class GoldenForge {
     public static final boolean isEnabled() {
         return true;
     }
+
+    public static boolean isPrimaryThread() {
+        return Thread.currentThread().equals(MinecraftServer.getServer().serverThread); /*|| Thread.currentThread().equals(net.minecraft.server.MinecraftServer.getServer().shutdownThread*/ // Paper - Fix issues with detecting main thread properly, the only time Watchdog will be used is during a crash shutdown which is a "try our best" scenario
+    }
 }

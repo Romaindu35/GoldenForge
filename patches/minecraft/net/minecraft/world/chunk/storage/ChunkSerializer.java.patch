@@ -1,6 +1,21 @@
 --- a/net/minecraft/world/chunk/storage/ChunkSerializer.java
 +++ b/net/minecraft/world/chunk/storage/ChunkSerializer.java
-@@ -58,6 +_,17 @@
+@@ -4,12 +_,8 @@
+ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+ import it.unimi.dsi.fastutil.longs.LongSet;
+ import it.unimi.dsi.fastutil.shorts.ShortList;
+-import java.util.Arrays;
+-import java.util.BitSet;
+-import java.util.EnumSet;
+-import java.util.Locale;
+-import java.util.Map;
+-import java.util.Objects;
++
++import java.util.*;
+ import java.util.Map.Entry;
+ import javax.annotation.Nullable;
+ import net.minecraft.block.Block;
+@@ -58,6 +_,36 @@
  public class ChunkSerializer {
     private static final Logger field_222658_a = LogManager.getLogger();
  
@@ -12,6 +27,25 @@
 +
 +      // Note: Copied from below
 +      return ChunkStatus.getStatus(compound.func_74775_l("Level").func_74779_i("Status"));
++   }
++
++   // TODO Note: This needs to be re-checked each update
++   public static ChunkPos getChunkCoordinate(CompoundNBT chunkData) {
++      CompoundNBT levelData = chunkData.func_74775_l("Level");
++      return new ChunkPos(levelData.func_74762_e("xPos"), levelData.func_74762_e("zPos"));
++   }
++
++   public static final class InProgressChunkHolder {
++
++      public final ChunkPrimer protoChunk;
++      public final ArrayDeque<Runnable> tasks;
++
++      public CompoundNBT poiData;
++
++      public InProgressChunkHolder(final ChunkPrimer protoChunk, final ArrayDeque<Runnable> tasks) {
++         this.protoChunk = protoChunk;
++         this.tasks = tasks;
++      }
 +   }
 +   // Paper end
 +

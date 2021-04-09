@@ -3,15 +3,11 @@ package org.goldenforge.metrics;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.apache.logging.log4j.Level;
+import org.bspfsystems.yamlconfiguration.configuration.InvalidConfigurationException;
 import org.bspfsystems.yamlconfiguration.file.YamlConfiguration;
 import org.goldenforge.GoldenForge;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 import javax.net.ssl.HttpsURLConnection;
@@ -48,7 +45,13 @@ public class Metrics {
         File bStatsFolder = new File(FMLPaths.GFDIR.get().toString(), "bStats");
         bStatsFolder.mkdirs();
         File configFile = new File(bStatsFolder, "config.yml");
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+        final YamlConfiguration config = new YamlConfiguration();
+        try {
+            config.load(configFile);
+        } catch (FileNotFoundException ex) {
+        } catch (IOException | InvalidConfigurationException ex) {
+            GoldenForge.LOGGER.log(Level.FATAL, "Cannot load " + configFile, ex);
+        }
         if (!config.isSet("serverUuid")) {
             config.addDefault("enabled", true);
             config.addDefault("serverUuid", UUID.randomUUID().toString());

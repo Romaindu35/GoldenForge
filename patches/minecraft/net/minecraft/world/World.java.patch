@@ -30,7 +30,7 @@
     private final Thread field_217407_c;
     private final boolean field_234916_c_;
     private int field_73008_k;
-@@ -92,8 +_,19 @@
+@@ -92,8 +_,24 @@
     private final WorldBorder field_175728_M;
     private final BiomeManager field_226689_w_;
     private final RegistryKey<World> field_73011_w;
@@ -38,10 +38,15 @@
 +   public boolean captureBlockSnapshots = false;
 +   public java.util.ArrayList<net.minecraftforge.common.util.BlockSnapshot> capturedBlockSnapshots = new java.util.ArrayList<>();
 +
-+   //GoldenForge start"connection")
++   //GoldenForge start
 +   public final Map<Explosion.CacheKey, Float> explosionDensityCache = new HashMap<>(); // Paper - Optimize explosions
 +   public final org.spigotmc.SpigotWorldConfig spigotConfig; // Spigot
 +   public final com.destroystokyo.paper.PaperWorldConfig paperConfig; // Paper
++
++   public int wakeupInactiveRemainingAnimals;
++   public int wakeupInactiveRemainingFlying;
++   public int wakeupInactiveRemainingMonsters;
++   public int wakeupInactiveRemainingVillagers;
  
     protected World(ISpawnWorldInfo p_i241925_1_, RegistryKey<World> p_i241925_2_, final DimensionType p_i241925_3_, Supplier<IProfiler> p_i241925_4_, boolean p_i241925_5_, boolean p_i241925_6_, long p_i241925_7_) {
 +      super(World.class);

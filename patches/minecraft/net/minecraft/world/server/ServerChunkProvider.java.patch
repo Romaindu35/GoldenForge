@@ -1,5 +1,249 @@
 --- a/net/minecraft/world/server/ServerChunkProvider.java
 +++ b/net/minecraft/world/server/ServerChunkProvider.java
+@@ -17,6 +_,8 @@
+ import java.util.function.Function;
+ import java.util.function.Supplier;
+ import javax.annotation.Nullable;
++
++import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.network.IPacket;
+@@ -53,7 +_,7 @@
+    public final ServerWorld field_73251_h;
+    private final Thread field_217241_g;
+    private final ServerWorldLightManager field_217242_h;
+-   private final ServerChunkProvider.ChunkExecutor field_217243_i;
++   public final ServerChunkProvider.ChunkExecutor field_217243_i;
+    public final ChunkManager field_217237_a;
+    private final DimensionSavedDataManager field_217244_j;
+    private long field_217245_k;
+@@ -65,6 +_,214 @@
+    @Nullable
+    private WorldEntitySpawner.EntityDensityManager field_241097_p_;
+ 
++   // Paper start
++   final com.destroystokyo.paper.util.concurrent.WeakSeqLock loadedChunkMapSeqLock = new com.destroystokyo.paper.util.concurrent.WeakSeqLock();
++   final Long2ObjectOpenHashMap<Chunk> loadedChunkMap = new Long2ObjectOpenHashMap<>(8192, 0.5f);
++
++   private final Chunk[] lastLoadedChunks = new Chunk[4 * 4];
++
++   private static int getChunkCacheKey(int x, int z) {
++      return x & 3 | ((z & 3) << 2);
++   }
++
++   public void addLoadedChunk(Chunk chunk) {
++      this.loadedChunkMapSeqLock.acquireWrite();
++      try {
++         this.loadedChunkMap.put(chunk.coordinateKey, chunk);
++      } finally {
++         this.loadedChunkMapSeqLock.releaseWrite();
++      }
++
++      // rewrite cache if we have to
++      // we do this since we also cache null chunks
++      int cacheKey = getChunkCacheKey(chunk.locX, chunk.locZ);
++
++      this.lastLoadedChunks[cacheKey] = chunk;
++   }
++
++   public void removeLoadedChunk(Chunk chunk) {
++      this.loadedChunkMapSeqLock.acquireWrite();
++      try {
++         this.loadedChunkMap.remove(chunk.coordinateKey);
++      } finally {
++         this.loadedChunkMapSeqLock.releaseWrite();
++      }
++
++      // rewrite cache if we have to
++      // we do this since we also cache null chunks
++      int cacheKey = getChunkCacheKey(chunk.locX, chunk.locZ);
++
++      Chunk cachedChunk = this.lastLoadedChunks[cacheKey];
++      if (cachedChunk != null && cachedChunk.coordinateKey == chunk.coordinateKey) {
++         this.lastLoadedChunks[cacheKey] = null;
++      }
++   }
++
++   public final Chunk getChunkAtIfLoadedMainThread(int x, int z) {
++      int cacheKey = getChunkCacheKey(x, z);
++
++      Chunk cachedChunk = this.lastLoadedChunks[cacheKey];
++      if (cachedChunk != null && cachedChunk.locX == x & cachedChunk.locZ == z) {
++         return this.lastLoadedChunks[cacheKey];
++      }
++
++      long chunkKey = ChunkPos.func_77272_a(x, z);
++
++      cachedChunk = this.loadedChunkMap.get(chunkKey);
++      // Skipping a null check to avoid extra instructions to improve inline capability
++      this.lastLoadedChunks[cacheKey] = cachedChunk;
++      return cachedChunk;
++   }
++
++   public final Chunk getChunkAtIfLoadedMainThreadNoCache(int x, int z) {
++      return this.loadedChunkMap.get(ChunkPos.func_77272_a(x, z));
++   }
++
++   public final Chunk getChunkAtMainThread(int x, int z) {
++      Chunk ret = this.getChunkAtIfLoadedMainThread(x, z);
++      if (ret != null) {
++         return ret;
++      }
++      return (Chunk)this.func_212849_a_(x, z, ChunkStatus.field_222617_m, true);
++   }
++
++   private long chunkFutureAwaitCounter;
++
++   public void getEntityTickingChunkAsync(int x, int z, java.util.function.Consumer<Chunk> onLoad) {
++      if (Thread.currentThread() != this.field_217241_g) {
++         this.field_217243_i.execute(() -> {
++            ServerChunkProvider.this.getEntityTickingChunkAsync(x, z, onLoad);
++         });
++         return;
++      }
++      this.getChunkFutureAsynchronously(x, z, 31, ChunkHolder::func_219297_b, onLoad);
++   }
++
++   public void getTickingChunkAsync(int x, int z, java.util.function.Consumer<Chunk> onLoad) {
++      if (Thread.currentThread() != this.field_217241_g) {
++         this.field_217243_i.execute(() -> {
++            ServerChunkProvider.this.getTickingChunkAsync(x, z, onLoad);
++         });
++         return;
++      }
++      this.getChunkFutureAsynchronously(x, z, 32, ChunkHolder::func_219296_a, onLoad);
++   }
++
++   public void getFullChunkAsync(int x, int z, java.util.function.Consumer<Chunk> onLoad) {
++      if (Thread.currentThread() != this.field_217241_g) {
++         this.field_217243_i.execute(() -> {
++            ServerChunkProvider.this.getFullChunkAsync(x, z, onLoad);
++         });
++         return;
++      }
++      this.getChunkFutureAsynchronously(x, z, 33, ChunkHolder::func_223492_c, onLoad);
++   }
++
++   private void getChunkFutureAsynchronously(int x, int z, int ticketLevel, Function<ChunkHolder, CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>>> futureGet, java.util.function.Consumer<Chunk> onLoad) {
++      if (Thread.currentThread() != this.field_217241_g) {
++         throw new IllegalStateException();
++      }
++      ChunkPos chunkPos = new ChunkPos(x, z);
++      Long identifier = this.chunkFutureAwaitCounter++;
++      this.field_217240_d.registerTicking(TicketType.FUTURE_AWAIT, chunkPos, ticketLevel, identifier);
++      this.func_217235_l();
++
++      ChunkHolder chunk = this.field_217237_a.func_219220_a(chunkPos.func_201841_a());
++
++      if (chunk == null) {
++         throw new IllegalStateException("Expected playerchunk " + chunkPos + " in world '" + this.field_73251_h.func_234923_W_().func_240901_a_() + "'");
++      }
++
++      CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> future = futureGet.apply(chunk);
++
++      future.whenCompleteAsync((either, throwable) -> {
++         try {
++            if (throwable != null) {
++               if (throwable instanceof ThreadDeath) {
++                  throw (ThreadDeath)throwable;
++               }
++               net.minecraft.server.MinecraftServer.field_147145_h.fatal("Failed to complete future await for chunk " + chunkPos.toString() + " in world '" + ServerChunkProvider.this.field_73251_h.func_234923_W_().func_240901_a_() + "'", throwable);
++            } else if (either.right().isPresent()) {
++               net.minecraft.server.MinecraftServer.field_147145_h.fatal("Failed to complete future await for chunk " + chunkPos.toString() + " in world '" + ServerChunkProvider.this.field_73251_h.func_234923_W_().func_240901_a_() + "': " + either.right().get().toString());
++            }
++
++            try {
++               if (onLoad != null) {
++                  field_217237_a.callbackExecutor.execute(() -> {
++                     onLoad.accept(either == null ? null : either.left().orElse(null)); // indicate failure to the callback.
++                  });
++               }
++            } catch (Throwable thr) {
++               if (thr instanceof ThreadDeath) {
++                  throw (ThreadDeath)thr;
++               }
++               net.minecraft.server.MinecraftServer.field_147145_h.fatal("Load callback for future await failed " + chunkPos.toString() + " in world '" + ServerChunkProvider.this.field_73251_h.func_234923_W_().func_240901_a_() + "'", thr);
++               return;
++            }
++         } finally {
++            // due to odd behaviour with CB unload implementation we need to have these AFTER the load callback.
++            ServerChunkProvider.this.field_217240_d.registerTicking(TicketType.field_219494_g, chunkPos, ticketLevel, chunkPos);
++            ServerChunkProvider.this.field_217240_d.releaseTicking(TicketType.FUTURE_AWAIT, chunkPos, ticketLevel, identifier);
++         }
++      }, this.field_217243_i);
++   }
++
++   @Nullable
++   public Chunk getChunkAtIfCachedImmediately(int x, int z) {
++      long k = ChunkPos.func_77272_a(x, z);
++
++      // Note: Bypass cache since we need to check ticket level, and to make this MT-Safe
++
++      ChunkHolder playerChunk = this.func_217213_a(k);
++      if (playerChunk == null) {
++         return null;
++      }
++
++      return playerChunk.getFullChunkIfCached();
++   }
++
++   @Nullable
++   public Chunk getChunkAtIfLoadedImmediately(int x, int z) {
++      long k = ChunkPos.func_77272_a(x, z);
++
++      if (Thread.currentThread() == this.field_217241_g) {
++         return this.getChunkAtIfLoadedMainThread(x, z);
++      }
++
++      Chunk ret = null;
++      long readlock;
++      do {
++         readlock = this.loadedChunkMapSeqLock.acquireRead();
++         try {
++            ret = this.loadedChunkMap.get(k);
++         } catch (Throwable thr) {
++            if (thr instanceof ThreadDeath) {
++               throw (ThreadDeath)thr;
++            }
++            // re-try, this means a CME occurred...
++            continue;
++         }
++      } while (!this.loadedChunkMapSeqLock.tryReleaseRead(readlock));
++
++      return ret;
++   }
++
++   @Nullable
++   public IChunk getChunkAtImmediately(int x, int z) {
++      long k = ChunkPos.func_77272_a(x, z);
++
++      // Note: Bypass cache to make this MT-Safe
++
++      ChunkHolder playerChunk = this.func_217213_a(k);
++      if (playerChunk == null) {
++         return null;
++      }
++
++      return playerChunk.getAvailableChunkNow();
++
++   }
++   // Paper end
++
+    public ServerChunkProvider(ServerWorld p_i232603_1_, SaveFormat.LevelSave p_i232603_2_, DataFixer p_i232603_3_, TemplateManager p_i232603_4_, Executor p_i232603_5_, ChunkGenerator p_i232603_6_, int p_i232603_7_, boolean p_i232603_8_, IChunkStatusListener p_i232603_9_, Supplier<DimensionSavedDataManager> p_i232603_10_) {
+       this.field_73251_h = p_i232603_1_;
+       this.field_217243_i = new ServerChunkProvider.ChunkExecutor(p_i232603_1_);
+@@ -105,6 +_,10 @@
+       this.field_222877_p[0] = p_225315_3_;
+    }
+ 
++   public void clearPriorityTickets(ChunkPos coords) {
++      this.field_217240_d.clearPriorityTickets(coords);
++   }
++
+    @Nullable
+    public IChunk func_212849_a_(int p_212849_1_, int p_212849_2_, ChunkStatus p_212849_3_, boolean p_212849_4_) {
+       if (Thread.currentThread() != this.field_217241_g) {
 @@ -353,7 +_,7 @@
                 if (optional1.isPresent()) {
                    Chunk chunk = optional1.get();
@@ -9,18 +253,60 @@
                       chunk.func_177415_c(chunk.func_177416_w() + j);
                       if (flag1 && (this.field_217246_l || this.field_217247_m) && this.field_73251_h.func_175723_af().func_177730_a(chunk.func_76632_l())) {
                          WorldEntitySpawner.func_234979_a_(this.field_73251_h, chunk, worldentityspawner$entitydensitymanager, this.field_217247_m, this.field_217246_l, flag2);
-@@ -427,6 +_,14 @@
- 
-    public <T> void func_217222_b(TicketType<T> p_217222_1_, ChunkPos p_217222_2_, int p_217222_3_, T p_217222_4_) {
+@@ -429,6 +_,14 @@
        this.field_217240_d.func_219362_d(p_217222_1_, p_217222_2_, p_217222_3_, p_217222_4_);
-+   }
-+
+    }
+ 
 +   public <T> void registerTickingTicket(TicketType<T> type, ChunkPos pos, int distance, T value) {
 +      this.field_217240_d.registerTicking(type, pos, distance, value);
 +   }
 +
 +   public <T> void releaseTickingTicket(TicketType<T> type, ChunkPos pos, int distance, T value) {
 +      this.field_217240_d.releaseTicking(type, pos, distance, value);
++   }
++
+    public void func_217206_a(ChunkPos p_217206_1_, boolean p_217206_2_) {
+       this.field_217240_d.func_219364_a(p_217206_1_, p_217206_2_);
+    }
+@@ -480,7 +_,7 @@
+       return this.field_241097_p_;
     }
  
-    public void func_217206_a(ChunkPos p_217206_1_, boolean p_217206_2_) {
+-   final class ChunkExecutor extends ThreadTaskExecutor<Runnable> {
++   public final class ChunkExecutor extends ThreadTaskExecutor<Runnable> {
+       private ChunkExecutor(World p_i50985_2_) {
+          super("Chunk source main thread executor for " + p_i50985_2_.func_234923_W_().func_240901_a_());
+       }
+@@ -507,12 +_,26 @@
+       }
+ 
+       protected boolean func_213168_p() {
+-         if (ServerChunkProvider.this.func_217235_l()) {
+-            return true;
+-         } else {
+-            ServerChunkProvider.this.field_217242_h.func_215588_z_();
+-            return super.func_213168_p();
+-         }
++            // CraftBukkit start - process pending Chunk loadCallback() and unloadCallback() after each run task
++            try {
++               //boolean execChunkTask = com.destroystokyo.paper.io.chunk.ChunkTaskManager.pollChunkWaitQueue() || ChunkProviderServer.this.world.asyncChunkTaskManager.pollNextChunkTask(); // Paper
++               if (ServerChunkProvider.this.func_217235_l()) {
++                  return true;
++               } else {
++                  //ServerChunkProvider.this.lightEngine.queueUpdate(); // Paper -
++                  return super.func_213168_p(); //|| execChunkTask; // Paper
++               }
++            } finally {
++               field_217237_a.chunkLoadConversionCallbackExecutor.run(); // Paper - Add chunk load conversion callback executor to prevent deadlock due to recursion in the chunk task queue sorter
++               field_217237_a.callbackExecutor.run();
++            }
++            // CraftBukkit end
++//         if (ServerChunkProvider.this.runDistanceManagerUpdates()) {
++//            return true;
++//         } else {
++//            ServerChunkProvider.this.lightEngine.tryScheduleUpdate();
++//            return super.pollTask();
++//         }
+       }
+    }
+ }
