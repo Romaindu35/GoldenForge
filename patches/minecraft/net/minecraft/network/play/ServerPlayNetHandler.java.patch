@@ -480,7 +480,7 @@
        field_147370_c.info("{} lost connection: {}", this.field_147369_b.func_200200_C_().getString(), p_147231_1_.getString());
        this.field_147367_d.func_147132_au();
        this.field_147367_d.func_184103_al().func_232641_a_((new TranslationTextComponent("multiplayer.player.left", this.field_147369_b.func_145748_c_())).func_240699_a_(TextFormatting.YELLOW), ChatType.SYSTEM, Util.field_240973_b_);
-@@ -1067,10 +_,15 @@
+@@ -1067,16 +_,22 @@
           this.field_147369_b.func_143004_u();
        } else {
           field_147370_c.warn("{} tried to set an invalid carried item", (Object)this.field_147369_b.func_200200_C_().getString());
@@ -496,13 +496,20 @@
        String s = org.apache.commons.lang3.StringUtils.normalizeSpace(p_147354_1_.func_149439_c());
        if (s.startsWith("/")) {
           PacketThreadUtil.func_218796_a(p_147354_1_, this, this.field_147369_b.func_71121_q());
-@@ -1087,29 +_,101 @@
+          this.func_244548_c(s);
+       } else {
+-         this.func_244535_a(s, this::func_244548_c);
++         //this.filterTextPacket(s, this::handleChat);
++         this.func_244548_c(s);
+       }
+ 
+    }
+@@ -1087,29 +_,100 @@
        } else {
           this.field_147369_b.func_143004_u();
  
 -         for(int i = 0; i < p_244548_1_.length(); ++i) {
 +         boolean isSync = p_244548_1_.startsWith("/"); // CraftBukkit
-+
 +         for (int i = 0; i < p_244548_1_.length(); ++i) {
              if (!SharedConstants.func_71566_a(p_244548_1_.charAt(i))) {
 -               this.func_194028_b(new TranslationTextComponent("multiplayer.disconnect.illegal_characters"));
