@@ -112,7 +112,14 @@
           atomicreference.get().func_240802_v_();
        }, "Server thread");
        thread.setUncaughtExceptionHandler((p_240779_0_, p_240779_1_) -> {
-@@ -242,6 +_,7 @@
+@@ -236,12 +_,14 @@
+       });
+       S s = p_240784_0_.apply(thread);
+       atomicreference.set(s);
++      thread.setPriority(Thread.NORM_PRIORITY+2); // Paper - boost priority
+       thread.start();
+       return s;
+    }
  
     public MinecraftServer(Thread p_i232576_1_, DynamicRegistries.Impl p_i232576_2_, SaveFormat.LevelSave p_i232576_3_, IServerConfiguration p_i232576_4_, ResourcePackList p_i232576_5_, Proxy p_i232576_6_, DataFixer p_i232576_7_, DataPackRegistries p_i232576_8_, MinecraftSessionService p_i232576_9_, GameProfileRepository p_i232576_10_, PlayerProfileCache p_i232576_11_, IChunkStatusListenerFactory p_i232576_12_) {
        super("Server");
@@ -120,6 +127,14 @@
        this.field_240767_f_ = p_i232576_2_;
        this.field_240768_i_ = p_i232576_4_;
        this.field_110456_c = p_i232576_6_;
+@@ -308,6 +_,7 @@
+       this.func_240787_a_(ichunkstatuslistener);
+       this.func_230543_p_();
+       this.func_213186_a(ichunkstatuslistener);
++      this.field_147144_o.acceptConnections();
+    }
+ 
+    protected void func_230543_p_() {
 @@ -376,6 +_,7 @@
              worldborder.func_177737_a(new IBorderListener.Impl(serverworld1.func_175723_af()));
              this.field_71305_c.put(registrykey1, serverworld1);

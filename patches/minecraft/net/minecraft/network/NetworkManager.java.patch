@@ -29,11 +29,14 @@
  
     public NetworkManager(PacketDirection p_i46004_1_) {
        this.field_179294_g = p_i46004_1_;
-@@ -83,6 +_,7 @@
+@@ -83,6 +_,10 @@
        super.channelActive(p_channelActive_1_);
        this.field_150746_k = p_channelActive_1_.channel();
        this.field_150743_l = this.field_150746_k.remoteAddress();
 +      if (activationHandler != null) activationHandler.accept(this);
++      // Spigot Start
++      this.preparing = false;
++      // Spigot End
  
        try {
           this.func_150723_a(ProtocolType.HANDSHAKING);
