@@ -277,7 +277,7 @@
        private ChunkExecutor(World p_i50985_2_) {
           super("Chunk source main thread executor for " + p_i50985_2_.func_234923_W_().func_240901_a_());
        }
-@@ -507,12 +_,26 @@
+@@ -507,12 +_,27 @@
        }
  
        protected boolean func_213168_p() {
@@ -293,6 +293,7 @@
 +               if (ServerChunkProvider.this.func_217235_l()) {
 +                  return true;
 +               } else {
++                  ServerChunkProvider.this.field_217242_h.func_215588_z_();
 +                  //ServerChunkProvider.this.lightEngine.queueUpdate(); // Paper -
 +                  return super.func_213168_p(); //|| execChunkTask; // Paper
 +               }

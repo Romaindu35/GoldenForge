@@ -30,7 +30,7 @@
     private static final Logger field_150817_t = LogManager.getLogger();
     @Nullable
     public static final ChunkSection field_186036_a = null;
-@@ -84,17 +_,166 @@
+@@ -84,17 +_,207 @@
     private Supplier<ChunkHolder.LocationType> field_217329_u;
     @Nullable
     private Consumer<Chunk> field_217330_v;
@@ -184,6 +184,47 @@
 +      }
 +   }
 +   // Paper end
++
++   public void loadCallback() {
++      // Paper start - neighbour cache
++      int chunkX = this.field_212816_F.field_77276_a;
++      int chunkZ = this.field_212816_F.field_77275_b;
++      ServerChunkProvider chunkProvider = ((ServerWorld)this.field_76637_e).func_72863_F();
++      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
++         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
++            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
++            if (neighbour != null) {
++               neighbour.setNeighbourLoaded(-dx, -dz, this);
++               // should be in cached already
++               this.setNeighbourLoaded(dx, dz, neighbour);
++            }
++         }
++      }
++      this.setNeighbourLoaded(0, 0, this);
++      this.loadedTicketLevel = true;
++      // Paper end - neighbour cache
++      ((ServerWorld)this.field_76637_e).func_72863_F().addLoadedChunk(this); // Paper
++   }
++
++   public void unloadCallback() {
++      ((ServerWorld)this.field_76637_e).func_72863_F().removeLoadedChunk(this); // Paper
++
++      // Paper start - neighbour cache
++      int chunkX = this.field_212816_F.field_77276_a;
++      int chunkZ = this.field_212816_F.field_77275_b;
++      ServerChunkProvider chunkProvider = ((ServerWorld)this.field_76637_e).func_72863_F();
++      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
++         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
++            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
++            if (neighbour != null) {
++               neighbour.setNeighbourUnloaded(-dx, -dz);
++            }
++         }
++      }
++      this.loadedTicketLevel = false;
++      this.resetNeighbours();
++      // Paper end
++   }
 +
     public Chunk(World p_i225780_1_, ChunkPos p_i225780_2_, BiomeContainer p_i225780_3_) {
        this(p_i225780_1_, p_i225780_2_, p_i225780_3_, UpgradeData.field_196994_a, EmptyTickList.func_205388_a(), EmptyTickList.func_205388_a(), 0L, (ChunkSection[])null, (Consumer<Chunk>)null);

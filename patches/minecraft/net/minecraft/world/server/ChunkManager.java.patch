@@ -803,7 +803,7 @@
           if (this.field_219406_f.remove(p_219399_1_)) {
              this.field_219402_b.func_219454_a(p_219399_1_);
           }
-@@ -1133,10 +_,17 @@
+@@ -1133,21 +_,28 @@
        }
  
        public void func_219400_b(ServerPlayerEntity p_219400_1_) {
@@ -823,6 +823,19 @@
              if (flag) {
                 boolean flag1 = this.field_219403_c.field_98038_p;
                 if (!flag1) {
+                   ChunkPos chunkpos = new ChunkPos(this.field_219403_c.field_70176_ah, this.field_219403_c.field_70164_aj);
+                   ChunkHolder chunkholder = ChunkManager.this.func_219219_b(chunkpos.func_201841_a());
+-                  if (chunkholder != null && chunkholder.func_219298_c() != null) {
++                  if (chunkholder != null && chunkholder.getSendingChunk() != null) {
+                      flag1 = ChunkManager.func_219215_b(chunkpos, p_219400_1_, false) <= ChunkManager.this.field_219247_A;
+                   }
+                }
+ 
+-               if (flag1 && this.field_219406_f.add(p_219400_1_)) {
++               if (flag1 && this.trackedPlayerMap.putIfAbsent(p_219400_1_, true) == null) {
+                   this.field_219402_b.func_219455_b(p_219400_1_);
+                }
+             } else if (this.field_219406_f.remove(p_219400_1_)) {
 @@ -1167,7 +_,8 @@
  
           for(Entity entity : collection) {

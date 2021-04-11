@@ -10,6 +10,7 @@ buildscript {
 }
 
 import groovy.json.JsonBuilder
+import groovy.json.JsonSlurper
 
 import java.nio.file.Files
 import java.util.Date
@@ -197,6 +198,7 @@ project(':forge') {
     }
 
     /*Util.getVersion(GIT_INFO, MC_VERSION) */
+    int jenkin_build_number = JenkinsNumber()
     version = '1.16.5-36.1.4'
     println('Forge Version: ' + version)
 
@@ -1064,4 +1066,20 @@ project(':forge') {
 task setup() {
     dependsOn ':clean:extractMapped'
     dependsOn ':forge:extractMapped' //These must be strings so that we can do lazy resolution. Else we need evaluationDependsOnChildren above
+}
+
+def JenkinsNumber() {
+    try {
+        def conn = new URL("http://download.modcraftmc.fr:8080/job/GoldenForge/api/json").openConnection()
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:31.0) Gecko/20100101 Firefox/31.0")
+        conn.connect()
+        def root = conn.content.text
+        def jsonSluper = new JsonSlurper()
+
+        String data = jsonSluper.parseText(root)
+        def number = data.substring(data.indexOf("number")).split(",")
+        return Integer.valueOf(number[0].replace("number=", "")).intValue()
+    } catch (Exception e1) {
+        return 'dev'
+    }
 }

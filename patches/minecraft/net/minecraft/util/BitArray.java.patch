@@ -1,0 +1,102 @@
+--- a/net/minecraft/util/BitArray.java
++++ b/net/minecraft/util/BitArray.java
+@@ -11,8 +_,8 @@
+    private final long field_188147_c;
+    private final int field_188148_d;
+    private final int field_232982_f_;
+-   private final int field_232983_g_;
+-   private final int field_232984_h_;
++   private final int field_232983_g_; private final long g_unsigned; // Paper - referenced in b(int) with 2 Integer.toUnsignedLong calls
++   private final int field_232984_h_; private final long h_unsigned; // Paper
+    private final int field_232985_i_;
+ 
+    public BitArray(int p_i46832_1_, int p_i46832_2_) {
+@@ -26,8 +_,8 @@
+       this.field_188147_c = (1L << p_i47901_1_) - 1L;
+       this.field_232982_f_ = (char)(64 / p_i47901_1_);
+       int i = 3 * (this.field_232982_f_ - 1);
+-      this.field_232983_g_ = field_232981_a_[i + 0];
+-      this.field_232984_h_ = field_232981_a_[i + 1];
++      this.field_232983_g_ = field_232981_a_[i + 0]; this.g_unsigned = Integer.toUnsignedLong(this.field_232983_g_); // Paper
++      this.field_232984_h_ = field_232981_a_[i + 1]; this.h_unsigned = Integer.toUnsignedLong(this.field_232984_h_); // Paper
+       this.field_232985_i_ = field_232981_a_[i + 2];
+       int j = (p_i47901_2_ + this.field_232982_f_ - 1) / this.field_232982_f_;
+       if (p_i47901_3_ != null) {
+@@ -43,14 +_,15 @@
+    }
+ 
+    private int func_232986_b_(int p_232986_1_) {
+-      long i = Integer.toUnsignedLong(this.field_232983_g_);
+-      long j = Integer.toUnsignedLong(this.field_232984_h_);
+-      return (int)((long)p_232986_1_ * i + j >> 32 >> this.field_232985_i_);
++//      long i = Integer.toUnsignedLong(this.divideMul);
++//      long j = Integer.toUnsignedLong(this.divideAdd);
++//      return (int)((long)p_232986_1_ * i + j >> 32 >> this.divideShift);
++      return (int) ((long) p_232986_1_ * this.g_unsigned + this.h_unsigned >> 32 >> this.field_232985_i_); // Paper
+    }
+ 
+-   public int func_219789_a(int p_219789_1_, int p_219789_2_) {
+-      Validate.inclusiveBetween(0L, (long)(this.field_188148_d - 1), (long)p_219789_1_);
+-      Validate.inclusiveBetween(0L, this.field_188147_c, (long)p_219789_2_);
++   public final int func_219789_a(int p_219789_1_, int p_219789_2_) {
++//      Validate.inclusiveBetween(0L, (long)(this.size - 1), (long)p_219789_1_);
++//      Validate.inclusiveBetween(0L, this.mask, (long)p_219789_2_);
+       int i = this.func_232986_b_(p_219789_1_);
+       long j = this.field_188145_a[i];
+       int k = (p_219789_1_ - i * this.field_232982_f_) * this.field_188146_b;
+@@ -59,17 +_,17 @@
+       return l;
+    }
+ 
+-   public void func_188141_a(int p_188141_1_, int p_188141_2_) {
+-      Validate.inclusiveBetween(0L, (long)(this.field_188148_d - 1), (long)p_188141_1_);
+-      Validate.inclusiveBetween(0L, this.field_188147_c, (long)p_188141_2_);
++   public final void func_188141_a(int p_188141_1_, int p_188141_2_) {
++//      Validate.inclusiveBetween(0L, (long)(this.size - 1), (long)p_188141_1_);
++//      Validate.inclusiveBetween(0L, this.mask, (long)p_188141_2_);
+       int i = this.func_232986_b_(p_188141_1_);
+       long j = this.field_188145_a[i];
+       int k = (p_188141_1_ - i * this.field_232982_f_) * this.field_188146_b;
+       this.field_188145_a[i] = j & ~(this.field_188147_c << k) | ((long)p_188141_2_ & this.field_188147_c) << k;
+    }
+ 
+-   public int func_188142_a(int p_188142_1_) {
+-      Validate.inclusiveBetween(0L, (long)(this.field_188148_d - 1), (long)p_188142_1_);
++   public final int func_188142_a(int p_188142_1_) {
++//      Validate.inclusiveBetween(0L, (long)(this.size - 1), (long)p_188142_1_);
+       int i = this.func_232986_b_(p_188142_1_);
+       long j = this.field_188145_a[i];
+       int k = (p_188142_1_ - i * this.field_232982_f_) * this.field_188146_b;
+@@ -99,4 +_,32 @@
+       }
+ 
+    }
++
++   // Paper start
++   public final void forEach(DataBitConsumer consumer) {
++      int i = 0;
++      long[] along = this.field_188145_a;
++      int j = along.length;
++
++      for (int k = 0; k < j; ++k) {
++         long l = along[k];
++
++         for (int i1 = 0; i1 < this.field_232982_f_; ++i1) {
++            consumer.accept(i, (int) (l & this.field_188147_c));
++            l >>= this.field_188146_b;
++            ++i;
++            if (i >= this.field_188148_d) {
++               return;
++            }
++         }
++      }
++   }
++
++   @FunctionalInterface
++   public static interface DataBitConsumer {
++
++      void accept(int location, int data);
++
++   }
++   // Paper end
+ }
