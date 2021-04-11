@@ -8,7 +8,7 @@
  
  public abstract class TicketManager {
     private static final Logger field_219373_a = LogManager.getLogger();
-@@ -39,7 +_,8 @@
+@@ -39,9 +_,20 @@
     private final Long2ObjectMap<ObjectSet<ServerPlayerEntity>> field_219375_c = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> field_219377_e = new Long2ObjectOpenHashMap<>();
     private final TicketManager.ChunkTicketTracker field_219378_f = new TicketManager.ChunkTicketTracker();
@@ -16,8 +16,21 @@
 +   public static final int MOB_SPAWN_RANGE = 8;
 +   //private final TicketManager.PlayerChunkTracker naturalSpawnChunkCounter = new TicketManager.PlayerChunkTracker(8);
     private final TicketManager.PlayerTicketTracker field_219382_j = new TicketManager.PlayerTicketTracker(33);
-    private final Set<ChunkHolder> field_219383_k = Sets.newHashSet();
+-   private final Set<ChunkHolder> field_219383_k = Sets.newHashSet();
++   //private final Set<ChunkHolder> chunksToUpdateFutures = Sets.newHashSet();
++   // Paper start use a queue, but still keep unique requirement
++   public final java.util.Queue<ChunkHolder> field_219383_k = new java.util.ArrayDeque<ChunkHolder>() {
++      @Override
++      public boolean add(ChunkHolder o) {
++         if (o.isUpdateQueued) return true;
++         o.isUpdateQueued = true;
++         return super.add(o);
++      }
++   };
++   // Paper end
     private final ChunkTaskPriorityQueueSorter field_219384_l;
+    private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219385_m;
+    private final ITaskExecutor<ChunkTaskPriorityQueueSorter.RunnableEntry> field_219386_n;
 @@ -49,6 +_,10 @@
     private final Executor field_219388_p;
     private long field_219389_q;
@@ -29,15 +42,52 @@
     protected TicketManager(Executor p_i50707_1_, Executor p_i50707_2_) {
        ITaskExecutor<Runnable> itaskexecutor = ITaskExecutor.func_213140_a("player ticket throttler", p_i50707_2_::execute);
        ChunkTaskPriorityQueueSorter chunktaskpriorityqueuesorter = new ChunkTaskPriorityQueueSorter(ImmutableList.of(itaskexecutor), p_i50707_1_, 4);
-@@ -90,7 +_,7 @@
+@@ -90,18 +_,30 @@
     protected abstract ChunkHolder func_219372_a(long p_219372_1_, int p_219372_3_, @Nullable ChunkHolder p_219372_4_, int p_219372_5_);
  
     public boolean func_219353_a(ChunkManager p_219353_1_) {
 -      this.field_219381_i.func_215497_a();
++      AsyncCatcher.catchOp("DistanceManagerTick"); // Paper
 +      //this.naturalSpawnChunkCounter.runAllUpdates();
        this.field_219382_j.func_215497_a();
        int i = Integer.MAX_VALUE - this.field_219378_f.func_215493_a(Integer.MAX_VALUE);
        boolean flag = i != 0;
+       if (flag) {
+       }
+ 
++//      if (!this.chunksToUpdateFutures.isEmpty()) {
++//         this.chunksToUpdateFutures.forEach((p_219343_1_) -> {
++//            p_219343_1_.updateFutures(p_219353_1_);
++//         });
++//         this.chunksToUpdateFutures.clear();
++//         return true;
++      // Paper start
+       if (!this.field_219383_k.isEmpty()) {
+-         this.field_219383_k.forEach((p_219343_1_) -> {
+-            p_219343_1_.func_219291_a(p_219353_1_);
+-         });
+-         this.field_219383_k.clear();
++         this.pollingPendingChunkUpdates = true; try {
++            while(!this.field_219383_k.isEmpty()) {
++               ChunkHolder remove = this.field_219383_k.remove();
++               remove.isUpdateQueued = false;
++               remove.func_219291_a(p_219353_1_);
++            }
++         } finally { this.pollingPendingChunkUpdates = false; }
++         // Paper end
+          return true;
+       } else {
+          if (!this.field_219387_o.isEmpty()) {
+@@ -134,6 +_,9 @@
+       }
+    }
+ 
++   public boolean pollingPendingChunkUpdates = false; // Paper
++
++
+    private void func_219347_a(long p_219347_1_, Ticket<?> p_219347_3_) {
+       SortedArraySet<Ticket<?>> sortedarrayset = this.func_229848_e_(p_219347_1_);
+       int i = func_229844_a_(sortedarrayset);
 @@ -143,6 +_,10 @@
           this.field_219378_f.func_215491_b(p_219347_1_, p_219347_3_.func_219477_b(), true);
        }

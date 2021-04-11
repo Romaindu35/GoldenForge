@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/server/ServerWorld.java
 +++ b/net/minecraft/world/server/ServerWorld.java
-@@ -143,13 +_,13 @@
+@@ -143,15 +_,15 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -14,8 +14,11 @@
 -   private final List<ServerPlayerEntity> field_217491_A = Lists.newArrayList();
 +   public final List<ServerPlayerEntity> field_217491_A = Lists.newArrayList();
     private final ServerChunkProvider field_241102_C_;
-    boolean field_217492_a;
+-   boolean field_217492_a;
++   public boolean field_217492_a;
     private final MinecraftServer field_73061_a;
+    private final IServerWorldInfo field_241103_E_;
+    public boolean field_73058_d;
 @@ -173,6 +_,7 @@
     private final DragonFightManager field_241105_O_;
     private final StructureManager field_241106_P_;

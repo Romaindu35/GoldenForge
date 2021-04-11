@@ -70,6 +70,16 @@
        }
     }
  
+@@ -281,6 +_,9 @@
+          this.field_71342_m.func_219591_b();
+       }
+ 
++      hasFullyShutdown = true; // Paper
++      System.exit(0); // CraftBukkit
++
+    }
+ 
+    public void func_71190_q(BooleanSupplier p_71190_1_) {
 @@ -513,6 +_,11 @@
  
     public boolean func_213199_b(GameProfile p_213199_1_) {

@@ -9,6 +9,7 @@ import org.bspfsystems.yamlconfiguration.configuration.InvalidConfigurationExcep
 import org.bspfsystems.yamlconfiguration.file.YamlConfiguration;
 import org.goldenforge.GoldenForge;
 import org.spigotmc.SpigotConfig;
+import org.spigotmc.WatchdogThread;
 
 import java.io.File;
 import java.io.IOException;
@@ -256,7 +257,7 @@ public class PaperConfig {
     private static void watchdogEarlyWarning() {
         watchdogPrintEarlyWarningEvery = getInt("settings.watchdog.early-warning-every", 5000);
         watchdogPrintEarlyWarningDelay = getInt("settings.watchdog.early-warning-delay", 10000);
-        //WatchdogThread.doStart(SpigotConfig.timeoutTime, SpigotConfig.restartOnCrash );
+        WatchdogThread.doStart(SpigotConfig.timeoutTime, SpigotConfig.restartOnCrash );
     }
 
     public static int tabSpamIncrement = 1;

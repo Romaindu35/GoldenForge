@@ -22,6 +22,14 @@
     public static final File field_152367_a = new File("usercache.json");
     public static final WorldSettings field_213219_c = new WorldSettings("Demo World", GameType.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), DatapackCodec.field_234880_a_);
     protected final SaveFormat.LevelSave field_71310_m;
+@@ -177,6 +_,7 @@
+    private final Map<RegistryKey<World>, ServerWorld> field_71305_c = Maps.newLinkedHashMap();
+    private PlayerList field_71318_t;
+    private volatile boolean field_71317_u = true;
++   private volatile boolean isRestarting = false; // Paper - flag to signify we're attempting to restart
+    private boolean field_71316_v;
+    private int field_71315_w;
+    protected final Proxy field_110456_c;
 @@ -204,7 +_,7 @@
     private final GameProfileRepository field_152365_W;
     private final PlayerProfileCache field_152366_X;
@@ -31,7 +39,7 @@
     protected long field_211151_aa = Util.func_211177_b();
     private long field_213213_ab;
     private boolean field_213214_ac;
-@@ -226,9 +_,79 @@
+@@ -226,9 +_,113 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;
  
@@ -52,6 +60,7 @@
 +   public final RollingAverage tps1 = new RollingAverage(60);
 +   public final RollingAverage tps5 = new RollingAverage(60 * 5);
 +   public final RollingAverage tps15 = new RollingAverage(60 * 15);
++
 +
 +   public double[] getTPS() {
 +      return new double[] {
@@ -103,6 +112,39 @@
 +   private static final java.math.BigDecimal TPS_BASE = new java.math.BigDecimal(1E9).multiply(new java.math.BigDecimal(SAMPLE_INTERVAL));
 +
 +   // Spigot end
++
++   // CraftBukkit start
++   public volatile Thread shutdownThread; // Paper
++   private boolean hasStopped = false;
++   public volatile boolean hasFullyShutdown = false; // Paper
++   private boolean hasLoggedStop = false; // Paper
++   private final Object stopLock = new Object();
++   public final boolean hasStopped() {
++      synchronized (stopLock) {
++         return hasStopped;
++      }
++   }
++   // CraftBukkit end
++
++   // Paper start - allow passing of the intent to restart
++   public void safeShutdown(boolean flag) {
++      this.safeShutdown(flag, false);
++   }
++   public void safeShutdown(boolean flag, boolean isRestarting) {
++      this.field_71317_u = false;
++      this.isRestarting = isRestarting;
++      this.hasLoggedStop = true; // Paper
++      //if (isDebugging()) TraceUtil.dumpTraceForThread("Server stopped"); // Paper
++      if (flag) {
++         try {
++            this.field_175590_aa.join();
++         } catch (InterruptedException interruptedexception) {
++            MinecraftServer.field_147145_h.error("Error while shutting down", interruptedexception);
++         }
++      }
++
++   }
++   // Paper end
 +
 +
     public static <S extends MinecraftServer> S func_240784_a_(Function<Thread, S> p_240784_0_) {
@@ -167,6 +209,45 @@
           }
        }
  
+@@ -542,6 +_,30 @@
+    }
+ 
+    protected void func_71260_j() {
++      // CraftBukkit start - prevent double stopping on multiple threads
++      synchronized(stopLock) {
++         if (hasStopped) return;
++         hasStopped = true;
++      }
++      //if (!hasLoggedStop && isDebugging()) TraceUtil.dumpTraceForThread("Server stopped"); // Paper
++      // Paper start - kill main thread, and kill it hard
++      shutdownThread = Thread.currentThread();
++      org.spigotmc.WatchdogThread.doStop(); // Paper
++      if (!func_213162_bc()) {
++         MinecraftServer.field_147145_h.info("Stopping main thread (Ignore any thread death message you see! - DO NOT REPORT THREAD DEATH TO PAPER)");
++         while (this.func_213170_ax().isAlive()) {
++            this.func_213170_ax().stop();
++            try {
++               Thread.sleep(1);
++            } catch (InterruptedException e) {}
++         }
++         // We've just obliterated the main thread, this will prevent stop from dying when removing players
++         MinecraftServer.getServer().func_212370_w().forEach(world -> {
++            world.field_217492_a = false;
++         });
++      }
++      // Paper end
++      // CraftBukkit end
+       field_147145_h.info("Stopping server");
+       if (this.func_147137_ag() != null) {
+          this.func_147137_ag().func_151268_b();
+@@ -551,6 +_,7 @@
+          field_147145_h.info("Saving players");
+          this.field_71318_t.func_72389_g();
+          this.field_71318_t.func_72392_r();
++         try { Thread.sleep(100); } catch (InterruptedException ex) {} // CraftBukkit - SPIGOT-625 - give server at least a chance to send packets
+       }
+ 
+       field_147145_h.info("Saving worlds");
 @@ -561,11 +_,19 @@
           }
        }
@@ -187,7 +268,7 @@
                 serverworld1.close();
              } catch (IOException ioexception1) {
                 field_147145_h.error("Exception closing the level", (Throwable)ioexception1);
-@@ -614,20 +_,42 @@
+@@ -614,20 +_,44 @@
     protected void func_240802_v_() {
        try {
           if (this.func_71197_b()) {
@@ -198,6 +279,8 @@
              this.func_184107_a(this.field_147147_p);
  
 +            getScheduler().mainThreadHeartbeat(this.field_71315_w); // run all 1 tick delay tasks during init,
++            org.spigotmc.WatchdogThread.tick(); // Paper
++            org.spigotmc.WatchdogThread.hasStarted = true; // Paper
 +            Arrays.fill( recentTps, 20 );
 +            long start = System.nanoTime(), curTime, tickSection = start; // Paper - Further improve server tick loop
 +            lastTick = start - TICK_TIME; // Paper
@@ -282,10 +365,11 @@
        }
  
        if (this.field_71315_w % 6000 == 0) {
-@@ -812,14 +_,17 @@
+@@ -812,14 +_,18 @@
        long i1 = Util.func_211178_c();
        this.field_213215_ap.func_181747_a(i1 - i);
        this.field_71304_b.func_76319_b();
++      org.spigotmc.WatchdogThread.tick(); // Spigot
 +      net.minecraftforge.fml.hooks.BasicEventHooks.onPostServerTick();
     }
  

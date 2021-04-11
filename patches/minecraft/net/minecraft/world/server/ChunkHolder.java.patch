@@ -25,9 +25,11 @@
  
  public class ChunkHolder {
     public static final Either<IChunk, ChunkHolder.IChunkLoadingError> field_219306_a = Either.right(ChunkHolder.IChunkLoadingError.field_219055_b);
-@@ -44,14 +_,14 @@
+@@ -43,15 +_,16 @@
+    private static final CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219309_d = CompletableFuture.completedFuture(field_219308_c);
     private static final List<ChunkStatus> field_219310_e = ChunkStatus.func_222582_a();
     private static final ChunkHolder.LocationType[] field_219311_f = ChunkHolder.LocationType.values();
++   public boolean isUpdateQueued = false; // Paper
     private final AtomicReferenceArray<CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>>> field_219312_g = new AtomicReferenceArray<>(field_219310_e.size());
 -   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_222983_h = field_219309_d;
 -   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219313_h = field_219309_d;
@@ -45,7 +47,7 @@
     private boolean field_244382_p;
     private final ShortSet[] field_244383_q = new ShortSet[16];
     private int field_219324_s;
-@@ -62,6 +_,198 @@
+@@ -62,6 +_,197 @@
     private boolean field_219329_x;
     private boolean field_244384_x;
  
@@ -165,8 +167,7 @@
 +      }
 +   }
 +   private void checkPriority() {
-+      GoldenForge.LOGGER.warn("checkPriority() is not implemented yet!");
-+      //if (getCurrentPriority() != getDemandedPriority()) this.chunkMap.queueHolderUpdate(this);
++      if (getCurrentPriority() != getDemandedPriority()) this.chunkMap.queueHolderUpdate(this);
 +   }
 +
 +   public final double getDistance(ServerPlayerEntity player) {
@@ -252,6 +253,24 @@
     }
  
     public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_219301_a(ChunkStatus p_219301_1_) {
+@@ -136,7 +_,7 @@
+    }
+ 
+    public void func_244386_a(BlockPos p_244386_1_) {
+-      Chunk chunk = this.func_219298_c();
++      Chunk chunk = this.getSendingChunk();
+       if (chunk != null) {
+          byte b0 = (byte)SectionPos.func_218159_a(p_244386_1_.func_177956_o());
+          if (this.field_244383_q[b0] == null) {
+@@ -149,7 +_,7 @@
+    }
+ 
+    public void func_219280_a(LightType p_219280_1_, int p_219280_2_) {
+-      Chunk chunk = this.func_219298_c();
++      Chunk chunk = this.getSendingChunk();
+       if (chunk != null) {
+          chunk.func_177427_f(true);
+          if (p_219280_1_ == LightType.SKY) {
 @@ -204,7 +_,7 @@
     }
  
