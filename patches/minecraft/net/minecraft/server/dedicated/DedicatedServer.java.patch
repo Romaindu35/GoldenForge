@@ -27,14 +27,6 @@
              BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
  
              String s1;
-@@ -101,6 +_,7 @@
-       if (Runtime.getRuntime().maxMemory() / 1024L / 1024L < 512L) {
-          field_155771_h.warn("To start the server with more ram, launch it as \"java -Xmx1024M -Xms1024M -jar minecraft_server.jar\"");
-       }
-+      new GoldenForgeEntryPoint();
- 
-       field_155771_h.info("Loading properties");
-       ServerProperties serverproperties = this.field_71340_o.func_219034_a();
 @@ -157,16 +_,20 @@
           return false;
        } else {

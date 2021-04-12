@@ -395,6 +395,14 @@ project(':forge') {
                 'Implementation-Title':     project.group,
                 'Implementation-Version':   project.version.substring(MC_VERSION.length() + 1),
                 'Implementation-Vendor':    'Forge Development LLC'
+            ] as LinkedHashMap,
+            'org/goldenforge/': [
+                    'Specification-Title'   : MCP_VERSION,
+                    'Specification-Vendor'  : 'GoldenForge',
+                    'Specification-Version':  project.version.substring(MC_VERSION.length() + 1),
+                    'Implementation-Title'  : 'GoldenForge',
+                    'Implementation-Version':  JenkinsNumber(),
+                    'Implementation-Vendor' : 'GoldenForge'
             ] as LinkedHashMap
         ]
     }
@@ -785,7 +793,9 @@ project(':forge') {
         doFirst {
             MANIFESTS.each{ pkg, values ->
                 if (pkg == '/') {
-                    manifest.attributes(values)
+                    manifest.attributes(values += [
+                            'Manifest-Version': JenkinsNumber()
+                    ])
                 } else {
                     manifest.attributes(values, pkg)
                 }
@@ -809,6 +819,7 @@ project(':forge') {
                     manifest.attributes(values += [
                         'Main-Class': 'net.minecraftforge.server.ServerMain',
                         'Class-Path': classpath.toString(),
+                        'Implementation-Version': JenkinsNumber(),
                         'ServerLaunchArgs': [
                             '--gameDir',          '.',
                             '--launchTarget',     'fmlserver',
