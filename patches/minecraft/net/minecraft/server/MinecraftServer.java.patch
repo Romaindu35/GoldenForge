@@ -1,5 +1,13 @@
 --- a/net/minecraft/server/MinecraftServer.java
 +++ b/net/minecraft/server/MinecraftServer.java
+@@ -44,6 +_,7 @@
+ import java.util.UUID;
+ import java.util.Map.Entry;
+ import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.ConcurrentLinkedQueue;
+ import java.util.concurrent.Executor;
+ import java.util.concurrent.atomic.AtomicReference;
+ import java.util.function.BooleanSupplier;
 @@ -69,6 +_,7 @@
  import net.minecraft.network.ServerStatusResponse;
  import net.minecraft.network.play.server.SServerDifficultyPacket;
@@ -8,11 +16,20 @@
  import net.minecraft.profiler.EmptyProfiler;
  import net.minecraft.profiler.IProfileResult;
  import net.minecraft.profiler.IProfiler;
-@@ -155,9 +_,12 @@
+@@ -152,12 +_,21 @@
+ import net.minecraft.world.storage.WorldSavedDataCallableSave;
+ import net.minecraftforge.api.distmarker.Dist;
+ import net.minecraftforge.api.distmarker.OnlyIn;
++import net.minecraftforge.fml.loading.FMLPaths;
++import org.apache.commons.lang3.SystemUtils;
  import org.apache.commons.lang3.Validate;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
++import org.bspfsystems.yamlconfiguration.file.YamlConfiguration;
++import org.goldenforge.BukkitConfig;
++import org.goldenforge.BukkitConfiguration;
 +import org.goldenforge.scheduler.GoldenScheduler;
++import org.spigotmc.SlackActivityAccountant;
 +import org.spigotmc.SpigotConfig;
  
  public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask> implements ISnooperInfo, ICommandSource, AutoCloseable {
@@ -39,15 +56,41 @@
     protected long field_211151_aa = Util.func_211177_b();
     private long field_213213_ab;
     private boolean field_213214_ac;
-@@ -226,9 +_,113 @@
+@@ -226,9 +_,140 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;
  
 +   //GoldenForge start
 +   private GoldenScheduler scheduler = new GoldenScheduler(); public GoldenScheduler getScheduler() { return scheduler; }
 +
++   private int monsterSpawn = -1;
++   private int animalSpawn = -1;
++   private int waterAnimalSpawn = -1;
++   private int waterAmbientSpawn = -1;
++   private int ambientSpawn = -1;
++
++   public int getMonsterSpawnLimit() {
++      return monsterSpawn;
++   }
++
++   public int getAnimalSpawnLimit() {
++      return animalSpawn;
++   }
++
++   public int getWaterAnimalSpawnLimit() {
++      return waterAnimalSpawn;
++   }
++
++   public int getWaterAmbientSpawnLimit() {
++      return waterAmbientSpawn;
++   }
++
++   public int getAmbientSpawnLimit() {
++      return ambientSpawn;
++   }
++
 +   public static int currentTick = 0; // Paper - Further improve tick loop
-+   public java.util.Queue<Runnable> processQueue = new java.util.concurrent.ConcurrentLinkedQueue<Runnable>();
++   public java.util.Queue<Runnable> processQueue = new ConcurrentLinkedQueue<Runnable>();
 +   // Paper start - Further improve server tick loop
 +   public static final int TPS = 20;
 +   public static final int TICK_TIME = 1000000000 / TPS;
@@ -60,6 +103,7 @@
 +   public final RollingAverage tps1 = new RollingAverage(60);
 +   public final RollingAverage tps5 = new RollingAverage(60 * 5);
 +   public final RollingAverage tps15 = new RollingAverage(60 * 15);
++   public final SlackActivityAccountant slackActivityAccountant = new SlackActivityAccountant();
 +
 +
 +   public double[] getTPS() {
@@ -154,7 +198,7 @@
           atomicreference.get().func_240802_v_();
        }, "Server thread");
        thread.setUncaughtExceptionHandler((p_240779_0_, p_240779_1_) -> {
-@@ -236,12 +_,14 @@
+@@ -236,12 +_,22 @@
        });
        S s = p_240784_0_.apply(thread);
        atomicreference.set(s);
@@ -166,6 +210,14 @@
     public MinecraftServer(Thread p_i232576_1_, DynamicRegistries.Impl p_i232576_2_, SaveFormat.LevelSave p_i232576_3_, IServerConfiguration p_i232576_4_, ResourcePackList p_i232576_5_, Proxy p_i232576_6_, DataFixer p_i232576_7_, DataPackRegistries p_i232576_8_, MinecraftSessionService p_i232576_9_, GameProfileRepository p_i232576_10_, PlayerProfileCache p_i232576_11_, IChunkStatusListenerFactory p_i232576_12_) {
        super("Server");
 +      SERVER = this;
++      org.goldenforge.BukkitConfig.init(new File(FMLPaths.GFDIR.get().toString(), "bukkit.yml"));
++
++      monsterSpawn = BukkitConfig.monstersSpawnLimits;
++      animalSpawn = BukkitConfig.animalsSpawnLimits;
++      waterAnimalSpawn = BukkitConfig.waterAnimalsSpawnLimits;
++      waterAmbientSpawn = BukkitConfig.waterAmbientSpawnLimits;
++      ambientSpawn = BukkitConfig.ambientSpawnLimits;
++
        this.field_240767_f_ = p_i232576_2_;
        this.field_240768_i_ = p_i232576_4_;
        this.field_110456_c = p_i232576_6_;
@@ -268,6 +320,16 @@
                 serverworld1.close();
              } catch (IOException ioexception1) {
                 field_147145_h.error("Exception closing the level", (Throwable)ioexception1);
+@@ -585,6 +_,9 @@
+          field_147145_h.error("Failed to unlock level {}", this.field_71310_m.func_237282_a_(), ioexception);
+       }
+ 
++      field_147145_h.info("Closing Thread Pool");
++      Util.func_240993_h_();
++
+    }
+ 
+    public String func_71211_k() {
 @@ -614,20 +_,44 @@
     protected void func_240802_v_() {
        try {
@@ -342,9 +404,11 @@
              this.func_71240_o();
           }
  
-@@ -771,12 +_,13 @@
+@@ -770,13 +_,15 @@
+    }
  
     protected void func_71217_p(BooleanSupplier p_71217_1_) {
++      this.slackActivityAccountant.tickStarted(); // Spigot
        long i = Util.func_211178_c();
 +      net.minecraftforge.fml.hooks.BasicEventHooks.onPreServerTick();
        ++this.field_71315_w;
@@ -365,11 +429,12 @@
        }
  
        if (this.field_71315_w % 6000 == 0) {
-@@ -812,14 +_,18 @@
+@@ -812,14 +_,19 @@
        long i1 = Util.func_211178_c();
        this.field_213215_ap.func_181747_a(i1 - i);
        this.field_71304_b.func_76319_b();
 +      org.spigotmc.WatchdogThread.tick(); // Spigot
++      this.slackActivityAccountant.tickEnded(l);
 +      net.minecraftforge.fml.hooks.BasicEventHooks.onPostServerTick();
     }
  

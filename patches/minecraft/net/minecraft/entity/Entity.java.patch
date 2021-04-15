@@ -66,7 +66,7 @@
     protected int field_82153_h;
     protected BlockPos field_242271_ac;
     private boolean field_83001_bt;
-@@ -194,7 +_,23 @@
+@@ -194,7 +_,24 @@
     private EntitySize field_213325_aI;
     private float field_213326_aJ;
  
@@ -78,6 +78,7 @@
 +   public final boolean defaultActivationState;
 +   public long activatedTick = Integer.MIN_VALUE;
 +   public ChunkManager.EntityTracker tracker; // Paper package private -> public
++   public SpawnReason spawnReason;
 +
 +
 +   public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> getPlayersInTrackRange() {

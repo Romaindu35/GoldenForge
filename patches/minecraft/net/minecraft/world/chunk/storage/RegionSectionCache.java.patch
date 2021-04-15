@@ -34,7 +34,7 @@
 +      this.readColumn(p_219107_1_, this.func_223138_c(p_219107_1_));
 +   }
 +
-+   private void readColumn(ChunkPos p_219107_1_, CompoundNBT compound) {
++   public void readColumn(ChunkPos p_219107_1_, CompoundNBT compound) {
 +      this.func_235992_a_(p_219107_1_, NBTDynamicOps.field_210820_a, compound);
 +      // Paper end
     }
@@ -47,7 +47,7 @@
        } catch (IOException ioexception) {
           field_219120_a.error("Error reading chunk {} data from disk", p_223138_1_, ioexception);
           return null;
-@@ -149,7 +_,13 @@
+@@ -149,13 +_,33 @@
        Dynamic<INBT> dynamic = this.func_235991_a_(p_219117_1_, NBTDynamicOps.field_210820_a);
        INBT inbt = dynamic.getValue();
        if (inbt instanceof CompoundNBT) {
@@ -62,14 +62,48 @@
        } else {
           field_219120_a.error("Expected compound tag, got {}", (Object)inbt);
        }
-@@ -206,7 +_,7 @@
+ 
+    }
+ 
++   // Paper start - internal get data function, copied from above
++   private CompoundNBT getDataInternal(ChunkPos chunkcoordintpair) {
++      Dynamic<INBT> dynamic = this.func_235991_a_(chunkcoordintpair, NBTDynamicOps.field_210820_a);
++      INBT nbtbase = (INBT) dynamic.getValue();
++
++      if (nbtbase instanceof CompoundNBT) {
++         return (CompoundNBT)nbtbase;
++      } else {
++         field_219120_a.error("Expected compound tag, got {}", nbtbase);
++      }
++      return null;
++   }
++   // Paper end
++
+    private <T> Dynamic<T> func_235991_a_(ChunkPos p_235991_1_, DynamicOps<T> p_235991_2_) {
+       Map<T, T> map = Maps.newHashMap();
+ 
+@@ -206,7 +_,22 @@
  
     }
  
 -   public void close() throws IOException {
 -      this.field_227173_b_.close();
--   }
 +//   public void close() throws IOException {
 +//      this.worker.close();
 +//   }
++
++   public CompoundNBT getData(ChunkPos chunkcoordintpair) {
++      // Note: Copied from above
++      // This is checking if the data exists, then it builds it later in getDataInternal(ChunkCoordIntPair)
++      if (!this.field_219122_d.isEmpty()) {
++         for (int i = 0; i < 16; ++i) {
++            long j = SectionPos.func_218156_a(chunkcoordintpair, i).func_218146_v();
++
++            if (this.field_219122_d.contains(j)) {
++               return this.getDataInternal(chunkcoordintpair);
++            }
++         }
++      }
++      return null;
+    }
  }

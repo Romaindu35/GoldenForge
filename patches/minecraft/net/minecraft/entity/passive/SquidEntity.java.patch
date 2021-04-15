@@ -1,11 +1,13 @@
 --- a/net/minecraft/entity/passive/SquidEntity.java
 +++ b/net/minecraft/entity/passive/SquidEntity.java
-@@ -178,7 +_,7 @@
+@@ -178,7 +_,9 @@
     }
  
     public static boolean func_223365_b(EntityType<SquidEntity> p_223365_0_, IWorld p_223365_1_, SpawnReason p_223365_2_, BlockPos p_223365_3_, Random p_223365_4_) {
 -      return p_223365_3_.func_177956_o() > 45 && p_223365_3_.func_177956_o() < p_223365_1_.func_181545_F();
-+      return p_223365_3_.func_177956_o() > ((ServerWorld)p_223365_1_).spigotConfig.squidSpawnRangeMin && p_223365_3_.func_177956_o() < p_223365_1_.func_181545_F();
++      final double maxHeight = ((ServerWorld)p_223365_1_).paperConfig.squidMaxSpawnHeight > 0 ? ((ServerWorld)p_223365_1_).paperConfig.squidMaxSpawnHeight : p_223365_1_.func_181545_F(); // Paper
++      return p_223365_3_.func_177956_o() > ((ServerWorld)p_223365_1_).spigotConfig.squidSpawnRangeMin && p_223365_3_.func_177956_o() < maxHeight; // Spigot // Paper
++      //return p_223365_3_.getY() > ((ServerWorld)p_223365_1_).spigotConfig.squidSpawnRangeMin && p_223365_3_.getY() < p_223365_1_.getSeaLevel();
     }
  
     @OnlyIn(Dist.CLIENT)

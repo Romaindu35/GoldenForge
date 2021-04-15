@@ -426,6 +426,25 @@
        });
     }
  
+@@ -666,7 +_,8 @@
+    }
+ 
+    public long func_177416_w() {
+-      return this.field_111204_q;
++      return field_76637_e.paperConfig.fixedInhabitedTime < 0 ? this.field_111204_q : field_76637_e.paperConfig.fixedInhabitedTime; // Paper
++      //return this.inhabitedTime;
+    }
+ 
+    public void func_177415_c(long p_177415_1_) {
+@@ -682,7 +_,7 @@
+                BlockPos blockpos = ChunkPrimer.func_201635_a(oshort, i, chunkpos);
+                BlockState blockstate = this.func_180495_p(blockpos);
+                BlockState blockstate1 = Block.func_199770_b(blockstate, this.field_76637_e, blockpos);
+-               this.field_76637_e.func_180501_a(blockpos, blockstate1, 20);
++               this.field_76637_e.func_180501_a(blockpos, blockstate1, 20 | 2); // Paper - We send chunks before they're ticking ready, so we need to notify here
+             }
+ 
+             this.field_201622_t[i].clear();
 @@ -704,9 +_,8 @@
        BlockState blockstate = this.func_180495_p(p_212815_1_);
        TileEntity tileentity;

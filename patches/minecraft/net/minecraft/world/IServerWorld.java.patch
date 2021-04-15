@@ -1,0 +1,21 @@
+--- a/net/minecraft/world/IServerWorld.java
++++ b/net/minecraft/world/IServerWorld.java
+@@ -1,12 +_,17 @@
+ package net.minecraft.world;
+ 
+ import net.minecraft.entity.Entity;
++import net.minecraft.entity.SpawnReason;
+ import net.minecraft.world.server.ServerWorld;
+ 
+ public interface IServerWorld extends IWorld {
+    ServerWorld func_201672_e();
+ 
+    default void func_242417_l(Entity p_242417_1_) {
+-      p_242417_1_.func_226276_cg_().forEach(this::func_217376_c);
++      this.addFreshEntityWithPassengers(p_242417_1_, SpawnReason.DEFAULT);
++   }
++
++   default void addFreshEntityWithPassengers(Entity p_242417_1_, SpawnReason reason) {
++      p_242417_1_.func_226276_cg_().forEach((e) -> this.addFreshEntity(e, reason));
+    }
+ }

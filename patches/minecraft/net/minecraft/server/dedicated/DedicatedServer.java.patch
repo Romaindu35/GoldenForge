@@ -8,17 +8,14 @@
  import java.io.IOException;
  import java.io.InputStreamReader;
  import java.net.InetAddress;
-@@ -55,8 +_,10 @@
+@@ -55,6 +_,7 @@
  import net.minecraft.world.server.ServerWorld;
  import net.minecraft.world.storage.IServerConfiguration;
  import net.minecraft.world.storage.SaveFormat;
 +import net.minecraftforge.fml.loading.FMLPaths;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
-+import org.goldenforge.GoldenForgeEntryPoint;
  
- public class DedicatedServer extends MinecraftServer implements IServer {
-    private static final Logger field_155771_h = LogManager.getLogger();
 @@ -81,6 +_,7 @@
     public boolean func_71197_b() throws IOException {
        Thread thread = new Thread("Server console handler") {
@@ -72,7 +69,13 @@
     }
  
     public void func_71190_q(BooleanSupplier p_71190_1_) {
-@@ -513,6 +_,11 @@
+@@ -508,11 +_,16 @@
+ 
+    public void func_71260_j() {
+       super.func_71260_j();
+-      Util.func_240993_h_();
++      //Util.shutdownExecutors();
+    }
  
     public boolean func_213199_b(GameProfile p_213199_1_) {
        return false;

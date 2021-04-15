@@ -11,6 +11,10 @@ public class MCUtil {
         return ((long)(MCUtil.fastFloor(entity.getZ()) >> 4) << 32) | ((MCUtil.fastFloor(entity.getX()) >> 4) & 0xFFFFFFFFL);
     }
 
+    public static long getCoordinateKey(final BlockPos blockPos) {
+        return ((long)(blockPos.getZ() >> 4) << 32) | ((blockPos.getX() >> 4) & 0xFFFFFFFFL);
+    }
+
     public static long getCoordinateKey(final ChunkPos pair) {
         return ((long)pair.z << 32) | (pair.x & 0xFFFFFFFFL);
     }

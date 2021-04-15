@@ -31,13 +31,15 @@
     private final ChunkTaskPriorityQueueSorter field_219384_l;
     private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219385_m;
     private final ITaskExecutor<ChunkTaskPriorityQueueSorter.RunnableEntry> field_219386_n;
-@@ -49,6 +_,10 @@
+@@ -49,6 +_,12 @@
     private final Executor field_219388_p;
     private long field_219389_q;
  
 +   private final Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> forcedTickets = new Long2ObjectOpenHashMap<>();
 +
 +   ChunkManager chunkMap; // Paper
++
++
 +
     protected TicketManager(Executor p_i50707_1_, Executor p_i50707_2_) {
        ITaskExecutor<Runnable> itaskexecutor = ITaskExecutor.func_213140_a("player ticket throttler", p_i50707_2_::execute);
@@ -99,7 +101,7 @@
     }
  
     private void func_219349_b(long p_219349_1_, Ticket<?> p_219349_3_) {
-@@ -155,6 +_,23 @@
+@@ -155,6 +_,24 @@
        }
  
        this.field_219378_f.func_215491_b(p_219349_1_, func_229844_a_(sortedarrayset), false);
@@ -116,6 +118,7 @@
 +   public static final int PRIORITY_TICKET_LEVEL = ChunkManager.field_219249_a;
 +   public static final int URGENT_PRIORITY = 29;
 +   public boolean delayDistanceManagerTick = false;
++
 +
 +   public void clearPriorityTickets(ChunkPos coords) {
 +      AsyncCatcher.catchOp("ChunkMapDistance::clearPriority");
