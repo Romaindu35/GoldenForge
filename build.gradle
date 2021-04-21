@@ -182,8 +182,7 @@ project(':forge') {
         mavenLocal()
         mavenCentral()
 
-        maven { url 'https://hub.spigotmc.org/nexus/content/groups/public/' }
-        maven { url 'https://papermc.io/repo/repository/maven-public/' }
+        maven { url 'https://repo.phoenix616.dev/' } //TODO: use own repo
     }
 
     ext {
