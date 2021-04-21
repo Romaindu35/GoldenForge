@@ -1,0 +1,56 @@
+--- a/net/minecraft/world/lighting/SectionLightStorage.java
++++ b/net/minecraft/world/lighting/SectionLightStorage.java
+@@ -25,7 +_,7 @@
+    protected final LongSet field_215535_b = new LongOpenHashSet();
+    protected final LongSet field_215536_c = new LongOpenHashSet();
+    protected final LongSet field_215537_d = new LongOpenHashSet();
+-   protected volatile M field_215538_e;
++   protected volatile M field_215538_e;  protected final Object visibleUpdateLock = new Object(); // Paper - diff on change, should be "visible" - force compile fail on usage change
+    protected final M field_215539_f;
+    protected final LongSet field_215540_g = new LongOpenHashSet();
+    protected final LongSet field_215541_h = new LongOpenHashSet();
+@@ -44,13 +_,23 @@
+       this.field_215538_e.func_215644_d();
+    }
+ 
+-   protected boolean func_215518_g(long p_215518_1_) {
+-      return this.func_215520_a(p_215518_1_, true) != null;
++   protected final boolean func_215518_g(long p_215518_1_) {
++      //return this.getDataLayer(p_215518_1_, true) != null;
++      return this.field_215539_f.getUpdatingOptimized(p_215518_1_) != null; // Paper - inline to avoid branching
+    }
+ 
+    @Nullable
+    protected NibbleArray func_215520_a(long p_215520_1_, boolean p_215520_3_) {
+-      return this.func_215531_a((M)(p_215520_3_ ? this.field_215539_f : this.field_215538_e), p_215520_1_);
++      // Paper start - avoid copying light data
++      if (p_215520_3_) {
++         return this.field_215539_f.getUpdatingOptimized(p_215520_1_);
++      } else {
++         synchronized (this.visibleUpdateLock) {
++            return this.field_215538_e.lookup.apply(p_215520_1_);
++         }
++      }
++      // Paper end - avoid copying light data
++      //return this.getDataLayer((M)(p_215520_3_ ? this.updatingSectionData : this.visibleSectionData), p_215520_1_);
+    }
+ 
+    @Nullable
+@@ -340,9 +_,14 @@
+ 
+    protected void func_215533_d() {
+       if (!this.field_215540_g.isEmpty()) {
+-         M m = this.field_215539_f.func_212858_b_();
+-         m.func_215644_d();
+-         this.field_215538_e = m;
++
++         synchronized (this.visibleUpdateLock) {
++
++            M m = this.field_215539_f.func_212858_b_();
++            m.func_215644_d();
++            this.field_215538_e = m;
++         }
++
+          this.field_215540_g.clear();
+       }
+ 

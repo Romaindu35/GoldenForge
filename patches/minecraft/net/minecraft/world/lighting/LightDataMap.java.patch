@@ -1,0 +1,170 @@
+--- a/net/minecraft/world/lighting/LightDataMap.java
++++ b/net/minecraft/world/lighting/LightDataMap.java
+@@ -1,17 +_,39 @@
+ package net.minecraft.world.lighting;
+ 
++import com.destroystokyo.paper.util.MCUtil;
++import com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+ import javax.annotation.Nullable;
+ import net.minecraft.world.chunk.NibbleArray;
+ 
+ public abstract class LightDataMap<M extends LightDataMap<M>> {
+-   private final long[] field_215646_b = new long[2];
+-   private final NibbleArray[] field_215647_c = new NibbleArray[2];
++   //private final long[] lastSectionKeys = new long[2];
++   private final NibbleArray[] field_215647_c = new NibbleArray[]{NibbleArray.EMPTY_NIBBLE_ARRAY, NibbleArray.EMPTY_NIBBLE_ARRAY}; private final NibbleArray[] cache = field_215647_c; // Paper - OBFHELPER
+    private boolean field_215648_d;
+-   protected final Long2ObjectOpenHashMap<NibbleArray> field_215645_a;
+-
+-   protected LightDataMap(Long2ObjectOpenHashMap<NibbleArray> p_i51299_1_) {
++   protected final QueuedChangesMapLong2Object<NibbleArray> field_215645_a;
++   protected final boolean isVisible; // Paper - avoid copying light data
++
++   // Paper start - faster lookups with less branching, use interface to avoid boxing instead of Function
++   public final NibbleArrayAccess lookup;
++   public interface NibbleArrayAccess {
++      NibbleArray apply(long id);
++   }
++   // Paper end
++   // Paper start - avoid copying light data
++
++   protected LightDataMap(QueuedChangesMapLong2Object<NibbleArray> p_i51299_1_, boolean isVisible) {
++      if (isVisible) {
++         p_i51299_1_.performUpdatesLockMap();
++      }
+       this.field_215645_a = p_i51299_1_;
++      this.isVisible = isVisible;
++      // Paper start - faster lookups with less branching
++      if (isVisible) {
++         lookup = p_i51299_1_::getVisibleAsync;
++      } else {
++         lookup = p_i51299_1_.getUpdatingMap()::get; // jump straight the sub map
++      }
++      // Paper end
+       this.func_215643_c();
+       this.field_215648_d = true;
+    }
+@@ -19,55 +_,92 @@
+    public abstract M func_212858_b_();
+ 
+    public void func_215641_a(long p_215641_1_) {
+-      this.field_215645_a.put(p_215641_1_, this.field_215645_a.get(p_215641_1_).func_215654_b());
++      if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
++      NibbleArray updating = this.field_215645_a.getUpdating(p_215641_1_); // Paper - pool nibbles
++      NibbleArray nibblearray = new NibbleArray().markPoolSafe(updating.getCloneIfSet()); // Paper
++      nibblearray.lightCacheKey = p_215641_1_; // Paper
++      this.field_215645_a.queueUpdate(p_215641_1_, nibblearray); // Paper - avoid copying light data - pool safe clone
++      if (updating.cleaner != null) MCUtil.scheduleTask(2, updating.cleaner, "Light Engine Release"); // Paper - delay clean incase anything holding ref was still using it
++     // this.map.put(p_215641_1_, this.map.get(p_215641_1_).copy());
+       this.func_215643_c();
+    }
+ 
+-   public boolean func_215642_b(long p_215642_1_) {
+-      return this.field_215645_a.containsKey(p_215642_1_);
+-   }
+-
+-   @Nullable
+-   public NibbleArray func_215638_c(long p_215638_1_) {
+-      if (this.field_215648_d) {
+-         for(int i = 0; i < 2; ++i) {
+-            if (p_215638_1_ == this.field_215646_b[i]) {
+-               return this.field_215647_c[i];
+-            }
+-         }
+-      }
+-
+-      NibbleArray nibblearray = this.field_215645_a.get(p_215638_1_);
++   // Paper start - less branching as we know we are using cache and updating
++   public final NibbleArray getUpdatingOptimized(final long i) { // Paper - final
++      final NibbleArray[] cache = this.cache;
++      if (cache[0].lightCacheKey == i) return cache[0];
++      if (cache[1].lightCacheKey == i) return cache[1];
++
++      final NibbleArray nibblearray = this.lookup.apply(i); // Paper - avoid copying light data
+       if (nibblearray == null) {
+          return null;
+       } else {
+-         if (this.field_215648_d) {
+-            for(int j = 1; j > 0; --j) {
+-               this.field_215646_b[j] = this.field_215646_b[j - 1];
+-               this.field_215647_c[j] = this.field_215647_c[j - 1];
+-            }
+-
+-            this.field_215646_b[0] = p_215638_1_;
+-            this.field_215647_c[0] = nibblearray;
+-         }
+-
++         cache[1] = cache[0];
++         cache[0] = nibblearray;
+          return nibblearray;
+       }
+    }
++   // Paper end
++
++   public boolean func_215642_b(long p_215642_1_) {
++      //return this.map.containsKey(p_215642_1_);
++      return lookup.apply(p_215642_1_) != null; // Paper - avoid copying light data
++   }
++
++   @Nullable
++   public NibbleArray func_215638_c(long p_215638_1_) {
++      // Paper start - optimize visible case or missed updating cases
++      if (this.field_215648_d) {
++         // short circuit to optimized
++         return getUpdatingOptimized(p_215638_1_);
++      }
++
++      return this.lookup.apply(p_215638_1_);
++      // Paper end
++//      if (this.cacheEnabled) {
++//         for(int i = 0; i < 2; ++i) {
++//            if (p_215638_1_ == this.lastSectionKeys[i]) {
++//               return this.lastSections[i];
++//            }
++//         }
++//      }
++//
++//      NibbleArray nibblearray = this.map.get(p_215638_1_);
++//      if (nibblearray == null) {
++//         return null;
++//      } else {
++//         if (this.cacheEnabled) {
++//            for(int j = 1; j > 0; --j) {
++//               this.lastSectionKeys[j] = this.lastSectionKeys[j - 1];
++//               this.lastSections[j] = this.lastSections[j - 1];
++//            }
++//
++//            this.lastSectionKeys[0] = p_215638_1_;
++//            this.lastSections[0] = nibblearray;
++//         }
++//
++//         return nibblearray;
++//      }
++   }
+ 
+    @Nullable
+    public NibbleArray func_223130_d(long p_223130_1_) {
+-      return this.field_215645_a.remove(p_223130_1_);
++      if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
++      return (NibbleArray) this.field_215645_a.queueRemove(p_223130_1_); // Paper - avoid copying light data
++      //return this.map.remove(p_223130_1_);
+    }
+ 
+    public void func_215640_a(long p_215640_1_, NibbleArray p_215640_3_) {
+-      this.field_215645_a.put(p_215640_1_, p_215640_3_);
++      if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
++      p_215640_3_.lightCacheKey = p_215640_1_; // Paper
++      this.field_215645_a.queueUpdate(p_215640_1_, p_215640_3_); // Paper - avoid copying light data
++      //this.map.put(p_215640_1_, p_215640_3_);
+    }
+ 
+    public void func_215643_c() {
+       for(int i = 0; i < 2; ++i) {
+-         this.field_215646_b[i] = Long.MAX_VALUE;
+-         this.field_215647_c[i] = null;
++        // this.lastSectionKeys[i] = Long.MAX_VALUE;
++         this.field_215647_c[i] =  NibbleArray.EMPTY_NIBBLE_ARRAY;
+       }
+ 
+    }

@@ -180,6 +180,42 @@
        compoundnbt1.func_74772_a("InhabitedTime", p_222645_1_.func_177416_w());
        compoundnbt1.func_74778_a("Status", p_222645_1_.func_201589_g().func_222596_d());
        UpgradeData upgradedata = p_222645_1_.func_196966_y();
+@@ -246,8 +_,19 @@
+          ChunkSection chunksection = Arrays.stream(achunksection).filter((p_222657_1_) -> {
+             return p_222657_1_ != null && p_222657_1_.func_222632_g() >> 4 == j;
+          }).findFirst().orElse(Chunk.field_186036_a);
+-         NibbleArray nibblearray = worldlightmanager.func_215569_a(LightType.BLOCK).func_215612_a(SectionPos.func_218156_a(chunkpos, j));
+-         NibbleArray nibblearray1 = worldlightmanager.func_215569_a(LightType.SKY).func_215612_a(SectionPos.func_218156_a(chunkpos, j));
++         // Paper start - async chunk save for unload
++         NibbleArray nibblearray; // block light
++         NibbleArray nibblearray1; // sky light
++         if (asyncsavedata == null) {
++            nibblearray = worldlightmanager.func_215569_a(LightType.BLOCK).func_215612_a(SectionPos.func_218156_a(chunkpos, j)); /// Paper - diff on method change (see getAsyncSaveData)
++            nibblearray1 = worldlightmanager.func_215569_a(LightType.SKY).func_215612_a(SectionPos.func_218156_a(chunkpos, j)); // Paper - diff on method change (see getAsyncSaveData)
++         } else {
++            nibblearray = asyncsavedata.blockLight[i + 1]; // +1 to offset the -1 starting index
++            nibblearray1 = asyncsavedata.skyLight[i + 1]; // +1 to offset the -1 starting index
++         }
++         // Paper end
++//         NibbleArray nibblearray = worldlightmanager.getLayerListener(LightType.BLOCK).getDataLayerData(SectionPos.of(chunkpos, j));
++//         NibbleArray nibblearray1 = worldlightmanager.getLayerListener(LightType.SKY).getDataLayerData(SectionPos.of(chunkpos, j));
+          if (chunksection != Chunk.field_186036_a || nibblearray != null || nibblearray1 != null) {
+             CompoundNBT compoundnbt2 = new CompoundNBT();
+             compoundnbt2.func_74774_a("Y", (byte)(j & 255));
+@@ -256,11 +_,11 @@
+             }
+ 
+             if (nibblearray != null && !nibblearray.func_215655_c()) {
+-               compoundnbt2.func_74773_a("BlockLight", nibblearray.func_177481_a());
++               compoundnbt2.func_74773_a("BlockLight", nibblearray.asBytesPoolSafe().clone());
+             }
+ 
+             if (nibblearray1 != null && !nibblearray1.func_215655_c()) {
+-               compoundnbt2.func_74773_a("SkyLight", nibblearray1.func_177481_a());
++               compoundnbt2.func_74773_a("SkyLight", nibblearray1.asBytesPoolSafe().clone());
+             }
+ 
+             listnbt.add(compoundnbt2);
 @@ -295,11 +_,21 @@
           for(int k = 0; k < chunk.func_177429_s().length; ++k) {
              for(Entity entity : chunk.func_177429_s()[k]) {

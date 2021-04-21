@@ -1,0 +1,34 @@
+--- a/net/minecraft/world/lighting/BlockLightStorage.java
++++ b/net/minecraft/world/lighting/BlockLightStorage.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.lighting;
+ 
++import com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.SectionPos;
+@@ -9,7 +_,7 @@
+ 
+ public class BlockLightStorage extends SectionLightStorage<BlockLightStorage.StorageMap> {
+    protected BlockLightStorage(IChunkLightProvider p_i51300_1_) {
+-      super(LightType.BLOCK, p_i51300_1_, new BlockLightStorage.StorageMap(new Long2ObjectOpenHashMap<>()));
++      super(LightType.BLOCK, p_i51300_1_, new BlockLightStorage.StorageMap(new QueuedChangesMapLong2Object<>(), false));
+    }
+ 
+    protected int func_215525_d(long p_215525_1_) {
+@@ -19,12 +_,12 @@
+    }
+ 
+    public static final class StorageMap extends LightDataMap<BlockLightStorage.StorageMap> {
+-      public StorageMap(Long2ObjectOpenHashMap<NibbleArray> p_i50064_1_) {
+-         super(p_i50064_1_);
++      public StorageMap(QueuedChangesMapLong2Object<NibbleArray> p_i50064_1_, boolean isVisible) {
++         super(p_i50064_1_, isVisible);
+       }
+ 
+       public BlockLightStorage.StorageMap func_212858_b_() {
+-         return new BlockLightStorage.StorageMap(this.field_215645_a.clone());
++         return new BlockLightStorage.StorageMap(this.field_215645_a, true);
+       }
+    }
+ }
