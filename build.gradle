@@ -2,7 +2,6 @@ buildscript {
     repositories {
         mavenLocal()
         maven { url = 'https://files.minecraftforge.net/maven' }
-        maven { url = 'https://raw.githubusercontent.com/GoldenForge/GoldenMaven/master/' }
         mavenCentral()
     }
     dependencies {
@@ -182,6 +181,8 @@ project(':forge') {
     repositories {
         mavenLocal()
         mavenCentral()
+
+        maven { url = 'https://raw.githubusercontent.com/GoldenForge/GoldenMaven/master/' }
     }
 
     ext {
