@@ -2,6 +2,7 @@ buildscript {
     repositories {
         mavenLocal()
         maven { url = 'https://files.minecraftforge.net/maven' }
+        maven { url = 'https://github.com/GoldenForge/GoldenMaven/blob/master/' }
         mavenCentral()
     }
     dependencies {
