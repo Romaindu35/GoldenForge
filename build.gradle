@@ -182,7 +182,8 @@ project(':forge') {
         mavenLocal()
         mavenCentral()
 
-        maven { url = 'https://raw.githubusercontent.com/GoldenForge/GoldenMaven/master/' }
+        maven { url 'https://hub.spigotmc.org/nexus/content/groups/public/' }
+        maven { url 'https://papermc.io/repo/repository/maven-public/' }
     }
 
     ext {
