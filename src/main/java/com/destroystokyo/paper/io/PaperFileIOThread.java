@@ -5,6 +5,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.storage.RegionFile;
 import net.minecraft.world.server.ServerWorld;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -37,7 +38,7 @@ import java.util.function.Function;
  */
 public final class PaperFileIOThread extends QueueExecutorThread {
 
-    public static final Logger LOGGER = MinecraftServer.LOGGER;
+    public static final Logger LOGGER = LogManager.getLogger("PaperFileIOThread");
     public static final CompoundNBT FAILURE_VALUE = new CompoundNBT();
 
     public static final class Holder {

@@ -89,7 +89,14 @@
        int i = this.field_186022_c.func_186041_a(p_222643_2_);
        int j = this.field_186021_b.func_219789_a(p_222643_1_, i);
        T t = this.field_186022_c.func_186039_a(j);
-@@ -134,16 +_,20 @@
+@@ -128,22 +_,26 @@
+       return this.func_186015_a(func_186011_b(p_186016_1_, p_186016_2_, p_186016_3_));
+    }
+ 
+-   protected T func_186015_a(int p_186015_1_) {
++   public T func_186015_a(int p_186015_1_) {
+       T t = this.field_186022_c.func_186039_a(this.field_186021_b.func_188142_a(p_186015_1_));
+       return (T)(t == null ? this.field_205526_g : t);
     }
  
     @OnlyIn(Dist.CLIENT)

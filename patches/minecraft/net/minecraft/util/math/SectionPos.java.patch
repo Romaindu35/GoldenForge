@@ -1,0 +1,43 @@
+--- a/net/minecraft/util/math/SectionPos.java
++++ b/net/minecraft/util/math/SectionPos.java
+@@ -37,6 +_,12 @@
+       return func_218174_a(p_218172_0_, p_218172_2_.func_82601_c(), p_218172_2_.func_96559_d(), p_218172_2_.func_82599_e());
+    }
+ 
++   // Paper end
++   public static long a(long i, int j, int k, int l) {
++      return (((long) ((int) (i >> 42) + j) & 4194303L) << 42) | (((long) ((int) (i << 44 >> 44) + k) & 1048575L)) | (((long) ((int) (i << 22 >> 42) + l) & 4194303L) << 20); // Simplify to reduce instruction count
++   }
++
++
+    public static long func_218174_a(long p_218174_0_, int p_218174_2_, int p_218174_3_, int p_218174_4_) {
+       return func_218166_b(func_218173_b(p_218174_0_) + p_218174_2_, func_218144_c(p_218174_0_) + p_218174_3_, func_218153_d(p_218174_0_) + p_218174_4_);
+    }
+@@ -100,6 +_,14 @@
+       return (int)(p_218153_0_ << 22 >> 42);
+    }
+ 
++   public static long getAdjacentFromBlockPos(int x, int y, int z, Direction enumdirection) {
++      return (((long) ((x >> 4) + enumdirection.getAdjacentX()) & 4194303L) << 42) | (((long) ((y >> 4) + enumdirection.getAdjacentY()) & 1048575L)) | (((long) ((z >> 4) + enumdirection.getAdjacentZ()) & 4194303L) << 20);
++   }
++   public static long getAdjacentFromSectionPos(int x, int y, int z, Direction enumdirection) {
++      return (((long) (x + enumdirection.getAdjacentX()) & 4194303L) << 42) | (((long) ((y) + enumdirection.getAdjacentY()) & 1048575L)) | (((long) (z + enumdirection.getAdjacentZ()) & 4194303L) << 20);
++   }
++   // Paper end
++
+    public int func_218149_a() {
+       return this.func_177958_n();
+    }
+@@ -167,6 +_,12 @@
+    public long func_218146_v() {
+       return func_218166_b(this.func_218149_a(), this.func_218163_b(), this.func_218148_c());
+    }
++
++   // Paper start
++   public static long blockPosAsSectionLong(int i, int j, int k) {
++      return (((long) (i >> 4) & 4194303L) << 42) | (((long) (j >> 4) & 1048575L)) | (((long) (k >> 4) & 4194303L) << 20);
++   }
++   // Paper end
+ 
+    public Stream<BlockPos> func_218145_w() {
+       return BlockPos.func_218287_a(this.func_218161_d(), this.func_218151_e(), this.func_218164_f(), this.func_218152_g(), this.func_218165_h(), this.func_218143_r());

@@ -30,11 +30,11 @@
 +      return this.field_219102_c.getAndMoveToFirst(ChunkPos.func_77272_a(chunkcoordintpair.func_222241_h(), chunkcoordintpair.func_222242_i()));
 +   }
 +   // Paper end
-+   public RegionFile getRegionFile(ChunkPos p_219098_1_, boolean existingOnly) throws IOException {
++   public synchronized RegionFile getRegionFile(ChunkPos p_219098_1_, boolean existingOnly) throws IOException {
 +      // Paper start - add lock parameter
 +      return this.getRegionFile(p_219098_1_, existingOnly, false);
 +   }
-+   public RegionFile getRegionFile(ChunkPos p_219098_1_, boolean existingOnly, boolean lock) throws IOException {
++   public synchronized RegionFile getRegionFile(ChunkPos p_219098_1_, boolean existingOnly, boolean lock) throws IOException {
 +      // Paper end
        long i = ChunkPos.func_77272_a(p_219098_1_.func_222241_h(), p_219098_1_.func_222242_i());
        RegionFile regionfile = this.field_219102_c.getAndMoveToFirst(i);

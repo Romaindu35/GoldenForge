@@ -279,6 +279,44 @@
                 iprofiler.func_76319_b();
              }
  
+@@ -675,6 +_,37 @@
+       return !this.field_73061_a.func_175579_a(this, p_175660_2_, p_175660_1_) && this.func_175723_af().func_177746_a(p_175660_2_);
+    }
+ 
++   // Paper start - derived from below
++   public void saveIncrementally(boolean doFull) {
++      ServerChunkProvider chunkproviderserver = this.func_72863_F();
++
++      if (doFull) {
++         //org.bukkit.Bukkit.getPluginManager().callEvent(new org.bukkit.event.world.WorldSaveEvent(getWorld()));
++         net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.world.WorldEvent.Save(this));
++      }
++
++         if (doFull) {
++            this.func_73042_a();
++         }
++
++         if (!this.func_217402_u()) chunkproviderserver.saveIncrementally();
++
++
++         // Copied from save()
++         // CraftBukkit start - moved from MinecraftServer.saveChunks
++         if (doFull) { // Paper
++            ServerWorld worldserver1 = this;
++
++            //TODO:
++//            worldDataServer.a(worldserver1.getWorldBorder().t());
++//            worldDataServer.setCustomBossEvents(this.server.getBossBattleCustomData().save());
++//            convertable.a(this.server.customRegistry, this.worldDataServer, this.server.getPlayerList().save());
++         }
++         // CraftBukkit end
++
++   }
++   // Paper end
++
+    public void func_217445_a(@Nullable IProgressUpdate p_217445_1_, boolean p_217445_2_, boolean p_217445_3_) {
+       ServerChunkProvider serverchunkprovider = this.func_72863_F();
+       if (!p_217445_3_) {
 @@ -687,6 +_,7 @@
              p_217445_1_.func_200209_c(new TranslationTextComponent("menu.savingChunks"));
           }

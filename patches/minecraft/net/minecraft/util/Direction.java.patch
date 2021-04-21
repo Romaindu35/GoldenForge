@@ -1,0 +1,39 @@
+--- a/net/minecraft/util/Direction.java
++++ b/net/minecraft/util/Direction.java
+@@ -64,6 +_,24 @@
+       throw new IllegalArgumentException("Duplicate keys");
+    }, Long2ObjectOpenHashMap::new));
+ 
++   // Paper start
++   private final int adjX;
++   private final int adjY;
++   private final int adjZ;
++   // Paper end
++
++   public int getAdjacentX() {
++      return this.adjX; // Paper
++   }
++
++   public int getAdjacentY() {
++      return this.adjY; // Paper
++   }
++
++   public int getAdjacentZ() {
++      return this.adjZ; // Paper
++   }
++
+    private Direction(int p_i46016_3_, int p_i46016_4_, int p_i46016_5_, String p_i46016_6_, Direction.AxisDirection p_i46016_7_, Direction.Axis p_i46016_8_, Vector3i p_i46016_9_) {
+       this.field_176748_g = p_i46016_3_;
+       this.field_176760_i = p_i46016_5_;
+@@ -72,6 +_,11 @@
+       this.field_176758_k = p_i46016_8_;
+       this.field_176755_l = p_i46016_7_;
+       this.field_176756_m = p_i46016_9_;
++      // Paper start
++      this.adjX = p_i46016_9_.func_177958_n();
++      this.adjY = p_i46016_9_.func_177956_o();
++      this.adjZ = p_i46016_9_.func_177952_p();
++      // Paper end
+    }
+ 
+    public static Direction[] func_196054_a(Entity p_196054_0_) {

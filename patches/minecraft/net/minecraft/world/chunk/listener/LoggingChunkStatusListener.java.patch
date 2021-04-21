@@ -1,0 +1,27 @@
+--- a/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java
++++ b/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java
+@@ -11,14 +_,21 @@
+ 
+ public class LoggingChunkStatusListener implements IChunkStatusListener {
+    private static final Logger field_219512_a = LogManager.getLogger();
+-   private final int field_219513_b;
++   private int field_219513_b;
+    private int field_219514_c;
+    private long field_219515_d;
+    private long field_219516_e = Long.MAX_VALUE;
+ 
+    public LoggingChunkStatusListener(int p_i50697_1_) {
+-      int i = p_i50697_1_ * 2 + 1;
+-      this.field_219513_b = i * i;
++      this.setChunkRadius(p_i50697_1_);
++   }
++
++   @Override
++   public void setChunkRadius(int radius) {
++      // Paper - copied from above
++      int j = radius * 2 + 1;
++
++      this.field_219513_b = j * j;
+    }
+ 
+    public void func_219509_a(ChunkPos p_219509_1_) {

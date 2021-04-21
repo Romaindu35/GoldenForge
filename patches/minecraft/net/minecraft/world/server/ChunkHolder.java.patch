@@ -38,7 +38,8 @@
 +   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219313_h = field_219309_d; private volatile boolean isTickingReady; // Paper - cache chunk ticking stage
 +   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219314_i = field_219309_d; private volatile boolean isEntityTickingReady; // Paper - cache chunk ticking stage
     private CompletableFuture<IChunk> field_219315_j = CompletableFuture.completedFuture((IChunk)null);
-    private int field_219316_k;
+-   private int field_219316_k;
++   public int field_219316_k;
     private int field_219317_l;
 -   private int field_219318_m;
 -   private final ChunkPos field_219319_n;
@@ -47,10 +48,13 @@
     private boolean field_244382_p;
     private final ShortSet[] field_244383_q = new ShortSet[16];
     private int field_219324_s;
-@@ -62,6 +_,197 @@
+@@ -62,6 +_,200 @@
     private boolean field_219329_x;
     private boolean field_244384_x;
  
++   public long lastAutoSaveTime; // Paper - incremental autosave
++   public long inactiveTimeStart; // Paper - incremental autosave
++
 +   // Paper start
 +   // optimise isOutsideOfRange
 +   private final ChunkManager chunkMap; // Paper
@@ -402,7 +406,7 @@
           this.field_219313_h = field_219309_d;
        }
  
-@@ -341,17 +_,45 @@
+@@ -341,17 +_,64 @@
              throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException());
           }
  
@@ -428,7 +432,27 @@
           this.field_219314_i = field_219309_d;
        }
  
-       this.field_219327_v.func_219066_a(this.field_219319_n, this::func_219281_j, this.field_219317_l, this::func_219275_d);
+-      this.field_219327_v.func_219066_a(this.field_219319_n, this::func_219281_j, this.field_219317_l, this::func_219275_d);
++      // Paper start - raise IO/load priority if priority changes, use our preferred priority
++      priorityBoost = chunkMap.field_219267_u.getChunkPriority(field_219319_n);
++      int priority = getDemandedPriority();
++      if (getCurrentPriority() > priority) {
++         int ioPriority = com.destroystokyo.paper.io.PrioritizedTaskQueue.NORMAL_PRIORITY;
++         if (priority <= 10) {
++            ioPriority = com.destroystokyo.paper.io.PrioritizedTaskQueue.HIGHEST_PRIORITY;
++         } else if (priority <= 20) {
++            ioPriority = com.destroystokyo.paper.io.PrioritizedTaskQueue.HIGH_PRIORITY;
++         }
++         chunkMap.field_219255_i.asyncChunkTaskManager.raisePriority(field_219319_n.field_77276_a, field_219319_n.field_77275_b, ioPriority);
++         chunkMap.field_219255_i.func_72863_F().func_212863_j_().queue.changePriority(field_219319_n.func_201841_a(), getCurrentPriority(), priority);
++      }
++      if (getCurrentPriority() != priority) {
++         this.field_219327_v.func_219066_a(this.field_219319_n, this::getCurrentPriority, priority, this::func_219275_d); // use preferred priority
++         int neighborsPriority = getNeighborsPriority();
++         this.neighbors.forEach((neighbor, neighborDesired) -> neighbor.setNeighborPriority(this, neighborsPriority));
++      }
++      // Paper end
++      //this.onLevelChange.onLevelChange(this.pos, this::getQueueLevel, this.ticketLevel, this::setQueueLevel);
        this.field_219316_k = this.field_219317_l;
 +      if (!chunkholder$locationtype.func_219065_a(ChunkHolder.LocationType.BORDER) && chunkholder$locationtype1.func_219065_a(ChunkHolder.LocationType.BORDER)) {
 +         this.getStatusFutureUncheckedMain(ChunkStatus.field_222617_m).thenAccept((either) -> { // Paper - ensure main
@@ -450,3 +474,17 @@
     }
  
     public static ChunkStatus func_219278_b(int p_219278_0_) {
+@@ -383,6 +_,13 @@
+ 
+       this.func_219284_a(CompletableFuture.completedFuture(Either.left(p_219294_1_.func_217336_u())));
+    }
++
++   // Paper start - incremental autosave
++   public boolean setHasBeenLoaded() {
++      this.field_219329_x = func_219286_c(this.field_219317_l).func_219065_a(ChunkHolder.LocationType.BORDER);
++      return this.field_219329_x;
++   }
++   // Paper end
+ 
+    public interface IChunkLoadingError {
+       ChunkHolder.IChunkLoadingError field_219055_b = new ChunkHolder.IChunkLoadingError() {

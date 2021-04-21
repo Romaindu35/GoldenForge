@@ -30,7 +30,15 @@
     private static final Logger field_150817_t = LogManager.getLogger();
     @Nullable
     public static final ChunkSection field_186036_a = null;
-@@ -84,17 +_,207 @@
+@@ -77,24 +_,214 @@
+    private ITickList<Block> field_201621_s;
+    private ITickList<Fluid> field_205325_u;
+    private boolean field_76644_m;
+-   private long field_76641_n;
++   public long field_76641_n;
+    private volatile boolean field_76643_l;
+    private long field_111204_q;
+    @Nullable
     private Supplier<ChunkHolder.LocationType> field_217329_u;
     @Nullable
     private Consumer<Chunk> field_217330_v;
@@ -249,6 +257,26 @@
     }
  
     public Chunk(World p_i49947_1_, ChunkPrimer p_i49947_2_) {
+@@ -171,6 +_,19 @@
+       return this.field_76652_q;
+    }
+ 
++   public BlockState getBlockState(final int x, final int y, final int z) {
++      return getBlockData(x, y, z);
++   }
++
++   public final BlockState getBlockData(final int x, final int y, final int z) {
++      // Method body / logic copied from below
++      final int i = y >> 4;
++      if (y < 0 || i >= this.field_76652_q.length || this.field_76652_q[i] == null || this.field_76652_q[i].field_76682_b == 0) {
++         return Blocks.field_150350_a.func_176223_P();
++      }
++      // Inlined ChunkSection.getType() and DataPaletteBlock.a(int,int,int)
++      return this.field_76652_q[i].field_177488_d.func_186015_a((y & 15) << 8 | (z & 15) << 4 | x & 15);
++   }
+    public BlockState func_180495_p(BlockPos p_180495_1_) {
+       int i = p_180495_1_.func_177958_n();
+       int j = p_180495_1_.func_177956_o();
 @@ -264,28 +_,28 @@
  
           if (!this.field_76637_e.field_72995_K) {

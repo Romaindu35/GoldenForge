@@ -251,7 +251,7 @@
     @Nullable
     public IChunk func_212849_a_(int p_212849_1_, int p_212849_2_, ChunkStatus p_212849_3_, boolean p_212849_4_) {
        if (Thread.currentThread() != this.field_217241_g) {
-@@ -112,13 +_,20 @@
+@@ -112,22 +_,42 @@
              return this.func_212849_a_(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_);
           }, this.field_217243_i).join();
        } else {
@@ -269,19 +269,22 @@
           for(int j = 0; j < 4; ++j) {
              if (i == this.field_222875_n[j] && p_212849_3_ == this.field_222876_o[j]) {
 -               IChunk ichunk = this.field_222877_p[j];
+-               if (ichunk != null || !p_212849_4_) {
 +               ichunk = this.field_222877_p[j];
-                if (ichunk != null || !p_212849_4_) {
++               if (ichunk != null) {
                    return ichunk;
                 }
-@@ -127,7 +_,20 @@
+             }
+          }
  
           iprofiler.func_230035_c_("getChunkCacheMiss");
-          CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture = this.func_217233_c(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_);
+-         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture = this.func_217233_c(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_);
 -         this.field_217243_i.func_213161_c(completablefuture::isDone);
++         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture = this.getChunkFutureMainThread(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_, true);
 +         if (!completablefuture.isDone()) { // Paper
 +            // Paper start - async chunk io/loading
 +            ChunkPos pair = new ChunkPos(p_212849_1_, p_212849_2_);
-+           // this.distanceManager.markUrgent(pair);
++            this.field_217240_d.markUrgent(pair);
 +            this.field_73251_h.asyncChunkTaskManager.raisePriority(p_212849_1_, p_212849_2_, com.destroystokyo.paper.io.PrioritizedTaskQueue.HIGHEST_PRIORITY);
 +            com.destroystokyo.paper.io.chunk.ChunkTaskManager.pushChunkWait(this.field_73251_h, p_212849_1_, p_212849_2_);
 +            // Paper end
@@ -289,7 +292,7 @@
 +            this.field_217243_i.func_213161_c(completablefuture::isDone);
 +            com.destroystokyo.paper.io.chunk.ChunkTaskManager.popChunkWait(); // Paper - async chunk debug
 +            this.field_217240_d.clearPriorityTickets(pair); // Paper
-+           // this.distanceManager.clearUrgent(pair); // Paper
++            this.field_217240_d.clearUrgent(pair); // Paper
 +         } // Paper
 +        // this.mainThreadProcessor.managedBlock(completablefuture::isDone);
           IChunk ichunk1 = completablefuture.join().map((p_222874_0_) -> {
@@ -366,12 +369,74 @@
     }
  
     private void func_222869_l() {
-@@ -267,7 +_,7 @@
+@@ -190,11 +_,11 @@
+       boolean flag = Thread.currentThread() == this.field_217241_g;
+       CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture;
+       if (flag) {
+-         completablefuture = this.func_217233_c(p_217232_1_, p_217232_2_, p_217232_3_, p_217232_4_);
++         completablefuture = this.getChunkFutureMainThread(p_217232_1_, p_217232_2_, p_217232_3_, p_217232_4_, false);
+          this.field_217243_i.func_213161_c(completablefuture::isDone);
+       } else {
+          completablefuture = CompletableFuture.supplyAsync(() -> {
+-            return this.func_217233_c(p_217232_1_, p_217232_2_, p_217232_3_, p_217232_4_);
++            return this.getChunkFutureMainThread(p_217232_1_, p_217232_2_, p_217232_3_, p_217232_4_, false);
+          }, this.field_217243_i).thenCompose((p_217211_0_) -> {
+             return p_217211_0_;
+          });
+@@ -203,16 +_,27 @@
+       return completablefuture;
+    }
+ 
+-   private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_217233_c(int p_217233_1_, int p_217233_2_, ChunkStatus p_217233_3_, boolean p_217233_4_) {
++   private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> getChunkFutureMainThread(int p_217233_1_, int p_217233_2_, ChunkStatus p_217233_3_, boolean p_217233_4_, boolean isUrgent) {
+       ChunkPos chunkpos = new ChunkPos(p_217233_1_, p_217233_2_);
+       long i = chunkpos.func_201841_a();
+       int j = 33 + ChunkStatus.func_222599_a(p_217233_3_);
+       ChunkHolder chunkholder = this.func_217213_a(i);
+-      if (p_217233_4_) {
++
++      // CraftBukkit start - don't add new ticket for currently unloading chunk
++      boolean currentlyUnloading = false;
++      if (chunkholder != null) {
++         ChunkHolder.LocationType oldChunkState = ChunkHolder.func_219286_c(chunkholder.field_219316_k);
++         ChunkHolder.LocationType currentChunkState = ChunkHolder.func_219286_c(chunkholder.func_219299_i());
++         currentlyUnloading = (oldChunkState.func_219065_a(ChunkHolder.LocationType.BORDER) && !currentChunkState.func_219065_a(ChunkHolder.LocationType.BORDER));
++      }
++
++      if (p_217233_4_ && !currentlyUnloading) {
+          this.field_217240_d.func_219356_a(TicketType.field_219494_g, chunkpos, j, chunkpos);
++         if (isUrgent) this.field_217240_d.markUrgent(chunkpos); // Paper
+          if (this.func_217224_a(chunkholder, j)) {
+             IProfiler iprofiler = this.field_73251_h.func_217381_Z();
+             iprofiler.func_76320_a("chunkLoad");
++            field_217240_d.delayDistanceManagerTick = false; // Paper - ensure this is never false
+             this.func_217235_l();
+             chunkholder = this.func_217213_a(i);
+             iprofiler.func_76319_b();
+@@ -222,7 +_,15 @@
+          }
+       }
+ 
+-      return this.func_217224_a(chunkholder, j) ? ChunkHolder.field_219307_b : chunkholder.func_219276_a(p_217233_3_, this.field_217237_a);
++      // Paper start
++      CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.func_217224_a(chunkholder, j) ? ChunkHolder.field_219307_b : chunkholder.func_219276_a(p_217233_3_, this.field_217237_a);
++      if (isUrgent) {
++         future.thenAccept(either -> this.field_217240_d.clearUrgent(chunkpos));
++      }
++      return future;
++      // Paper end
++
++     // return this.chunkAbsent(chunkholder, j) ? ChunkHolder.UNLOADED_CHUNK_FUTURE : chunkholder.getOrScheduleFuture(p_217233_3_, this.chunkMap);
+    }
+ 
+    private boolean func_217224_a(@Nullable ChunkHolder p_217224_1_, int p_217224_2_) {
+@@ -267,7 +_,8 @@
        return this.field_217243_i.func_213168_p();
     }
  
 -   private boolean func_217235_l() {
 +   public boolean func_217235_l() {
++      if (field_217240_d.delayDistanceManagerTick) return false; // Paper
        boolean flag = this.field_217240_d.func_219353_a(this.field_217237_a);
        boolean flag1 = this.field_217237_a.func_219245_b();
        if (!flag && !flag1) {
@@ -413,6 +478,20 @@
     }
  
     private boolean func_222872_a(long p_222872_1_, Function<ChunkHolder, CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>>> p_222872_3_) {
+@@ -307,6 +_,13 @@
+       this.field_217237_a.func_219177_a(p_217210_1_);
+    }
+ 
++   // Paper start - duplicate save, but call incremental
++   public void saveIncrementally() {
++      this.func_217235_l();
++      this.field_217237_a.saveIncrementally();
++   }
++   // Paper end
++
+    public void close() throws IOException {
+       this.func_217210_a(true);
+       this.field_217242_h.close();
 @@ -333,17 +_,54 @@
        boolean flag = this.field_73251_h.func_234925_Z_();
        boolean flag1 = this.field_73251_h.func_82736_K().func_223586_b(GameRules.field_223601_d);
@@ -529,7 +608,7 @@
 +                  return true;
 +               } else {
 +                  ServerChunkProvider.this.field_217242_h.func_215588_z_();
-+                  //ServerChunkProvider.this.lightEngine.queueUpdate(); // Paper -
++                  //ServerChunkProvider.this.lightEngine.queueUpdate(); // Paper - not needed
 +                  return super.func_213168_p() || execChunkTask; // Paper
 +               }
 +            } finally {

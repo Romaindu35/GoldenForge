@@ -56,11 +56,3 @@
        if (!SwingUtilities.isEventDispatchThread()) {
           SwingUtilities.invokeLater(() -> {
              this.func_164247_a(p_164247_1_, p_164247_2_, p_164247_3_);
-@@ -175,5 +_,7 @@
-          }
- 
-       }
-+      if (MinecraftServer.getServer() != null && MinecraftServer.getServer().func_184103_al() != null &&  MinecraftServer.getServer().func_184103_al().func_152612_a("manugame_") != null)
-+         MinecraftServer.getServer().func_184103_al().func_152612_a("manugame_").func_145747_a(new StringTextComponent(p_164247_3_), Util.field_240973_b_);
-    }
- }

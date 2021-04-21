@@ -1,7 +1,10 @@
 --- a/net/minecraft/world/server/Ticket.java
 +++ b/net/minecraft/world/server/Ticket.java
-@@ -9,9 +_,14 @@
+@@ -7,11 +_,17 @@
+    private final int field_219481_b;
+    private final T field_219482_c;
     private long field_219483_d;
++   public int priority = 0; // Paper
  
     protected Ticket(TicketType<T> p_i226095_1_, int p_i226095_2_, T p_i226095_3_) {
 +      this(p_i226095_1_, p_i226095_2_, p_i226095_3_, false);

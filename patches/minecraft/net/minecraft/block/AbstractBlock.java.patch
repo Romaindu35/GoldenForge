@@ -114,7 +114,12 @@
        public Material func_185904_a() {
           return this.field_235703_g_;
        }
-@@ -424,18 +_,24 @@
+@@ -420,22 +_,28 @@
+          return this.field_215707_c == null || this.field_215707_c.field_222503_g;
+       }
+ 
+-      public boolean func_215691_g() {
++      public final boolean func_215691_g() { // Paper
           return this.field_215709_e;
        }
  
@@ -140,6 +145,15 @@
        public BlockState func_185907_a(Rotation p_185907_1_) {
           return this.func_177230_c().func_185499_a(this.func_230340_p_(), p_185907_1_);
        }
+@@ -503,7 +_,7 @@
+          }
+       }
+ 
+-      public boolean func_200132_m() {
++      public final boolean func_200132_m() { //Paper
+          return this.field_235707_k_;
+       }
+ 
 @@ -677,12 +_,12 @@
           return this.func_177230_c().func_235332_a_(p_203425_1_);
        }

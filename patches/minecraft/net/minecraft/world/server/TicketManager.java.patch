@@ -80,17 +80,19 @@
           return true;
        } else {
           if (!this.field_219387_o.isEmpty()) {
-@@ -134,6 +_,9 @@
+@@ -134,7 +_,10 @@
        }
     }
  
+-   private void func_219347_a(long p_219347_1_, Ticket<?> p_219347_3_) {
 +   public boolean pollingPendingChunkUpdates = false; // Paper
 +
 +
-    private void func_219347_a(long p_219347_1_, Ticket<?> p_219347_3_) {
++   private boolean addTicket(long p_219347_1_, Ticket<?> p_219347_3_) {
        SortedArraySet<Ticket<?>> sortedarrayset = this.func_229848_e_(p_219347_1_);
        int i = func_229844_a_(sortedarrayset);
-@@ -143,6 +_,10 @@
+       Ticket<?> ticket = sortedarrayset.func_226175_a_(p_219347_3_);
+@@ -143,6 +_,12 @@
           this.field_219378_f.func_215491_b(p_219347_1_, p_219347_3_.func_219477_b(), true);
        }
  
@@ -98,10 +100,12 @@
 +          SortedArraySet<Ticket<?>> tickets = forcedTickets.computeIfAbsent(p_219347_1_, e -> SortedArraySet.func_226172_a_(4));
 +          tickets.func_226175_a_(ticket);
 +      }
++
++      return ticket == p_219347_3_;
     }
  
     private void func_219349_b(long p_219349_1_, Ticket<?> p_219349_3_) {
-@@ -155,6 +_,24 @@
+@@ -155,10 +_,125 @@
        }
  
        this.field_219378_f.func_215491_b(p_219349_1_, func_229844_a_(sortedarrayset), false);
@@ -119,6 +123,103 @@
 +   public static final int URGENT_PRIORITY = 29;
 +   public boolean delayDistanceManagerTick = false;
 +
++   public boolean markUrgent(ChunkPos coords) {
++      return addPriorityTicket(coords, TicketType.URGENT, URGENT_PRIORITY);
++   }
++
++   public void clearUrgent(ChunkPos coords) {
++      AsyncCatcher.catchOp("ChunkMapDistance::clearUrgent");
++      this.func_219349_b(coords.func_201841_a(), new Ticket<ChunkPos>(TicketType.URGENT, PRIORITY_TICKET_LEVEL, coords));
++   }
++
++   private boolean addPriorityTicket(ChunkPos coords, TicketType<ChunkPos> ticketType, int priority) {
++      AsyncCatcher.catchOp("ChunkMapDistance::addPriorityTicket");
++      long pair = coords.func_201841_a();
++      ChunkHolder chunk = chunkMap.func_219220_a(pair);
++      boolean needsTicket = chunkMap.playerViewDistanceNoTickMap.getObjectsInRange(pair) != null && !hasPlayerTicket(coords, 33);
++
++      if (needsTicket) {
++         Ticket<?> ticket = new Ticket<>(TicketType.field_219490_c, 33, coords);
++         field_219387_o.add(pair);
++         addTicket(pair, ticket);
++      }
++      if ((chunk != null && chunk.isFullChunkReady())) {
++         if (needsTicket) {
++            chunkMap.field_219255_i.func_72863_F().func_217235_l();
++         }
++         return needsTicket;
++      }
++
++      boolean success;
++      if (!(success = updatePriorityTicket(coords, ticketType, priority))) {
++         Ticket<ChunkPos> ticket = new Ticket<ChunkPos>(ticketType, PRIORITY_TICKET_LEVEL, coords);
++         ticket.priority = priority;
++         success = this.addTicket(pair, ticket);
++      } else {
++         if (chunk == null) {
++            chunk = chunkMap.func_219220_a(pair);
++         }
++         chunkMap.queueHolderUpdate(chunk);
++      }
++
++      //chunkMap.world.getWorld().spawnParticle(priority <= 15 ? org.bukkit.Particle.EXPLOSION_HUGE : org.bukkit.Particle.EXPLOSION_NORMAL, chunkMap.world.getWorld().getPlayers(), null, coords.x << 4, 70, coords.z << 4, 2, 0, 0, 0, 1, null, true);
++
++      chunkMap.field_219255_i.func_72863_F().func_217235_l();
++
++      return success;
++   }
++
++   private boolean updatePriorityTicket(ChunkPos coords, TicketType<ChunkPos> type, int priority) {
++      SortedArraySet<Ticket<?>> tickets = this.field_219377_e.get(coords.func_201841_a());
++      if (tickets == null) {
++         return false;
++      }
++      for (Ticket<?> ticket : tickets) {
++         if (ticket.func_219479_a() == type) {
++            // We only support increasing, not decreasing, too complicated
++            ticket.func_229861_a_(this.field_219389_q);
++            ticket.priority = Math.max(ticket.priority, priority);
++            return true;
++         }
++      }
++
++      return false;
++   }
++
++   public int getChunkPriority(ChunkPos coords) {
++      AsyncCatcher.catchOp("ChunkMapDistance::getChunkPriority");
++      SortedArraySet<Ticket<?>> tickets = this.field_219377_e.get(coords.func_201841_a());
++      if (tickets == null) {
++         return 0;
++      }
++      for (Ticket<?> ticket : tickets) {
++         if (ticket.func_219479_a() == TicketType.URGENT) {
++            return URGENT_PRIORITY;
++         }
++      }
++      for (Ticket<?> ticket : tickets) {
++         if (ticket.func_219479_a() == TicketType.PRIORITY && ticket.priority > 0) {
++            return ticket.priority;
++         }
++      }
++      return 0;
++   }
++
++
++   private boolean hasPlayerTicket(ChunkPos coords, int level) {
++      SortedArraySet<Ticket<?>> tickets = this.field_219377_e.get(coords.func_201841_a());
++      if (tickets == null || tickets.isEmpty()) {
++         return false;
++      }
++      for (Ticket<?> ticket : tickets) {
++         if (ticket.func_219479_a() == TicketType.field_219490_c && ticket.func_219477_b() == level) {
++            return true;
++         }
++      }
++
++      return false;
++   }
++
 +
 +   public void clearPriorityTickets(ChunkPos coords) {
 +      AsyncCatcher.catchOp("ChunkMapDistance::clearPriority");
@@ -126,12 +227,26 @@
     }
  
     public <T> void func_219356_a(TicketType<T> p_219356_1_, ChunkPos p_219356_2_, int p_219356_3_, T p_219356_4_) {
+-      this.func_219347_a(p_219356_2_.func_201841_a(), new Ticket<>(p_219356_1_, p_219356_3_, p_219356_4_));
++      this.addTicket(p_219356_2_.func_201841_a(), new Ticket<>(p_219356_1_, p_219356_3_, p_219356_4_));
+    }
+ 
+    public <T> void func_219345_b(TicketType<T> p_219345_1_, ChunkPos p_219345_2_, int p_219345_3_, T p_219345_4_) {
+@@ -167,7 +_,7 @@
+    }
+ 
+    public <T> void func_219331_c(TicketType<T> p_219331_1_, ChunkPos p_219331_2_, int p_219331_3_, T p_219331_4_) {
+-      this.func_219347_a(p_219331_2_.func_201841_a(), new Ticket<>(p_219331_1_, 33 - p_219331_3_, p_219331_4_));
++      this.addTicket(p_219331_2_.func_201841_a(), new Ticket<>(p_219331_1_, 33 - p_219331_3_, p_219331_4_));
+    }
+ 
+    public <T> void func_219362_d(TicketType<T> p_219362_1_, ChunkPos p_219362_2_, int p_219362_3_, T p_219362_4_) {
 @@ -175,6 +_,14 @@
        this.func_219349_b(p_219362_2_.func_201841_a(), ticket);
     }
  
 +   public <T> void registerTicking(TicketType<T> type, ChunkPos pos, int distance, T value) {
-+      this.func_219347_a(pos.func_201841_a(), new Ticket<>(type, 33 - distance, value, true));
++      this.addTicket(pos.func_201841_a(), new Ticket<>(type, 33 - distance, value, true));
 +   }
 +
 +   public <T> void releaseTicking(TicketType<T> type, ChunkPos pos, int distance, T value) {
@@ -141,6 +256,15 @@
     private SortedArraySet<Ticket<?>> func_229848_e_(long p_229848_1_) {
        return this.field_219377_e.computeIfAbsent(p_229848_1_, (p_229851_0_) -> {
           return SortedArraySet.func_226172_a_(4);
+@@ -184,7 +_,7 @@
+    protected void func_219364_a(ChunkPos p_219364_1_, boolean p_219364_2_) {
+       Ticket<ChunkPos> ticket = new Ticket<>(TicketType.field_219491_d, 31, p_219364_1_);
+       if (p_219364_2_) {
+-         this.func_219347_a(p_219364_1_.func_201841_a(), ticket);
++         this.addTicket(p_219364_1_.func_201841_a(), ticket);
+       } else {
+          this.func_219349_b(p_219364_1_.func_201841_a(), ticket);
+       }
 @@ -196,7 +_,7 @@
        this.field_219375_c.computeIfAbsent(i, (p_219361_0_) -> {
           return new ObjectOpenHashSet();
@@ -202,7 +326,7 @@
     class ChunkTicketTracker extends ChunkDistanceGraph {
        public ChunkTicketTracker() {
           super(ChunkManager.field_219249_a + 2, 16, 256);
-@@ -353,7 +_,8 @@
+@@ -353,12 +_,13 @@
  
        private void func_215504_a(long p_215504_1_, int p_215504_3_, boolean p_215504_4_, boolean p_215504_5_) {
           if (p_215504_4_ != p_215504_5_) {
@@ -212,3 +336,9 @@
              if (p_215504_5_) {
                 TicketManager.this.field_219385_m.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219069_a(() -> {
                    TicketManager.this.field_219388_p.execute(() -> {
+                      if (this.func_215505_c(this.func_215471_c(p_215504_1_))) {
+-                        TicketManager.this.func_219347_a(p_215504_1_, ticket);
++                        TicketManager.this.addTicket(p_215504_1_, ticket);
+                         TicketManager.this.field_219387_o.add(p_215504_1_);
+                      } else {
+                         TicketManager.this.field_219386_n.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219073_a(() -> {

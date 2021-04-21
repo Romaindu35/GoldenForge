@@ -56,7 +56,7 @@
     protected long field_211151_aa = Util.func_211177_b();
     private long field_213213_ab;
     private boolean field_213214_ac;
-@@ -226,9 +_,140 @@
+@@ -226,9 +_,142 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;
  
@@ -104,6 +104,8 @@
 +   public final RollingAverage tps5 = new RollingAverage(60 * 5);
 +   public final RollingAverage tps15 = new RollingAverage(60 * 15);
 +   public final SlackActivityAccountant slackActivityAccountant = new SlackActivityAccountant();
++   public int autosavePeriod;
++   public boolean serverAutoSave = false; // Paper
 +
 +
 +   public double[] getTPS() {
@@ -421,15 +423,62 @@
           int j = MathHelper.func_76136_a(this.field_147146_q, 0, this.func_71233_x() - agameprofile.length);
  
           for(int k = 0; k < agameprofile.length; ++k) {
-@@ -785,6 +_,7 @@
+@@ -785,16 +_,44 @@
  
           Collections.shuffle(Arrays.asList(agameprofile));
           this.field_147147_p.func_151318_b().func_151330_a(agameprofile);
+-      }
+-
+-      if (this.field_71315_w % 6000 == 0) {
+-         field_147145_h.debug("Autosave started");
+-         this.field_71304_b.func_76320_a("save");
+-         this.field_71318_t.func_72389_g();
+-         this.func_213211_a(true, false, false);
+-         this.field_71304_b.func_76319_b();
+-         field_147145_h.debug("Autosave finished");
+-      }
 +         this.field_147147_p.invalidateJson();
-       }
++      }
++
++      serverAutoSave = (autosavePeriod > 0 && this.field_71315_w % autosavePeriod == 0); // Paper
++      // Paper start
++      int playerSaveInterval = com.destroystokyo.paper.PaperConfig.playerAutoSaveRate;
++      if (playerSaveInterval < 0) {
++         playerSaveInterval = autosavePeriod;
++      }
++      // Paper end
++      this.field_71304_b.func_76320_a("save");
++      if (playerSaveInterval > 0) { // Paper
++         this.field_71318_t.saveAll(playerSaveInterval); // Paper
++      }// Paper
++      // Paper start
++      for (ServerWorld world : func_212370_w()) {
++         if (world.paperConfig.autoSavePeriod > 0) {
++            world.saveIncrementally(serverAutoSave);
++
++            if (serverAutoSave) {
++               ServerWorld serverworld1 = this.func_241755_D_();
++               IServerWorldInfo iserverworldinfo = this.field_240768_i_.func_230407_G_();
++               iserverworldinfo.func_230393_a_(serverworld1.func_175723_af().func_235927_t_());
++               this.field_240768_i_.func_230414_b_(this.func_201300_aS().func_201380_c());
++               this.field_71310_m.func_237288_a_(this.field_240767_f_, this.field_240768_i_, this.func_184103_al().func_72378_q());
++            }
++         }
++      }
++      this.field_71304_b.func_76319_b();
++
++//      if (this.tickCount % 6000 == 0) {
++//         LOGGER.debug("Autosave started");
++//         this.profiler.push("save");
++//         this.playerList.saveAll();
++//         this.saveAllChunks(true, false, false);
++//         this.profiler.pop();
++//         LOGGER.debug("Autosave finished");
++//      }
  
-       if (this.field_71315_w % 6000 == 0) {
-@@ -812,14 +_,19 @@
+       this.field_71304_b.func_76320_a("snooper");
+       if (!this.field_71307_n.func_76468_d() && this.field_71315_w > 100) {
+@@ -812,14 +_,23 @@
        long i1 = Util.func_211178_c();
        this.field_213215_ap.func_181747_a(i1 - i);
        this.field_71304_b.func_76319_b();
@@ -445,6 +494,10 @@
        this.field_71304_b.func_219895_b("levels");
  
 -      for(ServerWorld serverworld : this.func_212370_w()) {
++      while (!processQueue.isEmpty()) {
++         processQueue.remove().run();
++      }
++
 +      for(ServerWorld serverworld : this.getWorldArray()) {
 +         long tickStart = Util.func_211178_c();
           this.field_71304_b.func_194340_a(() -> {

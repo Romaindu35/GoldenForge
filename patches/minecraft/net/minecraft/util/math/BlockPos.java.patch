@@ -1,5 +1,13 @@
 --- a/net/minecraft/util/math/BlockPos.java
 +++ b/net/minecraft/util/math/BlockPos.java
+@@ -60,6 +_,7 @@
+       this(p_i46034_1_.func_177958_n(), p_i46034_1_.func_177956_o(), p_i46034_1_.func_177952_p());
+    }
+ 
++   public static long getAdjacent(int baseX, int baseY, int baseZ, Direction enumdirection) { return func_218276_a(baseX + enumdirection.getAdjacentX(), baseY + enumdirection.getAdjacentY(), baseZ + enumdirection.getAdjacentZ()); } // Paper
+    public static long func_218289_a(long p_218289_0_, Direction p_218289_2_) {
+       return func_218291_a(p_218289_0_, p_218289_2_.func_82601_c(), p_218289_2_.func_96559_d(), p_218289_2_.func_82599_e());
+    }
 @@ -164,7 +_,25 @@
     }
  

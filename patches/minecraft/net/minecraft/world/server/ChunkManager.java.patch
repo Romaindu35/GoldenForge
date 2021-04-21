@@ -7,7 +7,19 @@
  import com.google.common.collect.ImmutableList;
  import com.google.common.collect.Iterables;
  import com.google.common.collect.Lists;
-@@ -30,10 +_,7 @@
+@@ -19,28 +_,23 @@
+ import java.io.File;
+ import java.io.IOException;
+ import java.io.Writer;
+-import java.util.Collection;
+-import java.util.List;
+-import java.util.Objects;
+-import java.util.Optional;
+-import java.util.Queue;
+-import java.util.Set;
++import java.util.*;
+ import java.util.concurrent.CancellationException;
+ import java.util.concurrent.CompletableFuture;
  import java.util.concurrent.CompletionException;
  import java.util.concurrent.Executor;
  import java.util.concurrent.atomic.AtomicInteger;
@@ -19,7 +31,9 @@
  import java.util.stream.Collectors;
  import java.util.stream.Stream;
  import javax.annotation.Nullable;
-@@ -41,6 +_,7 @@
++
++import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet;
+ import net.minecraft.crash.CrashReport;
  import net.minecraft.crash.CrashReportCategory;
  import net.minecraft.crash.ReportedException;
  import net.minecraft.entity.Entity;
@@ -52,7 +66,7 @@
  import net.minecraft.world.gen.ChunkGenerator;
  import net.minecraft.world.gen.feature.structure.StructureStart;
  import net.minecraft.world.gen.feature.template.TemplateManager;
-@@ -91,35 +_,226 @@
+@@ -91,36 +_,227 @@
  import org.apache.commons.lang3.mutable.MutableBoolean;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -113,7 +127,8 @@
 -   private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s;
 +   public final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s;
     private final IChunkStatusListener field_219266_t;
-    private final ChunkManager.ProxyTicketManager field_219267_u;
+-   private final ChunkManager.ProxyTicketManager field_219267_u;
++   public final ChunkManager.ProxyTicketManager field_219267_u;
     private final AtomicInteger field_219268_v = new AtomicInteger();
 -   private final TemplateManager field_219269_w;
 +   public final TemplateManager field_219269_w;
@@ -123,6 +138,7 @@
     private final Long2ByteMap field_241087_z_ = new Long2ByteOpenHashMap();
 -   private final Queue<Runnable> field_223181_A = Queues.newConcurrentLinkedQueue();
 -   private int field_219247_A;
+-
 +   private final Queue<Runnable> field_223181_A = new com.destroystokyo.paper.utils.CachedSizeConcurrentLinkedQueue<>(); // Paper - need constant-time size()
 +   private final Queue<Runnable> getUnloadQueueTasks() { return this.field_223181_A; } // Paper - OBFHELPER
 +   public int field_219247_A;
@@ -285,10 +301,11 @@
 +      // Paper end - no-tick view distance
 +   }
 +   // Paper end
- 
++   private final java.util.concurrent.ExecutorService lightThread;
     public ChunkManager(ServerWorld p_i232602_1_, SaveFormat.LevelSave p_i232602_2_, DataFixer p_i232602_3_, TemplateManager p_i232602_4_, Executor p_i232602_5_, ThreadTaskExecutor<Runnable> p_i232602_6_, IChunkLightProvider p_i232602_7_, ChunkGenerator p_i232602_8_, IChunkStatusListener p_i232602_9_, Supplier<DimensionSavedDataManager> p_i232602_10_, int p_i232602_11_, boolean p_i232602_12_) {
        super(new File(p_i232602_2_.func_237291_a_(p_i232602_1_.func_234923_W_()), "region"), p_i232602_3_, p_i232602_12_);
-@@ -128,6 +_,15 @@
+       this.field_219269_w = p_i232602_4_;
+@@ -128,18 +_,190 @@
        this.field_219255_i = p_i232602_1_;
        this.field_219258_l = p_i232602_8_;
        this.field_219257_k = p_i232602_6_;
@@ -304,11 +321,24 @@
        DelegatedTaskExecutor<Runnable> delegatedtaskexecutor = DelegatedTaskExecutor.func_213144_a(p_i232602_5_, "worldgen");
        ITaskExecutor<Runnable> itaskexecutor = ITaskExecutor.func_213140_a("main", p_i232602_6_::func_212871_a_);
        this.field_219266_t = p_i232602_9_;
-@@ -136,10 +_,164 @@
+-      DelegatedTaskExecutor<Runnable> delegatedtaskexecutor1 = DelegatedTaskExecutor.func_213144_a(p_i232602_5_, "light");
+-      this.field_219263_q = new ChunkTaskPriorityQueueSorter(ImmutableList.of(delegatedtaskexecutor, itaskexecutor, delegatedtaskexecutor1), p_i232602_5_, Integer.MAX_VALUE);
++      // Paper start - use light thread
++     DelegatedTaskExecutor<Runnable> threadedmailbox1 = DelegatedTaskExecutor.func_213144_a(lightThread = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
++         Thread thread = new Thread(r);
++         thread.setName(field_219255_i.func_234923_W_().func_240901_a_() + " - Light");
++         thread.setDaemon(true);
++         thread.setPriority(Thread.NORM_PRIORITY+1);
++         return thread;
++      }), "light");
++      // Paper end
++      //DelegatedTaskExecutor<Runnable> delegatedtaskexecutor1 = DelegatedTaskExecutor.create(p_i232602_5_, "light");
++      this.field_219263_q = new ChunkTaskPriorityQueueSorter(ImmutableList.of(delegatedtaskexecutor, itaskexecutor, threadedmailbox1), p_i232602_5_, Integer.MAX_VALUE);
        this.field_219264_r = this.field_219263_q.func_219087_a(delegatedtaskexecutor, false);
        this.field_219265_s = this.field_219263_q.func_219087_a(itaskexecutor, false);
-       this.field_219256_j = new ServerWorldLightManager(p_i232602_7_, this, this.field_219255_i.func_230315_m_().func_218272_d(), delegatedtaskexecutor1, this.field_219263_q.func_219087_a(delegatedtaskexecutor1, false));
+-      this.field_219256_j = new ServerWorldLightManager(p_i232602_7_, this, this.field_219255_i.func_230315_m_().func_218272_d(), delegatedtaskexecutor1, this.field_219263_q.func_219087_a(delegatedtaskexecutor1, false));
 -      this.field_219267_u = new ChunkManager.ProxyTicketManager(p_i232602_5_, p_i232602_6_);
++      this.field_219256_j = new ServerWorldLightManager(p_i232602_7_, this, this.field_219255_i.func_230315_m_().func_218272_d(), threadedmailbox1, this.field_219263_q.func_219087_a(threadedmailbox1, false));
 +      this.field_219267_u = new ChunkManager.ProxyTicketManager(p_i232602_5_, p_i232602_6_); this.field_219267_u.chunkMap = this; // Paper
        this.field_219259_m = p_i232602_10_;
        this.field_219260_n = new PointOfInterestManager(new File(this.field_219270_x, "poi"), p_i232602_3_, p_i232602_12_);
@@ -556,6 +586,15 @@
              list.add(completablefuture);
           }
        }
+@@ -271,7 +_,7 @@
+          return p_219242_0_.mapLeft((p_219238_0_) -> {
+             return (Chunk)p_219238_0_.get(p_219238_0_.size() / 2);
+          });
+-      }, this.field_219257_k);
++      }, this.mainInvokingExecutor);
+    }
+ 
+    @Nullable
 @@ -281,6 +_,7 @@
        } else {
           if (p_219213_4_ != null) {
@@ -581,9 +620,76 @@
              this.field_219262_p = true;
           }
  
-@@ -318,8 +_,9 @@
+@@ -309,6 +_,7 @@
+ 
+    public void close() throws IOException {
+       try {
++         this.field_219256_j.close(); //Paper
+          this.field_219263_q.close();
+          this.field_219260_n.close();
+       } finally {
+@@ -317,9 +_,68 @@
+ 
     }
  
++   // Paper start - incremental autosave
++   final ObjectRBTreeSet<ChunkHolder> autoSaveQueue = new ObjectRBTreeSet<>((playerchunk1, playerchunk2) -> {
++      int timeCompare =  Long.compare(playerchunk1.lastAutoSaveTime, playerchunk2.lastAutoSaveTime);
++      if (timeCompare != 0) {
++         return timeCompare;
++      }
++
++      return Long.compare(MCUtil.getCoordinateKey(playerchunk1.field_219319_n), MCUtil.getCoordinateKey(playerchunk2.field_219319_n));
++   });
++
++   protected void saveIncrementally() {
++      int savedThisTick = 0;
++      // optimized since we search far less chunks to hit ones that need to be saved
++      List<ChunkHolder> reschedule = new java.util.ArrayList<>(this.field_219255_i.paperConfig.maxAutoSaveChunksPerTick);
++      long currentTick = this.field_219255_i.func_82737_E();
++      long maxSaveTime = currentTick - this.field_219255_i.paperConfig.autoSavePeriod;
++
++      for (Iterator<ChunkHolder> iterator = this.autoSaveQueue.iterator(); iterator.hasNext();) {
++         ChunkHolder playerchunk = iterator.next();
++         if (playerchunk.lastAutoSaveTime > maxSaveTime) {
++            break;
++         }
++
++         iterator.remove();
++
++         IChunk ichunkaccess = playerchunk.func_219302_f().getNow(null);
++         if (ichunkaccess instanceof Chunk) {
++            boolean shouldSave = ((Chunk)ichunkaccess).field_76641_n <= maxSaveTime;
++
++            if (shouldSave && this.func_219229_a(ichunkaccess)) {
++               ++savedThisTick;
++
++               if (!playerchunk.setHasBeenLoaded()) {
++                  // do not fall through to reschedule logic
++                  playerchunk.inactiveTimeStart = currentTick;
++                  if (savedThisTick >= this.field_219255_i.paperConfig.maxAutoSaveChunksPerTick) {
++                     break;
++                  }
++                  continue;
++               }
++            }
++         }
++
++         reschedule.add(playerchunk);
++
++         if (savedThisTick >= this.field_219255_i.paperConfig.maxAutoSaveChunksPerTick) {
++            break;
++         }
++      }
++
++      for (int i = 0, len = reschedule.size(); i < len; ++i) {
++         ChunkHolder playerchunk = reschedule.get(i);
++         playerchunk.lastAutoSaveTime = this.field_219255_i.func_82737_E();
++         this.autoSaveQueue.add(playerchunk);
++      }
++   }
++   // Paper end
++
     protected void func_219177_a(boolean p_219177_1_) {
 +      Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunks = this.getVisibleChunks(); // Paper remove clone of visible Chunks unless saving off main thread (watchdog kill)
        if (p_219177_1_) {
@@ -655,7 +761,7 @@
           runnable.run();
        }
  
-@@ -397,17 +_,25 @@
+@@ -397,17 +_,28 @@
           if (completablefuture1 != completablefuture) {
              this.func_219212_a(p_219212_1_, p_219212_3_);
           } else {
@@ -673,6 +779,9 @@
                    this.field_219255_i.func_217466_a(chunk);
                 }
  
++               this.autoSaveQueue.remove(p_219212_3_); // Paper
++
++
 +               try {
 +                  this.asyncSave(p_219185_5_); // Paper - async chunk saving
 +               } catch (Throwable ex) {

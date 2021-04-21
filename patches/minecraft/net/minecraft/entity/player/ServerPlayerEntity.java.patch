@@ -20,6 +20,14 @@
  import net.minecraft.world.server.ServerWorld;
  import net.minecraft.world.storage.IWorldInfo;
  import org.apache.logging.log4j.LogManager;
+@@ -133,6 +_,7 @@
+ 
+ public class ServerPlayerEntity extends PlayerEntity implements IContainerListener {
+    private static final Logger field_147102_bM = LogManager.getLogger();
++   public long lastSave = MinecraftServer.currentTick; // Paper
+    public ServerPlayNetHandler field_71135_a;
+    public final MinecraftServer field_71133_b;
+    public final PlayerInteractionManager field_71134_c;
 @@ -175,6 +_,19 @@
     public int field_71138_i;
     public boolean field_71136_j;
