@@ -1,6 +1,7 @@
 package com.destroystokyo.paper.util;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
@@ -20,6 +21,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 public class MCUtil {
+    public static final ThreadPoolExecutor asyncExecutor = new ThreadPoolExecutor(
+            0, 2, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<Runnable>(),
+            new ThreadFactoryBuilder().setNameFormat("Paper Async Task Handler Thread - %1$d").build()
+    );
+
 
     public static final ThreadPoolExecutor cleanerExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.SECONDS,
@@ -80,6 +87,10 @@ public class MCUtil {
         return MinecraftServer.getServer().isSameThread();
     }
 
+    public static void scheduleAsyncTask(Runnable run) {
+        asyncExecutor.execute(run);
+    }
+
     public static List<ChunkPos> getSpiralOutChunks(BlockPos blockposition, int radius) {
         List<ChunkPos> list = com.google.common.collect.Lists.newArrayList();
 
@@ -101,6 +112,10 @@ public class MCUtil {
             }
         }
         return list;
+    }
+
+    public static double distanceSq(BlockPos pos1, BlockPos pos2) {
+        return distanceSq(pos1.getX(), pos1.getY(), pos1.getZ(), pos2.getX(), pos2.getY(), pos2.getZ());
     }
 
     public static double distance(double x1, double y1, double z1, double x2, double y2, double z2) {
@@ -187,6 +202,18 @@ public class MCUtil {
             return null;
         }
         return run.get();
+    }
+
+    // assumes the sets have the same comparator, and if this comparator is null then assume T is Comparable
+    public static <T> void mergeSortedSets(final java.util.function.Consumer<T> consumer, final java.util.Comparator<? super T> comparator, final java.util.SortedSet<T>...sets) {
+        final ObjectRBTreeSet<T> all = new ObjectRBTreeSet<>(comparator);
+        // note: this is done in log(n!) ~ nlogn time. It could be improved if it were to mimic what mergesort does.
+        for (java.util.SortedSet<T> set : sets) {
+            if (set != null) {
+                all.addAll(set);
+            }
+        }
+        all.forEach(consumer);
     }
 
 }

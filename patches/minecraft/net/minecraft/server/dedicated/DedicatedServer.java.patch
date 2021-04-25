@@ -8,7 +8,7 @@
  import java.io.IOException;
  import java.io.InputStreamReader;
  import java.net.InetAddress;
-@@ -55,6 +_,7 @@
+@@ -55,13 +_,14 @@
  import net.minecraft.world.server.ServerWorld;
  import net.minecraft.world.storage.IServerConfiguration;
  import net.minecraft.world.storage.SaveFormat;
@@ -16,6 +16,14 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
+ public class DedicatedServer extends MinecraftServer implements IServer {
+    private static final Logger field_155771_h = LogManager.getLogger();
+    private static final Pattern field_189647_l = Pattern.compile("^[a-fA-F0-9]{40}$");
+-   public final List<PendingCommand> field_71341_l = Collections.synchronizedList(Lists.newArrayList());
++   public final java.util.Queue<PendingCommand> field_71341_l = new java.util.concurrent.ConcurrentLinkedQueue<>(); // Paper - use a proper queue
+    private QueryThread field_71342_m;
+    private final RConConsoleSource field_184115_n;
+    private MainThread field_71339_n;
 @@ -81,6 +_,7 @@
     public boolean func_71197_b() throws IOException {
        Thread thread = new Thread("Server console handler") {
@@ -24,7 +32,15 @@
              BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
  
              String s1;
-@@ -157,16 +_,20 @@
+@@ -150,23 +_,26 @@
+       }
+ 
+       if (this.func_152368_aE()) {
+-         this.func_152358_ax().func_152658_c();
++         this.func_152358_ax().save(false);
+       }
+ 
+       if (!PreYggdrasilConverter.func_219587_e(this)) {
           return false;
        } else {
           this.func_184105_a(new DedicatedPlayerList(this, this.field_240767_f_, this.field_240766_e_));
@@ -40,13 +56,29 @@
           this.func_240800_l__();
           long j = Util.func_211178_c() - i;
           String s = String.format(Locale.ROOT, "%.3fs", (double)j / 1.0E9D);
-          field_155771_h.info("Done ({})! For help, type \"help\"", (Object)s);
+-         field_155771_h.info("Done ({})! For help, type \"help\"", (Object)s);
 +         this.field_211151_aa = Util.func_211177_b(); //Forge: Update server time to prevent watchdog/spaming during long load.
           if (serverproperties.field_219027_u != null) {
              this.func_200252_aR().func_223585_a(GameRules.field_223620_w).func_223570_a(serverproperties.field_219027_u, this);
           }
-@@ -190,11 +_,12 @@
+@@ -181,20 +_,21 @@
+             this.field_71339_n = MainThread.func_242130_a(this);
           }
+ 
+-         if (this.func_175593_aQ() > 0L) {
+-            Thread thread1 = new Thread(new ServerHangWatchdog(this));
+-            thread1.setUncaughtExceptionHandler(new DefaultWithNameUncaughtExceptionHandler(field_155771_h));
+-            thread1.setName("Server Watchdog");
+-            thread1.setDaemon(true);
+-            thread1.start();
+-         }
++//         if (this.getMaxTickLength() > 0L) {
++//            Thread thread1 = new Thread(new ServerHangWatchdog(this));
++//            thread1.setUncaughtExceptionHandler(new DefaultWithNameUncaughtExceptionHandler(LOGGER));
++//            thread1.setName("Server Watchdog");
++//            thread1.setDaemon(true);
++//            thread1.start();
++//         }
  
           Items.field_190931_a.func_150895_a(ItemGroup.field_78027_g, NonNullList.func_191196_a());
 +         // <3 you Grum for this, saves us ~30 patch files! --^
@@ -69,6 +101,29 @@
     }
  
     public void func_71190_q(BooleanSupplier p_71190_1_) {
+@@ -303,9 +_,19 @@
+    }
+ 
+    public void func_71333_ah() {
+-      while(!this.field_71341_l.isEmpty()) {
+-         PendingCommand pendingcommand = this.field_71341_l.remove(0);
+-         this.func_195571_aL().func_197059_a(pendingcommand.field_73701_b, pendingcommand.field_73702_a);
++//      while(!this.consoleInput.isEmpty()) {
++//         PendingCommand pendingcommand = this.consoleInput.remove(0);
++//         this.getCommands().performCommand(pendingcommand.source, pendingcommand.msg);
++//      }
++
++      // Paper start - use proper queue
++      PendingCommand servercommand;
++      while ((servercommand = this.field_71341_l.poll()) != null) {
++         // Paper end
++
++         // this.getCommandDispatcher().a(servercommand.source, servercommand.command); // Called in dispatchServerCommand
++         this.func_195571_aL().func_197059_a(servercommand.field_73701_b, servercommand.field_73702_a);
++         // CraftBukkit end
+       }
+ 
+    }
 @@ -508,11 +_,16 @@
  
     public void func_71260_j() {

@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/chunk/storage/RegionSectionCache.java
 +++ b/net/minecraft/world/chunk/storage/RegionSectionCache.java
-@@ -30,9 +_,9 @@
+@@ -30,22 +_,23 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -10,9 +10,11 @@
 -   private final IOWorker field_227173_b_;
 +   //private final IOWorker worker; Paper - nuke IOWorker
     private final Long2ObjectMap<Optional<R>> field_219121_b = new Long2ObjectOpenHashMap<>();
-    private final LongLinkedOpenHashSet field_219122_d = new LongLinkedOpenHashSet();
+-   private final LongLinkedOpenHashSet field_219122_d = new LongLinkedOpenHashSet();
++   public final LongLinkedOpenHashSet field_219122_d = new LongLinkedOpenHashSet();
     private final Function<Runnable, Codec<R>> field_235988_e_;
-@@ -41,11 +_,12 @@
+    private final Function<Runnable, R> field_219124_f;
+    private final DataFixer field_219125_g;
     private final DefaultTypeReferences field_219126_h;
  
     public RegionSectionCache(File p_i231897_1_, Function<Runnable, Codec<R>> p_i231897_2_, Function<Runnable, R> p_i231897_3_, DataFixer p_i231897_4_, DefaultTypeReferences p_i231897_5_, boolean p_i231897_6_) {

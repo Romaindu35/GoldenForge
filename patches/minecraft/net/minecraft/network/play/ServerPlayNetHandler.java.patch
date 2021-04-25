@@ -16,7 +16,7 @@
  import java.util.function.BiFunction;
  import java.util.function.Consumer;
  import java.util.stream.Collectors;
-@@ -150,6 +_,8 @@
+@@ -150,17 +_,25 @@
  import net.minecraft.world.server.ServerWorld;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -25,8 +25,9 @@
  
  public class ServerPlayNetHandler implements IServerPlayNetHandler {
     private static final Logger field_147370_c = LogManager.getLogger();
-@@ -157,10 +_,15 @@
+    public final NetworkManager field_147371_a;
     private final MinecraftServer field_147367_d;
++   public Runnable playerJoinReady; // Paper
     public ServerPlayerEntity field_147369_b;
     private int field_147368_e;
 -   private long field_194402_f;
@@ -59,6 +60,18 @@
  
     public ServerPlayNetHandler(MinecraftServer p_i1530_1_, NetworkManager p_i1530_2_, ServerPlayerEntity p_i1530_3_) {
        this.field_147367_d = p_i1530_1_;
+@@ -200,6 +_,11 @@
+    }
+ 
+    public void func_73660_a() {
++      Runnable playerJoinReady = this.playerJoinReady;
++      if (playerJoinReady != null) {
++         this.playerJoinReady = null;
++         playerJoinReady.run();
++      }
+       this.func_184342_d();
+       this.field_147369_b.field_70169_q = this.field_147369_b.func_226277_ct_();
+       this.field_147369_b.field_70167_r = this.field_147369_b.func_226278_cu_();
 @@ -211,7 +_,7 @@
        if (this.field_184344_B && !this.field_147369_b.func_70608_bn()) {
           if (++this.field_147365_f > 80) {

@@ -1,5 +1,13 @@
 --- a/net/minecraft/network/login/ServerLoginNetHandler.java
 +++ b/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -29,6 +_,7 @@
+ import net.minecraft.util.CryptManager;
+ import net.minecraft.util.DefaultUncaughtExceptionHandler;
+ import net.minecraft.util.text.ITextComponent;
++import net.minecraft.util.text.StringTextComponent;
+ import net.minecraft.util.text.TranslationTextComponent;
+ import org.apache.commons.lang3.Validate;
+ import org.apache.logging.log4j.LogManager;
 @@ -41,7 +_,7 @@
     private final byte[] field_147330_e = new byte[4];
     private final MinecraftServer field_147327_f;
@@ -9,11 +17,18 @@
     private int field_147336_h;
     private GameProfile field_147337_i;
     private final String field_147334_j = "";
-@@ -55,7 +_,13 @@
+@@ -55,8 +_,24 @@
     }
  
     public void func_73660_a() {
 -      if (this.field_147328_g == ServerLoginNetHandler.State.READY_TO_ACCEPT) {
+-         this.func_147326_c();
++      // Paper start - Do not allow logins while the server is shutting down
++      if (!MinecraftServer.getServer().func_71278_l()) {
++         this.func_194026_b(new StringTextComponent(org.spigotmc.SpigotConfig.restartMessage));
++         return;
++      }
++      // Paper end
 +      if (this.field_147328_g == State.NEGOTIATING) {
 +         // We force the state into "NEGOTIATING" which is otherwise unused. Once we're completed we move the negotiation onto "READY_TO_ACCEPT"
 +         // Might want to promote player object creation to here as well..
@@ -21,9 +36,14 @@
 +         if (negotiationComplete)
 +            this.field_147328_g = State.READY_TO_ACCEPT;
 +      } else if (this.field_147328_g == ServerLoginNetHandler.State.READY_TO_ACCEPT) {
-          this.func_147326_c();
++         // Paper start - prevent logins to be processed even though disconnect was called
++         if (field_147333_a.func_150724_d()) {
++            this.func_147326_c();
++         }
++         // Paper end
        } else if (this.field_147328_g == ServerLoginNetHandler.State.DELAY_ACCEPT) {
           ServerPlayerEntity serverplayerentity = this.field_147327_f.func_184103_al().func_177451_a(this.field_147337_i.getId());
+          if (serverplayerentity == null) {
 @@ -130,7 +_,7 @@
           this.field_147328_g = ServerLoginNetHandler.State.KEY;
           this.field_147333_a.func_179290_a(new SEncryptionRequestPacket("", this.field_147327_f.func_71250_E().getPublic().getEncoded(), this.field_147330_e));

@@ -111,7 +111,7 @@
           if (i != (this.field_215539_f).field_215652_b) {
              long j = SectionPos.func_218166_b(SectionPos.func_218173_b(p_215526_1_), i - 1, SectionPos.func_218153_d(p_215526_1_));
              this.func_223404_q(j);
-@@ -142,7 +_,7 @@
+@@ -142,16 +_,16 @@
           return nibblearray;
        } else {
           long i = SectionPos.func_218172_a(p_215530_1_, Direction.UP);
@@ -119,7 +119,28 @@
 +         int j = (this.field_215539_f).field_215653_c.getUpdating(SectionPos.func_218169_f(p_215530_1_));
           if (j != (this.field_215539_f).field_215652_b && SectionPos.func_218144_c(i) < j) {
              NibbleArray nibblearray1;
-             while((nibblearray1 = this.func_215520_a(i, true)) == null) {
+-            while((nibblearray1 = this.func_215520_a(i, true)) == null) {
++            while((nibblearray1 = this.field_215539_f.getUpdatingOptimized(i)) == null) {
+                i = SectionPos.func_218172_a(i, Direction.UP);
+             }
+ 
+-            return new NibbleArray((new NibbleArrayRepeater(nibblearray1, 0)).func_177481_a());
++            return new NibbleArray().markPoolSafe(new NibbleArrayRepeater(nibblearray1, 0).func_177481_a()); // Paper - mark pool use as safe (no auto cleaner)
+          } else {
+-            return new NibbleArray();
++            return new NibbleArray().markPoolSafe(); // Paper - mark pool use as safe (no auto cleaner)
+          }
+       }
+    }
+@@ -169,7 +_,7 @@
+                         this.field_215539_f.func_215641_a(i);
+                      }
+ 
+-                     Arrays.fill(this.func_215520_a(i, true).func_177481_a(), (byte)-1);
++                     Arrays.fill(this.field_215539_f.getUpdatingOptimized(i).asBytesPoolSafe(), (byte)-1); // Paper - use optimized
+                      int i3 = SectionPos.func_218142_c(SectionPos.func_218173_b(i));
+                      int k3 = SectionPos.func_218142_c(SectionPos.func_218144_c(i));
+                      int i4 = SectionPos.func_218142_c(SectionPos.func_218153_d(i));
 @@ -257,7 +_,7 @@
           if (!this.field_215558_o.contains(k)) {
              return false;

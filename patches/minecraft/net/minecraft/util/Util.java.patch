@@ -15,7 +15,16 @@
     private static final ExecutorService field_240975_f_ = func_240995_n_();
     public static LongSupplier field_211180_a = System::nanoTime;
     public static final UUID field_240973_b_ = new UUID(0L, 0L);
-@@ -94,30 +_,42 @@
+@@ -87,37 +_,50 @@
+    }
+ 
+    public static long func_211178_c() {
+-      return field_211180_a.getAsLong();
++      return System.nanoTime(); // Paper
++      //return timeSource.getAsLong();
+    }
+ 
+    public static long func_211179_d() {
        return Instant.now().toEpochMilli();
     }
  

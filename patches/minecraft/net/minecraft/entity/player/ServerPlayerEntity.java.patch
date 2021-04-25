@@ -1,5 +1,12 @@
 --- a/net/minecraft/entity/player/ServerPlayerEntity.java
 +++ b/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.entity.player;
+ 
++import com.destroystokyo.paper.util.MCUtil;
+ import com.google.common.collect.Lists;
+ import com.mojang.authlib.GameProfile;
+ import com.mojang.datafixers.util.Either;
 @@ -22,10 +_,7 @@
  import net.minecraft.crash.CrashReport;
  import net.minecraft.crash.CrashReportCategory;
@@ -12,6 +19,14 @@
  import net.minecraft.entity.item.ItemEntity;
  import net.minecraft.entity.monster.MonsterEntity;
  import net.minecraft.entity.passive.horse.AbstractHorseEntity;
+@@ -47,6 +_,7 @@
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.NBTDynamicOps;
+ import net.minecraft.network.IPacket;
++import net.minecraft.network.NetworkManager;
+ import net.minecraft.network.play.ServerPlayNetHandler;
+ import net.minecraft.network.play.client.CClientSettingsPacket;
+ import net.minecraft.network.play.server.SAnimateHandPacket;
 @@ -126,6 +_,7 @@
  import net.minecraft.world.GameType;
  import net.minecraft.world.World;
@@ -20,20 +35,29 @@
  import net.minecraft.world.server.ServerWorld;
  import net.minecraft.world.storage.IWorldInfo;
  import org.apache.logging.log4j.LogManager;
-@@ -133,6 +_,7 @@
+@@ -133,7 +_,9 @@
  
  public class ServerPlayerEntity extends PlayerEntity implements IContainerListener {
     private static final Logger field_147102_bM = LogManager.getLogger();
 +   public long lastSave = MinecraftServer.currentTick; // Paper
     public ServerPlayNetHandler field_71135_a;
++   public NetworkManager networkManager; // Paper
     public final MinecraftServer field_71133_b;
     public final PlayerInteractionManager field_71134_c;
-@@ -175,6 +_,19 @@
+    private final List<Integer> field_71130_g = Lists.newLinkedList();
+@@ -175,6 +_,33 @@
     public int field_71138_i;
     public boolean field_71136_j;
  
++   public boolean isRealPlayer; // Paper
 +   public ServerWorld getWorldServer() {
 +      return (ServerWorld) this.field_70170_p;
++   }
++   public long lastHighPriorityChecked; // Paper
++   public long loginTime; // Paper
++   public void forceCheckHighPriority() {
++      lastHighPriorityChecked = -1;
++      getWorldServer().func_72863_F().field_217237_a.checkHighPriorityChunks(this);
 +   }
 +
 +   // Paper start
@@ -44,6 +68,13 @@
 +   public double lastEntitySpawnRadiusSquared; // Paper - optimise isOutsideRange, this field is in blocks
 +   public boolean needsChunkCenterUpdate; // Paper - no-tick view distance
 +   public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleHashSet = new com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<>(this); // Paper
++
++   public ChunkPos getChunkInFront(double inFront) {
++      double rads = Math.toRadians(MCUtil.normalizeYaw(this.field_70177_z+90)); // MC rotates yaw 90 for some odd reason
++      final double x = func_226277_ct_() + (inFront * 16) * Math.cos(rads);
++      final double z = func_226281_cx_() + (inFront * 16) * Math.sin(rads);
++      return new ChunkPos(MathHelper.func_76128_c(x) >> 4, MathHelper.func_76128_c(z) >> 4);
++   }
 +
     public ServerPlayerEntity(MinecraftServer p_i45285_1_, ServerWorld p_i45285_2_, GameProfile p_i45285_3_, PlayerInteractionManager p_i45285_4_) {
        super(p_i45285_2_, p_i45285_2_.func_241135_u_(), p_i45285_2_.func_242107_v(), p_i45285_3_);

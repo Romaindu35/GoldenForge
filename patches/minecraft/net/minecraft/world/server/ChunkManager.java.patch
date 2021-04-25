@@ -7,7 +7,18 @@
  import com.google.common.collect.ImmutableList;
  import com.google.common.collect.Iterables;
  import com.google.common.collect.Lists;
-@@ -19,28 +_,23 @@
+@@ -9,38 +_,28 @@
+ import com.mojang.datafixers.util.Either;
+ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.Long2ByteMap;
+-import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.LongIterator;
+-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+-import it.unimi.dsi.fastutil.longs.LongSet;
++import it.unimi.dsi.fastutil.longs.*;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
  import java.io.File;
  import java.io.IOException;
  import java.io.Writer;
@@ -41,7 +52,7 @@
  import net.minecraft.entity.EntityType;
  import net.minecraft.entity.MobEntity;
  import net.minecraft.entity.boss.dragon.EnderDragonPartEntity;
-@@ -49,12 +_,11 @@
+@@ -49,18 +_,18 @@
  import net.minecraft.nbt.CompoundNBT;
  import net.minecraft.network.DebugPacketSender;
  import net.minecraft.network.IPacket;
@@ -58,6 +69,13 @@
  import net.minecraft.util.CSVWriter;
  import net.minecraft.util.ClassInheritanceMultiMap;
  import net.minecraft.util.Util;
+ import net.minecraft.util.concurrent.DelegatedTaskExecutor;
+ import net.minecraft.util.concurrent.ITaskExecutor;
+ import net.minecraft.util.concurrent.ThreadTaskExecutor;
++import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.math.SectionPos;
 @@ -81,6 +_,7 @@
  import net.minecraft.world.chunk.listener.IChunkStatusListener;
  import net.minecraft.world.chunk.storage.ChunkLoader;
@@ -125,9 +143,10 @@
     private final ChunkTaskPriorityQueueSorter field_219263_q;
     private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219264_r;
 -   private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s;
-+   public final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s;
-    private final IChunkStatusListener field_219266_t;
+-   private final IChunkStatusListener field_219266_t;
 -   private final ChunkManager.ProxyTicketManager field_219267_u;
++   public final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s;
++   public final IChunkStatusListener field_219266_t;
 +   public final ChunkManager.ProxyTicketManager field_219267_u;
     private final AtomicInteger field_219268_v = new AtomicInteger();
 -   private final TemplateManager field_219269_w;
@@ -422,7 +441,7 @@
 +      this.playerViewDistanceTickMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets,
 +              (ServerPlayerEntity player, int rangeX, int rangeZ, int currPosX, int currPosZ, int prevPosX, int prevPosZ,
 +               com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> newState) -> {
-+                 //checkHighPriorityChunks(player);
++                 checkHighPriorityChunks(player);
 +                 if (newState.size() != 1) {
 +                    return;
 +                 }
@@ -443,8 +462,8 @@
 +                 ChunkManager.this.field_219255_i.func_72863_F().releaseTickingTicket(TicketType.field_219490_c, chunkPos, 31, chunkPos); // entity ticking level, TODO check on update
 +                 ChunkManager.this.field_219255_i.func_72863_F().clearPriorityTickets(chunkPos);
 +              }, (player, prevPos, newPos) -> {
-+         //player.lastHighPriorityChecked = -1; // reset and recheck
-+         //checkHighPriorityChunks(player);
++         player.lastHighPriorityChecked = -1; // reset and recheck
++         checkHighPriorityChunks(player);
 +      });
 +      this.playerViewDistanceNoTickMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets);
 +      this.playerViewDistanceBroadcastMap = new com.destroystokyo.paper.util.misc.PlayerAreaMap(this.pooledLinkedPlayerHashSets,
@@ -500,6 +519,99 @@
     }
  
     private static double func_219217_a(ChunkPos p_219217_0_, Entity p_219217_1_) {
+@@ -150,6 +_,92 @@
+       return d2 * d2 + d3 * d3;
+    }
+ 
++   public void checkHighPriorityChunks(ServerPlayerEntity player) {
++      int currentTick = MinecraftServer.currentTick;
++      if (currentTick - player.lastHighPriorityChecked < 20 || !player.isRealPlayer) { // weed out fake players
++         return;
++      }
++      player.lastHighPriorityChecked = currentTick;
++      Long2IntOpenHashMap priorities = new Long2IntOpenHashMap();
++
++      int viewDistance = getEffectiveNoTickViewDistance();
++      BlockPos.Mutable pos = new BlockPos.Mutable();
++
++      // Prioritize circular near
++      double playerChunkX = MathHelper.func_76128_c(player.func_226277_ct_()) >> 4;
++      double playerChunkZ = MathHelper.func_76128_c(player.func_226281_cx_()) >> 4;
++      pos.func_189532_c(player.func_226277_ct_(), 0, player.func_226281_cx_());
++      double twoThirdModifier = 2D / 3D;
++      MCUtil.getSpiralOutChunks(pos, Math.min(6, viewDistance)).forEach(coord -> {
++         if (shouldSkipPrioritization(coord)) return;
++
++         double dist = MCUtil.distance(playerChunkX, 0, playerChunkZ, coord.field_77276_a, 0, coord.field_77275_b);
++         // Prioritize immediate
++         if (dist <= 4) {
++            updateChunkPriorityMap(priorities, coord.func_201841_a(), (int) (27 - dist));
++            return;
++         }
++
++         // Prioritize nearby chunks
++         updateChunkPriorityMap(priorities, coord.func_201841_a(), (int) (20 - dist * twoThirdModifier));
++      });
++
++      // Prioritize Frustum near 3
++      ChunkPos front3 = player.getChunkInFront(3);
++      pos.func_181079_c(front3.field_77276_a << 4, 0, front3.field_77275_b << 4);
++      MCUtil.getSpiralOutChunks(pos, Math.min(5, viewDistance)).forEach(coord -> {
++         if (shouldSkipPrioritization(coord)) return;
++
++         double dist = MCUtil.distance(playerChunkX, 0, playerChunkZ, coord.field_77276_a, 0, coord.field_77275_b);
++         updateChunkPriorityMap(priorities, coord.func_201841_a(), (int) (25 - dist * twoThirdModifier));
++      });
++
++      // Prioritize Frustum near 5
++      if (viewDistance > 4) {
++         ChunkPos front5 = player.getChunkInFront(5);
++         pos.func_181079_c(front5.field_77276_a << 4, 0, front5.field_77275_b << 4);
++         MCUtil.getSpiralOutChunks(pos, 4).forEach(coord -> {
++            if (shouldSkipPrioritization(coord)) return;
++
++            double dist = MCUtil.distance(playerChunkX, 0, playerChunkZ, coord.field_77276_a, 0, coord.field_77275_b);
++            updateChunkPriorityMap(priorities, coord.func_201841_a(), (int) (25 - dist * twoThirdModifier));
++         });
++      }
++
++      // Prioritize Frustum far 7
++      if (viewDistance > 6) {
++         ChunkPos front7 = player.getChunkInFront(7);
++         pos.func_181079_c(front7.field_77276_a << 4, 0, front7.field_77275_b << 4);
++         MCUtil.getSpiralOutChunks(pos, 3).forEach(coord -> {
++            if (shouldSkipPrioritization(coord)) {
++               return;
++            }
++            double dist = MCUtil.distance(playerChunkX, 0, playerChunkZ, coord.field_77276_a, 0, coord.field_77275_b);
++            updateChunkPriorityMap(priorities, coord.func_201841_a(), (int) (25 - dist * twoThirdModifier));
++         });
++      }
++
++      if (priorities.isEmpty()) return;
++      field_219267_u.delayDistanceManagerTick = true;
++      priorities.long2IntEntrySet().fastForEach(entry -> field_219267_u.markHighPriority(new ChunkPos(entry.getLongKey()), entry.getIntValue()));
++      field_219267_u.delayDistanceManagerTick = false;
++      field_219255_i.func_72863_F().func_217235_l();
++
++   }
++
++   private void updateChunkPriorityMap(Long2IntOpenHashMap map, long chunk, int level) {
++      int prev = map.getOrDefault(chunk, -1);
++      if (level > prev) {
++         map.put(chunk, level);
++      }
++   }
++
++   private boolean shouldSkipPrioritization(ChunkPos coord) {
++      if (playerViewDistanceNoTickMap.getObjectsInRange(coord.func_201841_a()) == null) return true;
++      ChunkHolder chunk = func_219220_a(coord.func_201841_a());
++      return chunk != null && (chunk.isFullChunkReady());
++   }
++
+    private static int func_219215_b(ChunkPos p_219215_0_, ServerPlayerEntity p_219215_1_, boolean p_219215_2_) {
+       int i;
+       int j;
 @@ -176,13 +_,57 @@
     }
  
@@ -620,14 +732,16 @@
              this.field_219262_p = true;
           }
  
-@@ -309,6 +_,7 @@
+@@ -309,7 +_,9 @@
  
     public void close() throws IOException {
        try {
 +         this.field_219256_j.close(); //Paper
           this.field_219263_q.close();
++         this.field_219255_i.asyncChunkTaskManager.close(true); // Paper - Required since we're closing regionfiles in the next line
           this.field_219260_n.close();
        } finally {
+          super.close();
 @@ -317,9 +_,68 @@
  
     }
@@ -721,7 +835,7 @@
     protected void func_219204_a(BooleanSupplier p_219204_1_) {
        IProfiler iprofiler = this.field_219255_i.func_217381_Z();
        iprofiler.func_76320_a("poi");
-@@ -371,20 +_,34 @@
+@@ -371,20 +_,36 @@
  
     private void func_223155_b(BooleanSupplier p_223155_1_) {
        LongIterator longiterator = this.field_219261_o.iterator();
@@ -753,6 +867,8 @@
 +            // Spigot end
           }
        }
++
++      activityAccountant.endActivity(); // Spigot
  
        Runnable runnable;
 -      while((p_223155_1_.getAsBoolean() || this.field_223181_A.size() > 2000) && (runnable = this.field_223181_A.poll()) != null) {
@@ -853,7 +969,7 @@
 -               field_219250_d.error("Chunk file at {} is missing level data, skipping", (Object)p_223172_1_);
 +            // Paper start
 +            if (ioThrowable != null) {
-+               //com.destroystokyo.paper.util.SneakyThrow.sneaky(ioThrowable);
++               com.destroystokyo.paper.util.SneakyThrow.sneaky(ioThrowable);
              }
 +
 +            this.func_219189_h().readColumn(p_223172_1_, chunkHolder.poiData);
@@ -1257,7 +1373,7 @@
     private static String func_225402_a(CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> p_225402_0_) {
        try {
           Either<Chunk, ChunkHolder.IChunkLoadingError> either = p_225402_0_.getNow((Either<Chunk, ChunkHolder.IChunkLoadingError>)null);
-@@ -802,15 +_,88 @@
+@@ -802,15 +_,125 @@
     @Nullable
     private CompoundNBT func_219178_f(ChunkPos p_219178_1_) throws IOException {
        CompoundNBT compoundnbt = this.func_227078_e_(p_219178_1_);
@@ -1285,6 +1401,43 @@
 +         RegionFile regionFile = this.regionFileCache.getRegionFile(chunkPos, false);
 +
 +         regionFile.setStatus(chunkPos.field_77276_a, chunkPos.field_77275_b, ChunkSerializer.getStatus(compound));
++      }
++   }
++
++   public IChunk getUnloadingChunk(int chunkX, int chunkZ) {
++      ChunkHolder chunkHolder = this.pendingUnload.get(ChunkPos.func_77272_a(chunkX, chunkZ));
++      return chunkHolder == null ? null : chunkHolder.getAvailableChunkNow();
++   }
++
++   // Paper start - async io
++   // this function will not load chunk data off disk to check for status
++   // ret null for unknown, empty for empty status on disk or absent from disk
++   public ChunkStatus getStatusOnDiskNoLoad(int x, int z) {
++      // Paper start - async chunk save for unload
++      IChunk unloadingChunk = this.field_219255_i.asyncChunkTaskManager.getChunkInSaveProgress(x, z);
++      if (unloadingChunk != null) {
++         return unloadingChunk.func_201589_g();
++      }
++      // Paper end
++      // Paper start - async io
++      CompoundNBT inProgressWrite = com.destroystokyo.paper.io.PaperFileIOThread.Holder.INSTANCE
++              .getPendingWrite(this.field_219255_i, x, z, false);
++
++      if (inProgressWrite != null) {
++         return ChunkSerializer.getStatus(inProgressWrite);
++      }
++      // Paper end
++      // variant of PlayerChunkMap#getChunkStatusOnDisk that does not load data off disk, but loads the region file
++      ChunkPos chunkPos = new ChunkPos(x, z);
++      synchronized (field_219255_i.func_72863_F().field_217237_a) {
++         RegionFile file;
++         try {
++            file = field_219255_i.func_72863_F().field_217237_a.regionFileCache.getRegionFile(chunkPos, false);
++         } catch (IOException ex) {
++            throw new RuntimeException(ex);
++         }
++
++         return !file.func_222667_d(chunkPos) ? ChunkStatus.field_223226_a_ : file.getStatusIfCached(x, z);
 +      }
     }
  
@@ -1743,3 +1896,12 @@
                 i = j;
              }
           }
+@@ -1183,7 +_,7 @@
+       }
+    }
+ 
+-   class ProxyTicketManager extends TicketManager {
++   public class ProxyTicketManager extends TicketManager {
+       protected ProxyTicketManager(Executor p_i50469_2_, Executor p_i50469_3_) {
+          super(p_i50469_2_, p_i50469_3_);
+       }

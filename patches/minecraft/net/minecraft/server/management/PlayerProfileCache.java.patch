@@ -1,5 +1,12 @@
 --- a/net/minecraft/server/management/PlayerProfileCache.java
 +++ b/net/minecraft/server/management/PlayerProfileCache.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.server.management;
+ 
++import com.destroystokyo.paper.util.MCUtil;
+ import com.google.common.collect.ImmutableList;
+ import com.google.common.collect.Lists;
+ import com.google.common.collect.Maps;
 @@ -37,6 +_,7 @@
  import net.minecraft.entity.player.PlayerEntity;
  import org.apache.logging.log4j.LogManager;
@@ -13,21 +20,27 @@
        PlayerProfileCache.ProfileEntry playerprofilecache$profileentry = new PlayerProfileCache.ProfileEntry(p_152649_1_, date);
        this.func_242118_a(playerprofilecache$profileentry);
 -      this.func_152658_c();
-+      if (!SpigotConfig.saveUserCacheOnStopOnly) this.func_152658_c();
++      if (!SpigotConfig.saveUserCacheOnStopOnly) this.save(true);
     }
  
     private long func_242123_d() {
-@@ -137,7 +_,7 @@
+@@ -137,8 +_,8 @@
           }
        }
  
 -      if (flag) {
+-         this.func_152658_c();
 +      if (flag && !org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly) { // Spigot - skip saving if disabled
-          this.func_152658_c();
++         this.save(true);
        }
  
-@@ -187,7 +_,7 @@
-    public void func_152658_c() {
+       return gameprofile;
+@@ -184,18 +_,27 @@
+       return list;
+    }
+ 
+-   public void func_152658_c() {
++   public void save(boolean asyncSave) {
        JsonArray jsonarray = new JsonArray();
        DateFormat dateformat = func_242124_e();
 -      this.func_242117_a(1000).forEach((p_242120_2_) -> {
@@ -35,3 +48,23 @@
           jsonarray.add(func_242119_a(p_242120_2_, dateformat));
        });
        String s = this.field_152660_b.toJson((JsonElement)jsonarray);
+ 
+-      try (Writer writer = Files.newWriter(this.field_152665_g, StandardCharsets.UTF_8)) {
+-         writer.write(s);
+-      } catch (IOException ioexception) {
++      Runnable save = () -> {
++         try (Writer writer = Files.newWriter(this.field_152665_g, StandardCharsets.UTF_8)) {
++            writer.write(s);
++         } catch (IOException ioexception) {
++         }
++      };
++      // Paper start
++      if (asyncSave) {
++         MCUtil.scheduleAsyncTask(save);
++      } else {
++         save.run();
+       }
++      // Paper end
+ 
+    }
+ 

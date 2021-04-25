@@ -303,6 +303,61 @@
           this.func_219305_a(p_244385_1_, p_244385_2_);
        }
  
+@@ -222,9 +_,51 @@
+    }
+ 
+    private void func_219293_a(IPacket<?> p_219293_1_, boolean p_219293_2_) {
+-      this.field_219328_w.func_219097_a(this.field_219319_n, p_219293_2_).forEach((p_219304_1_) -> {
+-         p_219304_1_.field_71135_a.func_147359_a(p_219293_1_);
+-      });
++      // Paper start - per player view distance
++      // there can be potential desync with player's last mapped section and the view distance map, so use the
++      // view distance map here.
++      com.destroystokyo.paper.util.misc.PlayerAreaMap viewDistanceMap = this.chunkMap.playerViewDistanceBroadcastMap;
++      com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> players = viewDistanceMap.getObjectsInRange(this.field_219319_n);
++      if (players == null) {
++         return;
++      }
++
++      if (p_219293_2_) { // flag -> border only
++         Object[] backingSet = players.getBackingSet();
++         for (int i = 0, len = backingSet.length; i < len; ++i) {
++            Object temp = backingSet[i];
++            if (!(temp instanceof ServerPlayerEntity)) {
++               continue;
++            }
++            ServerPlayerEntity player = (ServerPlayerEntity)temp;
++
++            int viewDistance = viewDistanceMap.getLastViewDistance(player);
++            long lastPosition = viewDistanceMap.getLastCoordinate(player);
++
++            int distX = Math.abs(MCUtil.getCoordinateX(lastPosition) - this.field_219319_n.field_77276_a);
++            int distZ = Math.abs(MCUtil.getCoordinateZ(lastPosition) - this.field_219319_n.field_77275_b);
++
++            if (Math.max(distX, distZ) == viewDistance) {
++               player.field_71135_a.func_147359_a(p_219293_1_);
++            }
++         }
++      } else {
++         Object[] backingSet = players.getBackingSet();
++         for (int i = 0, len = backingSet.length; i < len; ++i) {
++            Object temp = backingSet[i];
++            if (!(temp instanceof ServerPlayerEntity)) {
++               continue;
++            }
++            ServerPlayerEntity player = (ServerPlayerEntity)temp;
++            player.field_71135_a.func_147359_a(p_219293_1_);
++         }
++      }
++
++      return;
++      // Paper end - per player view distance
++//      this.playerProvider.getPlayers(this.pos, p_219293_2_).forEach((p_219304_1_) -> {
++//         p_219304_1_.connection.send(p_219293_1_);
++//      });
+    }
+ 
+    public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_219276_a(ChunkStatus p_219276_1_, ChunkManager p_219276_2_) {
 @@ -289,6 +_,31 @@
        boolean flag1 = this.field_219317_l <= ChunkManager.field_219249_a;
        ChunkHolder.LocationType chunkholder$locationtype = func_219286_c(this.field_219316_k);
@@ -335,18 +390,42 @@
        if (flag) {
           Either<IChunk, ChunkHolder.IChunkLoadingError> either = Either.right(new ChunkHolder.IChunkLoadingError() {
              public String toString() {
-@@ -297,7 +_,7 @@
+@@ -296,8 +_,14 @@
+             }
           });
  
++         // Paper start
++         if (!flag1) {
++            p_219291_1_.field_219255_i.asyncChunkTaskManager.cancelChunkLoad(this.field_219319_n.field_77276_a, this.field_219319_n.field_77275_b);
++         }
++         // Paper end
++
           for(int i = flag1 ? chunkstatus1.func_222584_c() + 1 : 0; i <= chunkstatus.func_222584_c(); ++i) {
 -            CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture = this.field_219312_g.get(i);
 +            completablefuture = this.field_219312_g.get(i);
              if (completablefuture != null) {
                 completablefuture.complete(either);
              } else {
-@@ -310,14 +_,29 @@
+@@ -308,16 +_,46 @@
+ 
+       boolean flag5 = chunkholder$locationtype.func_219065_a(ChunkHolder.LocationType.BORDER);
        boolean flag6 = chunkholder$locationtype1.func_219065_a(ChunkHolder.LocationType.BORDER);
++
++      boolean prevHasBeenLoaded = this.field_219329_x; // Paper
        this.field_219329_x |= flag6;
++
++      // Paper start - incremental autosave
++      if (this.field_219329_x & !prevHasBeenLoaded) {
++         long timeSinceAutoSave = this.inactiveTimeStart - this.lastAutoSaveTime;
++         if (timeSinceAutoSave < 0) {
++            // safest bet is to assume autosave is needed here
++            timeSinceAutoSave = this.chunkMap.field_219255_i.paperConfig.autoSavePeriod;
++         }
++         this.lastAutoSaveTime = this.chunkMap.field_219255_i.func_82737_E() - timeSinceAutoSave;
++         this.chunkMap.autoSaveQueue.add(this);
++      }
++      // Paper end
++
        if (!flag5 && flag6) {
 -         this.field_222983_h = p_219291_1_.func_222961_b(this);
 +         // Paper start - cache ticking ready status
@@ -391,7 +470,7 @@
 +
 +
 +               // Paper start - rewrite ticklistserver
-+               //ChunkHolder.this.chunkMap.level.onChunkSetTicking(ChunkHolder.this.pos.x, ChunkHolder.this.pos.z); TODO:
++               ChunkHolder.this.chunkMap.field_219255_i.onChunkSetTicking(ChunkHolder.this.field_219319_n.field_77276_a, ChunkHolder.this.field_219319_n.field_77275_b);
 +               // Paper end - rewrite ticklistserver
 +
 +            }
@@ -474,6 +553,33 @@
     }
  
     public static ChunkStatus func_219278_b(int p_219278_0_) {
+@@ -367,7 +_,26 @@
+    }
+ 
+    public void func_219303_l() {
++      boolean prev = this.field_219329_x; // Paper
+       this.field_219329_x = func_219286_c(this.field_219317_l).func_219065_a(ChunkHolder.LocationType.BORDER);
++
++      // Paper start - incremental autosave
++      if (prev != this.field_219329_x) {
++         if (this.field_219329_x) {
++            long timeSinceAutoSave = this.inactiveTimeStart - this.lastAutoSaveTime;
++            if (timeSinceAutoSave < 0) {
++               // safest bet is to assume autosave is needed here
++               timeSinceAutoSave = this.chunkMap.field_219255_i.paperConfig.autoSavePeriod;
++            }
++            this.lastAutoSaveTime = this.chunkMap.field_219255_i.func_82737_E() - timeSinceAutoSave;
++            this.chunkMap.autoSaveQueue.add(this);
++         } else {
++            this.inactiveTimeStart = this.chunkMap.field_219255_i.func_82737_E();
++            this.chunkMap.autoSaveQueue.remove(this);
++         }
++      }
++      // Paper end
++
+    }
+ 
+    public void func_219294_a(ChunkPrimerWrapper p_219294_1_) {
 @@ -383,6 +_,13 @@
  
        this.func_219284_a(CompletableFuture.completedFuture(Either.left(p_219294_1_.func_217336_u())));

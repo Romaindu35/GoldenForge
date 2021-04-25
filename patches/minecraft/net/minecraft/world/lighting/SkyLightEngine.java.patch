@@ -1,12 +1,44 @@
 --- a/net/minecraft/world/lighting/SkyLightEngine.java
 +++ b/net/minecraft/world/lighting/SkyLightEngine.java
-@@ -228,4 +_,9 @@
+@@ -16,6 +_,7 @@
+ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap, SkyLightStorage> {
+    private static final Direction[] field_215633_d = Direction.values();
+    private static final Direction[] field_215634_e = new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
++   private final MutableInt mutableint = new MutableInt(); // Paper
+ 
+    public SkyLightEngine(IChunkLightProvider p_i51289_1_) {
+       super(p_i51289_1_, LightType.SKY, new SkyLightStorage(p_i51289_1_));
+@@ -36,9 +_,10 @@
+          if (p_215480_5_ >= 15) {
+             return p_215480_5_;
+          } else {
+-            MutableInt mutableint = new MutableInt();
+-            BlockState blockstate = this.func_227468_a_(p_215480_3_, mutableint);
+-            if (mutableint.getValue() >= 15) {
++            //MutableInt mutableint = new MutableInt();
++            BlockState blockstate = this.getBlockOptimized(p_215480_3_, mutableint);
++            int blockedLight = mutableint.getValue();
++            if (blockedLight >= 15) {
+                return 15;
+             } else {
+                int i = BlockPos.func_218290_b(p_215480_1_);
+@@ -84,7 +_,7 @@
+                }
+ 
+                boolean flag1 = p_215480_1_ == Long.MAX_VALUE || flag && j > i1;
+-               return flag1 && p_215480_5_ == 0 && mutableint.getValue() == 0 ? 0 : p_215480_5_ + Math.max(1, mutableint.getValue());
++               return flag1 && p_215480_5_ == 0 && blockedLight == 0 ? 0 : p_215480_5_ + Math.max(1, blockedLight);
+             }
+          }
+       }
+@@ -227,5 +_,10 @@
+    @OnlyIn(Dist.CLIENT)
     public String func_215614_b(long p_215614_1_) {
        return super.func_215614_b(p_215614_1_) + (this.field_215627_c.func_215549_m(p_215614_1_) ? "*" : "");
-    }
++   }
 +
 +   @Override
 +   public int queuedUpdateSize() {
 +      return 0;
-+   }
+    }
  }

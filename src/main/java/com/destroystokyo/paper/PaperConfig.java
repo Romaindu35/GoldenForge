@@ -60,7 +60,7 @@ public class PaperConfig {
         }
         config.options().header(HEADER);
         config.options().copyDefaults(true);
-        verbose = getBoolean("verbose", false);
+        verbose = getBoolean("verbose", true);
 
 
         version = getInt("config-version", 20);

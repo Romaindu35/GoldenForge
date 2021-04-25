@@ -1,5 +1,13 @@
 --- a/net/minecraft/world/server/ServerWorld.java
 +++ b/net/minecraft/world/server/ServerWorld.java
+@@ -1,5 +_,7 @@
+ package net.minecraft.world.server;
+ 
++import com.destroystokyo.paper.server.ticklist.PaperTickList;
++import com.destroystokyo.paper.util.MCUtil;
+ import com.google.common.annotations.VisibleForTesting;
+ import com.google.common.collect.Iterables;
+ import com.google.common.collect.Lists;
 @@ -40,12 +_,7 @@
  import net.minecraft.block.BlockState;
  import net.minecraft.block.Blocks;
@@ -22,15 +30,21 @@
  import net.minecraft.network.DebugPacketSender;
  import net.minecraft.network.IPacket;
  import net.minecraft.network.play.server.SAnimateBlockBreakPacket;
-@@ -122,6 +_,7 @@
- import net.minecraft.world.chunk.ChunkStatus;
- import net.minecraft.world.chunk.IChunk;
+@@ -117,11 +_,9 @@
+ import net.minecraft.world.Teleporter;
+ import net.minecraft.world.World;
+ import net.minecraft.world.biome.Biome;
+-import net.minecraft.world.chunk.Chunk;
+-import net.minecraft.world.chunk.ChunkSection;
+-import net.minecraft.world.chunk.ChunkStatus;
+-import net.minecraft.world.chunk.IChunk;
++import net.minecraft.world.chunk.*;
  import net.minecraft.world.chunk.listener.IChunkStatusListener;
 +import net.minecraft.world.chunk.storage.RegionFile;
  import net.minecraft.world.end.DragonFightManager;
  import net.minecraft.world.gen.ChunkGenerator;
  import net.minecraft.world.gen.Heightmap;
-@@ -143,15 +_,15 @@
+@@ -143,27 +_,23 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -49,7 +63,21 @@
     private final MinecraftServer field_73061_a;
     private final IServerWorldInfo field_241103_E_;
     public boolean field_73058_d;
-@@ -173,6 +_,80 @@
+    private boolean field_73068_P;
+    private int field_80004_Q;
+    private final Teleporter field_85177_Q;
+-   private final ServerTickList<Block> field_94579_S = new ServerTickList<>(this, (p_205341_0_) -> {
+-      return p_205341_0_ == null || p_205341_0_.func_176223_P().func_196958_f();
+-   }, Registry.field_212618_g::func_177774_c, this::func_205338_b);
+-   private final ServerTickList<Fluid> field_205342_P = new ServerTickList<>(this, (p_205774_0_) -> {
+-      return p_205774_0_ == null || p_205774_0_ == Fluids.field_204541_a;
+-   }, Registry.field_212619_h::func_177774_c, this::func_205339_a);
++   private final ServerTickList<Block> field_94579_S;
++   private final ServerTickList<Fluid> field_205342_P;
+    private final Set<PathNavigator> field_217495_I = Sets.newHashSet();
+    protected final RaidManager field_217494_c;
+    private final ObjectLinkedOpenHashSet<BlockEventData> field_147490_S = new ObjectLinkedOpenHashSet<>();
+@@ -173,14 +_,114 @@
     private final DragonFightManager field_241105_O_;
     private final StructureManager field_241106_P_;
     private final boolean field_241107_Q_;
@@ -127,11 +155,37 @@
 +   };
 +   public final com.destroystokyo.paper.io.chunk.ChunkTaskManager asyncChunkTaskManager;
 +   // Paper end
++
++   // Paper start - rewrite ticklistserver
++   public void onChunkSetTicking(int chunkX, int chunkZ) {
++      if (com.destroystokyo.paper.PaperConfig.useOptimizedTickList) {
++         ((com.destroystokyo.paper.server.ticklist.PaperTickList) this.field_94579_S).onChunkSetTicking(chunkX, chunkZ);
++         ((com.destroystokyo.paper.server.ticklist.PaperTickList) this.field_205342_P).onChunkSetTicking(chunkX, chunkZ);
++      }
++   }
++   // Paper end - rewrite ticklistserver
  
     public ServerWorld(MinecraftServer p_i241885_1_, Executor p_i241885_2_, SaveFormat.LevelSave p_i241885_3_, IServerWorldInfo p_i241885_4_, RegistryKey<World> p_i241885_5_, DimensionType p_i241885_6_, IChunkStatusListener p_i241885_7_, ChunkGenerator p_i241885_8_, boolean p_i241885_9_, long p_i241885_10_, List<ISpecialSpawner> p_i241885_12_, boolean p_i241885_13_) {
        super(p_i241885_4_, p_i241885_5_, p_i241885_6_, p_i241885_1_::func_213185_aS, false, p_i241885_9_, p_i241885_10_);
-@@ -180,7 +_,7 @@
+       this.field_241107_Q_ = p_i241885_13_;
        this.field_73061_a = p_i241885_1_;
++
++      if (com.destroystokyo.paper.PaperConfig.useOptimizedTickList) {
++         this.field_94579_S = new PaperTickList<>(this, (p_205341_0_) -> {
++            return p_205341_0_ == null || p_205341_0_.func_176223_P().func_196958_f();
++         }, Registry.field_212618_g::func_177774_c, this::func_205338_b);
++         this.field_205342_P = new PaperTickList<>(this, (p_205774_0_) -> {
++            return p_205774_0_ == null || p_205774_0_ == Fluids.field_204541_a;
++         }, Registry.field_212619_h::func_177774_c, this::func_205339_a);
++      } else {
++         this.field_94579_S = new ServerTickList<>(this, (p_205341_0_) -> {
++            return p_205341_0_ == null || p_205341_0_.func_176223_P().func_196958_f();
++         }, Registry.field_212618_g::func_177774_c, this::func_205338_b);
++         this.field_205342_P = new ServerTickList<>(this, (p_205774_0_) -> {
++            return p_205774_0_ == null || p_205774_0_ == Fluids.field_204541_a;
++         }, Registry.field_212619_h::func_177774_c, this::func_205339_a);
++      }
++
        this.field_241104_N_ = p_i241885_12_;
        this.field_241103_E_ = p_i241885_4_;
 -      this.field_241102_C_ = new ServerChunkProvider(this, p_i241885_3_, p_i241885_1_.func_195563_aC(), p_i241885_1_.func_240792_aT_(), p_i241885_2_, p_i241885_8_, p_i241885_1_.func_184103_al().func_72395_o(), p_i241885_1_.func_230540_aS_(), p_i241885_7_, () -> {
@@ -139,13 +193,105 @@
           return p_i241885_1_.func_241755_D_().func_217481_x();
        });
        this.field_85177_Q = new Teleporter(this);
-@@ -200,7 +_,9 @@
+@@ -200,7 +_,100 @@
        } else {
           this.field_241105_O_ = null;
        }
+-
 +      this.initCapabilities();
- 
++
 +      this.asyncChunkTaskManager = new com.destroystokyo.paper.io.chunk.ChunkTaskManager(this); // Paper
++   }
++
++   // Paper start - helper function for configurable spawn radius
++   public void addTicketsForSpawn(int radiusInBlocks, BlockPos spawn) {
++      // In order to respect vanilla behavior, which is ensuring everything but the spawn border can tick, we add tickets
++      // with level 31 for the non-border spawn chunks
++      ServerChunkProvider chunkproviderserver = this.func_72863_F();
++      int tickRadius = radiusInBlocks - 16;
++
++      // add ticking chunks
++      for (int x = -tickRadius; x <= tickRadius; x += 16) {
++         for (int z = -tickRadius; z <= tickRadius; z += 16) {
++            // radius of 2 will have the current chunk be level 31
++            chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, z)), 2, Unit.INSTANCE);
++         }
++      }
++
++      // add border chunks
++
++      // add border along x axis (including corner chunks)
++      for (int x = -radiusInBlocks; x <= radiusInBlocks; x += 16) {
++         // top
++         chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++         // bottom
++         chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, -radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++      }
++
++      // add border along z axis (excluding corner chunks)
++      for (int z = -radiusInBlocks + 16; z < radiusInBlocks; z += 16) {
++         // right
++         chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++         // left
++         chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(-radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++      }
++
++      MCUtil.getSpiralOutChunks(spawn, radiusInBlocks >> 4).forEach(pair -> {
++         func_72863_F().getChunkAtAsynchronously(pair.field_77276_a, pair.field_77275_b, true, false).exceptionally((ex) -> {
++            ex.printStackTrace();
++            return null;
++         });
++      });
++   }
++
++   public boolean loadChunk(int x, int z, boolean generate) {
++      org.spigotmc.AsyncCatcher.catchOp("chunk load"); // Spigot
++      // Paper start - Optimize this method
++      ChunkPos chunkPos = new ChunkPos(x, z);
++      IChunk immediate = func_72863_F().getChunkAtIfLoadedImmediately(x, z); // Paper
++      if (immediate != null) return true; // Paper
++
++      if (!generate) {
++
++         //IChunkAccess immediate = world.getChunkProvider().getChunkAtImmediately(x, z); // Paper
++         if (immediate == null) {
++            immediate = func_72863_F().field_217237_a.getUnloadingChunk(x, z);
++         }
++         if (immediate != null) {
++            if (!(immediate instanceof ChunkPrimerWrapper) && !(immediate instanceof Chunk)) {
++               return false; // not full status
++            }
++            func_72863_F().registerTickingTicket(TicketType.PLUGIN, chunkPos, 0, Unit.INSTANCE); // Paper
++            func_212866_a_(x, z); // make sure we're at ticket level 32 or lower
++            return true;
++         }
++
++         ChunkStatus status = func_72863_F().field_217237_a.getStatusOnDiskNoLoad(x, z); // Paper - async io - move to own method
++
++         // Paper start - async io
++         if (status == ChunkStatus.field_223226_a_) {
++            // does not exist on disk
++            return false;
++         }
++
++         if (status == null) { // at this stage we don't know what it is on disk
++            IChunk chunk = func_72863_F().func_212849_a_(x, z, ChunkStatus.field_223226_a_, true);
++            if (!(chunk instanceof ChunkPrimerWrapper) && !(chunk instanceof Chunk)) {
++               return false;
++            }
++         } else if (status != ChunkStatus.field_222617_m) {
++            return false; // not full status on disk
++         }
++         // Paper end
++
++         // fall through to load
++         // we do this so we do not re-read the chunk data on disk
++      }
++
++      func_72863_F().registerTickingTicket(TicketType.PLUGIN, chunkPos, 0, Unit.INSTANCE); // Paper
++      func_72863_F().func_212849_a_(x, z, ChunkStatus.field_222617_m, true);
++      return true;
++      // Paper end
     }
  
     public void func_241113_a_(int p_241113_1_, int p_241113_2_, boolean p_241113_3_, boolean p_241113_4_) {
@@ -184,8 +330,16 @@
           }
  
           this.func_229856_ab_();
-@@ -338,7 +_,7 @@
+@@ -332,13 +_,15 @@
+          this.field_205342_P.func_205365_a();
+       }
+ 
++      this.func_73046_m().midTickLoadChunks();
+       iprofiler.func_219895_b("raid");
+       this.field_217494_c.func_215171_a();
+       iprofiler.func_219895_b("blockEvents");
        this.func_147488_Z();
++      this.func_73046_m().midTickLoadChunks();
        this.field_211159_Q = false;
        iprofiler.func_219895_b("entities");
 -      boolean flag3 = !this.field_217491_A.isEmpty() || !this.func_217469_z().isEmpty();
@@ -202,6 +356,14 @@
           label164:
           while(true) {
              Entity entity1;
+@@ -363,6 +_,7 @@
+                      this.func_217465_m(entity);
+                   }
+ 
++                  this.func_73046_m().midTickLoadChunks();
+                   this.func_217391_K();
+                   break label164;
+                }
 @@ -395,7 +_,7 @@
              }
  
@@ -220,6 +382,15 @@
              }
  
              iprofiler.func_76319_b();
+@@ -418,6 +_,8 @@
+       if (this.field_241107_Q_) {
+          long i = this.field_72986_A.func_82573_f() + 1L;
+          this.field_241103_E_.func_82572_b(i);
++         this.field_94579_S.nextTick(); // Paper
++         this.field_205342_P.nextTick(); // Paper
+          this.field_241103_E_.func_215763_z().func_216331_a(this.field_73061_a, i);
+          if (this.field_72986_A.func_82574_x().func_223586_b(GameRules.field_223607_j)) {
+             this.func_241114_a_(this.field_72986_A.func_76073_f() + 1L);
 @@ -475,6 +_,7 @@
           BlockPos blockpos2 = this.func_205770_a(Heightmap.Type.MOTION_BLOCKING, this.func_217383_a(i, 0, j, 15));
           BlockPos blockpos3 = blockpos2.func_177977_b();

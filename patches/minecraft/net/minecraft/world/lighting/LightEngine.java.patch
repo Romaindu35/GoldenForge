@@ -1,5 +1,80 @@
 --- a/net/minecraft/world/lighting/LightEngine.java
 +++ b/net/minecraft/world/lighting/LightEngine.java
+@@ -12,6 +_,7 @@
+ import net.minecraft.util.math.shapes.VoxelShapes;
+ import net.minecraft.world.IBlockReader;
+ import net.minecraft.world.LightType;
++import net.minecraft.world.chunk.IChunk;
+ import net.minecraft.world.chunk.IChunkLightProvider;
+ import net.minecraft.world.chunk.NibbleArray;
+ import net.minecraftforge.api.distmarker.Dist;
+@@ -26,7 +_,38 @@
+    private boolean field_215629_e;
+    protected final BlockPos.Mutable field_215630_f = new BlockPos.Mutable();
+    private final long[] field_215631_g = new long[2];
+-   private final IBlockReader[] field_215632_h = new IBlockReader[2];
++   private final IChunk[] field_215632_h = new IChunk[2]; // Paper
++
++   // Paper start - see fully commented out method below (look for Bedrock)
++   // optimized method with less branching for when scenarios arent needed.
++   // avoid using mutable version if can
++   protected final BlockState getBlockOptimized(long pos, MutableInt mutableInt) {
++      return getBlockOptimized(BlockPos.func_218290_b(pos), BlockPos.func_218274_c(pos), BlockPos.func_218282_d(pos), mutableInt);
++   }
++   protected final BlockState getBlockOptimized(int x, int y, int z, MutableInt mutableint) {
++      IChunk iblockaccess = this.getChunk(x >> 4, z >> 4);
++
++      if (iblockaccess == null) {
++         mutableint.setValue(16);
++         return Blocks.field_150357_h.func_176223_P();
++      } else {
++         this.field_215630_f.func_181079_c(x, y, z);
++         BlockState iblockdata = iblockaccess.getBlockState(x, y, z);
++         mutableint.setValue(iblockdata.func_200016_a(this.field_215625_a.func_212864_k_(), this.field_215630_f));
++         return iblockdata.func_200132_m() && iblockdata.func_215691_g() ? iblockdata : Blocks.field_150350_a.func_176223_P();
++      }
++   }
++   protected final BlockState getBlockOptimized(int x, int y, int z) {
++      IChunk iblockaccess = this.getChunk(x >> 4, z >> 4);
++
++      if (iblockaccess == null) {
++         return Blocks.field_150357_h.func_176223_P();
++      } else {
++         BlockState iblockdata = iblockaccess.getBlockState(x, y, z);
++         return iblockdata.func_200132_m() && iblockdata.func_215691_g() ? iblockdata : Blocks.field_150350_a.func_176223_P();
++      }
++   }
++   // Paper end
+ 
+    public LightEngine(IChunkLightProvider p_i51296_1_, LightType p_i51296_2_, S p_i51296_3_) {
+       super(16, 256, 8192);
+@@ -45,7 +_,7 @@
+    }
+ 
+    @Nullable
+-   private IBlockReader func_215615_a(int p_215615_1_, int p_215615_2_) {
++   private IChunk getChunk(int p_215615_1_, int p_215615_2_) {
+       long i = ChunkPos.func_77272_a(p_215615_1_, p_215615_2_);
+ 
+       for(int j = 0; j < 2; ++j) {
+@@ -54,7 +_,7 @@
+          }
+       }
+ 
+-      IBlockReader iblockreader = this.field_215625_a.func_217202_b(p_215615_1_, p_215615_2_);
++      IChunk iblockreader = (IChunk) this.field_215625_a.func_217202_b(p_215615_1_, p_215615_2_);
+ 
+       for(int k = 1; k > 0; --k) {
+          this.field_215631_g[k] = this.field_215631_g[k - 1];
+@@ -81,7 +_,7 @@
+       } else {
+          int i = SectionPos.func_218159_a(BlockPos.func_218290_b(p_227468_1_));
+          int j = SectionPos.func_218159_a(BlockPos.func_218282_d(p_227468_1_));
+-         IBlockReader iblockreader = this.func_215615_a(i, j);
++         IBlockReader iblockreader = this.getChunk(i, j);
+          if (iblockreader == null) {
+             if (p_227468_3_ != null) {
+                p_227468_3_.setValue(16);
 @@ -215,4 +_,6 @@
        long i = SectionPos.func_218169_f(SectionPos.func_218166_b(p_223129_1_.field_77276_a, 0, p_223129_1_.field_77275_b));
        this.field_215627_c.func_223113_c(i, p_223129_2_);

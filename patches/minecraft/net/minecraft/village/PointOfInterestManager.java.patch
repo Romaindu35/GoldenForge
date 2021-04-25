@@ -31,6 +31,31 @@
     }
  
     public void func_219135_a(BlockPos p_219135_1_, PointOfInterestType p_219135_2_) {
+@@ -146,7 +_,23 @@
+    }
+ 
+    public void func_219115_a(BooleanSupplier p_219115_1_) {
+-      super.func_219115_a(p_219115_1_);
++      // Paper start - async chunk io
++      if (this.world == null) {
++         super.func_219115_a(p_219115_1_);
++      } else {
++         //super.a(booleansupplier); // re-implement below
++         while (!this.field_219122_d.isEmpty() && p_219115_1_.getAsBoolean()) {
++            ChunkPos chunkcoordintpair = SectionPos.a(this.field_219122_d.firstLong()).func_218155_u();
++
++            CompoundNBT data = this.getData(chunkcoordintpair);
++
++            com.destroystokyo.paper.io.PaperFileIOThread.Holder.INSTANCE.scheduleSave(this.world,
++                    chunkcoordintpair.field_77276_a, chunkcoordintpair.field_77275_b, data, null, com.destroystokyo.paper.io.PrioritizedTaskQueue.LOW_PRIORITY);
++         }
++      }
++      // Paper end
++      //this.a.a();
++      //super.tick(p_219115_1_);
+       this.field_219164_a.func_215563_a();
+    }
+ 
 @@ -233,6 +_,35 @@
           super.func_215483_b(Integer.MAX_VALUE);
        }

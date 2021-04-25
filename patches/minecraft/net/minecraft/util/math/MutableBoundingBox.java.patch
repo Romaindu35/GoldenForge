@@ -1,0 +1,21 @@
+--- a/net/minecraft/util/math/MutableBoundingBox.java
++++ b/net/minecraft/util/math/MutableBoundingBox.java
+@@ -6,12 +_,12 @@
+ import net.minecraft.util.math.vector.Vector3i;
+ 
+ public class MutableBoundingBox {
+-   public int field_78897_a;
+-   public int field_78895_b;
+-   public int field_78896_c;
+-   public int field_78893_d;
+-   public int field_78894_e;
+-   public int field_78892_f;
++   public int field_78897_a; public final int getMinX() { return this.field_78897_a; } // Paper - OBFHELPER
++   public int field_78895_b; public final int getMinY() { return this.field_78895_b; } // Paper - OBFHELPER
++   public int field_78896_c; public final int getMinZ() { return this.field_78896_c; } // Paper - OBFHELPER
++   public int field_78893_d; public final int getMaxX() { return this.field_78893_d; } // Paper - OBFHELPER
++   public int field_78894_e; public final int getMaxY() { return this.field_78894_e; } // Paper - OBFHELPER
++   public int field_78892_f; public final int getMaxZ() { return this.field_78892_f; } // Paper - OBFHELPER
+ 
+    public MutableBoundingBox() {
+    }

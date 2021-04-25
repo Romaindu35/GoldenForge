@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/chunk/storage/ChunkSerializer.java
 +++ b/net/minecraft/world/chunk/storage/ChunkSerializer.java
-@@ -4,12 +_,8 @@
+@@ -4,23 +_,17 @@
  import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
  import it.unimi.dsi.fastutil.longs.LongSet;
  import it.unimi.dsi.fastutil.shorts.ShortList;
@@ -15,7 +15,20 @@
  import java.util.Map.Entry;
  import javax.annotation.Nullable;
  import net.minecraft.block.Block;
-@@ -52,13 +_,60 @@
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.fluid.Fluid;
+ import net.minecraft.fluid.Fluids;
+-import net.minecraft.nbt.CompoundNBT;
+-import net.minecraft.nbt.ListNBT;
+-import net.minecraft.nbt.LongArrayNBT;
+-import net.minecraft.nbt.ShortNBT;
++import net.minecraft.nbt.*;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.SharedConstants;
+ import net.minecraft.util.math.BlockPos;
+@@ -52,13 +_,74 @@
  import net.minecraft.world.gen.feature.template.TemplateManager;
  import net.minecraft.world.lighting.WorldLightManager;
  import net.minecraft.world.server.ServerWorld;
@@ -42,6 +55,20 @@
 +      CompoundNBT levelData = chunkData.func_74775_l("Level");
 +      return new ChunkPos(levelData.func_74762_e("xPos"), levelData.func_74762_e("zPos"));
 +   }
++
++   // Paper start - this is saved with the player
++   private static boolean hasPlayerPassenger(Entity entity) {
++      for (Entity passenger : entity.field_184244_h) {
++         if (passenger instanceof ServerPlayerEntity) {
++            return true;
++         }
++         if (hasPlayerPassenger(passenger)) {
++            return true;
++         }
++      }
++      return false;
++   }
++   // Paper end
 +
 +   public static final class InProgressChunkHolder {
 +
@@ -116,10 +143,20 @@
              }
           }
        }
-@@ -132,6 +_,7 @@
-          ichunk = new Chunk(p_222656_0_.func_201672_e(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, (p_222648_1_) -> {
-             func_222650_a(compoundnbt, p_222648_1_);
-          });
+@@ -129,9 +_,14 @@
+             iticklist1 = chunkprimerticklist1;
+          }
+ 
+-         ichunk = new Chunk(p_222656_0_.func_201672_e(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, (p_222648_1_) -> {
+-            func_222650_a(compoundnbt, p_222648_1_);
+-         });
++//         ichunk = new Chunk(p_222656_0_.getLevel(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, (p_222648_1_) -> {
++//            postLoadChunk(compoundnbt, p_222648_1_);
++//         });
++         ichunk = new Chunk(p_222656_0_.func_201672_e(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, // Paper start - fix massive nbt memory leak due to lambda. move lambda into a container method to not leak scope. Only clone needed NBT keys.
++                 createLoadEntitiesConsumer(new SafeNBTCopy(compoundnbt, "TileEntities", "Entities", "ChunkBukkitValues")) // Paper - move CB Chunk PDC into here
++         );// Paper end
++
 +         if (compoundnbt.func_74764_b("ForgeCaps")) ((Chunk)ichunk).readCapsFromNBT(compoundnbt.func_74775_l("ForgeCaps"));
        } else {
           ChunkPrimer chunkprimer = new ChunkPrimer(p_222656_3_, upgradedata, achunksection, chunkprimerticklist, chunkprimerticklist1);
@@ -207,19 +244,49 @@
  
              if (nibblearray != null && !nibblearray.func_215655_c()) {
 -               compoundnbt2.func_74773_a("BlockLight", nibblearray.func_177481_a());
-+               compoundnbt2.func_74773_a("BlockLight", nibblearray.asBytesPoolSafe().clone());
++               compoundnbt2.func_74773_a("BlockLight", nibblearray.asBytesPoolSafe().clone()); // Paper
              }
  
              if (nibblearray1 != null && !nibblearray1.func_215655_c()) {
 -               compoundnbt2.func_74773_a("SkyLight", nibblearray1.func_177481_a());
-+               compoundnbt2.func_74773_a("SkyLight", nibblearray1.asBytesPoolSafe().clone());
++               compoundnbt2.func_74773_a("SkyLight", nibblearray1.asBytesPoolSafe().clone()); // Paper
              }
  
              listnbt.add(compoundnbt2);
-@@ -295,11 +_,21 @@
+@@ -288,19 +_,59 @@
+ 
+       compoundnbt1.func_218657_a("TileEntities", listnbt1);
+       ListNBT listnbt2 = new ListNBT();
++
++      java.util.List<Entity> toUpdate = new java.util.ArrayList<>(); // Paper
+       if (p_222645_1_.func_201589_g().func_202129_d() == ChunkStatus.Type.LEVELCHUNK) {
+          Chunk chunk = (Chunk)p_222645_1_;
+          chunk.func_177409_g(false);
+ 
++         // Paper start
++         final Map<EntityType<?>, Integer> savedEntityCounts = Maps.newHashMap();
           for(int k = 0; k < chunk.func_177429_s().length; ++k) {
              for(Entity entity : chunk.func_177429_s()[k]) {
++
++               final EntityType<?> entityType = entity.func_200600_R();
++               final int saveLimit = p_222645_0_.paperConfig.entityPerChunkSaveLimits.getOrDefault(entityType, -1);
++               if (saveLimit > -1) {
++                  if (savedEntityCounts.getOrDefault(entityType, 0) >= saveLimit) {
++                     continue;
++                  }
++                  savedEntityCounts.merge(entityType, 1, Integer::sum);
++               }
++               // Paper end
                 CompoundNBT compoundnbt3 = new CompoundNBT();
++               // Paper start
++               if (asyncsavedata == null && !entity.field_70128_L && (int) Math.floor(entity.func_226277_ct_()) >> 4 != chunk.func_76632_l().field_77276_a || (int) Math.floor(entity.func_226281_cx_()) >> 4 != chunk.func_76632_l().field_77275_b) {
++                  toUpdate.add(entity);
++                  continue;
++               }
++               if (entity.field_70128_L || hasPlayerPassenger(entity)) {
++                  continue;
++               }
++               // Paper end
 +               try {
                 if (entity.func_70039_c(compoundnbt3)) {
                    chunk.func_177409_g(true);
@@ -229,15 +296,108 @@
 +                  LogManager.getLogger().error("An Entity type {} has thrown an exception trying to write state. It will not persist. Report this to the mod author", entity.func_200600_R(), e);
 +               }
              }
-+         }
+          }
 +         try {
 +             final CompoundNBT capTag = chunk.writeCapsToNBT();
 +             if (capTag != null) compoundnbt1.func_218657_a("ForgeCaps", capTag);
 +         } catch (Exception exception) {
 +             LogManager.getLogger().error("A capability provider has thrown an exception trying to write state. It will not persist. Report this to the mod author", exception);
-          }
++         }
++
++         // Paper start - move entities to the correct chunk
++         for (Entity entity : toUpdate) {
++            p_222645_0_.func_217464_b(entity);
++         }
++         // Paper end
++
        } else {
           ChunkPrimer chunkprimer = (ChunkPrimer)p_222645_1_;
+          listnbt2.addAll(chunkprimer.func_201652_l());
+@@ -322,7 +_,11 @@
+       if (iticklist instanceof ChunkPrimerTickList) {
+          compoundnbt1.func_218657_a("ToBeTicked", ((ChunkPrimerTickList)iticklist).func_205379_a());
+       } else if (iticklist instanceof SerializableTickList) {
+-         compoundnbt1.func_218657_a("TileTicks", ((SerializableTickList)iticklist).func_234857_b_());
++         compoundnbt1.func_218657_a("TileTicks", ((SerializableTickList) iticklist).func_234857_b_());
++         // Paper start - async chunk save for unload
++      }  else if (asyncsavedata != null) {
++         compoundnbt1.func_218657_a("TileTicks", asyncsavedata.blockTickList);
++         // Paper end
+       } else {
+          compoundnbt1.func_218657_a("TileTicks", p_222645_0_.func_205220_G_().func_219503_a(chunkpos));
+       }
+@@ -332,6 +_,10 @@
+          compoundnbt1.func_218657_a("LiquidsToBeTicked", ((ChunkPrimerTickList)iticklist1).func_205379_a());
+       } else if (iticklist1 instanceof SerializableTickList) {
+          compoundnbt1.func_218657_a("LiquidTicks", ((SerializableTickList)iticklist1).func_234857_b_());
++         // Paper start - async chunk save for unload
++      } else if (asyncsavedata != null) {
++         compoundnbt1.func_218657_a("LiquidTicks", asyncsavedata.fluidTickList);
++         // Paper end
+       } else {
+          compoundnbt1.func_218657_a("LiquidTicks", p_222645_0_.func_205219_F_().func_219503_a(chunkpos));
+       }
+@@ -361,13 +_,60 @@
+       return ChunkStatus.Type.PROTOCHUNK;
+    }
+ 
++   /**
++    * This wrapper will error out if any key is accessed that wasn't copied so we can catch it easy on an update
++    */
++   private static class SafeNBTCopy extends CompoundNBT {
++      private final java.util.Set<String> keys = new java.util.HashSet<String>();
++      public SafeNBTCopy(CompoundNBT base, String... keys) {
++         for (String key : keys) {
++            this.keys.add(key);
++            final INBT nbtBase = base.func_74781_a(key);
++            if (nbtBase != null) {
++               this.func_218657_a(key, nbtBase);
++            }
++         }
++      }
++
++      @Override
++      public boolean func_74764_b(String s) {
++         if (super.func_74764_b(s)) {
++            return true;
++         } else if (keys.contains(s)) {
++            return false;
++         }
++         throw new IllegalStateException("Missing Key " + s + " in SafeNBTCopy");
++      }
++
++      @Override
++      public boolean func_150297_b(String s, int i) {
++         return func_74764_b(s) && super.func_150297_b(s, i);
++      }
++   }
++   private static java.util.function.Consumer<Chunk> createLoadEntitiesConsumer(CompoundNBT nbt) {
++      return (chunk) -> func_222650_a(nbt, chunk);
++   }
++   // Paper end
++
+    private static void func_222650_a(CompoundNBT p_222650_0_, Chunk p_222650_1_) {
+       ListNBT listnbt = p_222650_0_.func_150295_c("Entities", 10);
+       World world = p_222650_1_.func_177412_p();
+ 
++      // Paper start
++      final Map<EntityType<?>, Integer> loadedEntityCounts = Maps.newHashMap();
+       for(int i = 0; i < listnbt.size(); ++i) {
+          CompoundNBT compoundnbt = listnbt.func_150305_b(i);
+          EntityType.func_220335_a(compoundnbt, world, (p_222655_1_) -> {
++
++            final EntityType<?> entityType = p_222655_1_.func_200600_R();
++            final int saveLimit = world.paperConfig.entityPerChunkSaveLimits.getOrDefault(entityType, -1);
++            if (saveLimit > -1) {
++               if (loadedEntityCounts.getOrDefault(entityType, 0) >= saveLimit) {
++                  return null;
++               }
++               loadedEntityCounts.merge(entityType, 1, Integer::sum);
++            }
++            // Paper end
+             p_222650_1_.func_76612_a(p_222655_1_);
+             return p_222655_1_;
+          });
 @@ -465,5 +_,73 @@
        }
  

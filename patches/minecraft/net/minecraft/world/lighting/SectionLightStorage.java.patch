@@ -36,6 +36,15 @@
     }
  
     @Nullable
+@@ -148,7 +_,7 @@
+ 
+    protected NibbleArray func_215530_i(long p_215530_1_) {
+       NibbleArray nibblearray = this.field_215542_i.get(p_215530_1_);
+-      return nibblearray != null ? nibblearray : new NibbleArray();
++      return nibblearray != null ? nibblearray : new NibbleArray().markPoolSafe();
+    }
+ 
+    protected void func_215528_a(LightEngine<?, ?> p_215528_1_, long p_215528_2_) {
 @@ -340,9 +_,14 @@
  
     protected void func_215533_d() {

@@ -1,5 +1,16 @@
 --- a/net/minecraft/util/math/SectionPos.java
 +++ b/net/minecraft/util/math/SectionPos.java
+@@ -29,6 +_,10 @@
+       return new SectionPos(func_218159_a(MathHelper.func_76128_c(p_218157_0_.func_226277_ct_())), func_218159_a(MathHelper.func_76128_c(p_218157_0_.func_226278_cu_())), func_218159_a(MathHelper.func_76128_c(p_218157_0_.func_226281_cx_())));
+    }
+ 
++   public static SectionPos a(long i) {
++      return new SectionPos((int) (i >> 42), (int) (i << 44 >> 44), (int) (i << 22 >> 42)); // Paper
++   }
++
+    public static SectionPos func_218170_a(long p_218170_0_) {
+       return new SectionPos(func_218173_b(p_218170_0_), func_218144_c(p_218170_0_), func_218153_d(p_218170_0_));
+    }
 @@ -37,6 +_,12 @@
        return func_218174_a(p_218172_0_, p_218172_2_.func_82601_c(), p_218172_2_.func_96559_d(), p_218172_2_.func_82599_e());
     }
