@@ -445,6 +445,7 @@ project(':forge') {
         installer 'co.aikar:cleaner:1.0-SNAPSHOT'
         installer 'co.aikar:cleaner-8:1.0-SNAPSHOT'
         installer 'co.aikar:cleaner-9:1.0-SNAPSHOT'
+        installer group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
 
         // This is org.openjdk.nashorn:nashorn-core:15.1.1 repackaged so it doesn't crash on JREs < 15.
         // See: https://github.com/LexManos/NashornLegacyPackager

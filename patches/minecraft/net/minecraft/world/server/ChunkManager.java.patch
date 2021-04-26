@@ -1,8 +1,9 @@
 --- a/net/minecraft/world/server/ChunkManager.java
 +++ b/net/minecraft/world/server/ChunkManager.java
-@@ -1,5 +_,6 @@
+@@ -1,5 +_,7 @@
  package net.minecraft.world.server;
  
++import com.destroystokyo.paper.io.PrioritizedTaskQueue;
 +import com.destroystokyo.paper.util.MCUtil;
  import com.google.common.collect.ImmutableList;
  import com.google.common.collect.Iterables;
@@ -736,7 +737,7 @@
  
     public void close() throws IOException {
        try {
-+         this.field_219256_j.close(); //Paper
++         this.lightThread.shutdown(); //Paper
           this.field_219263_q.close();
 +         this.field_219255_i.asyncChunkTaskManager.close(true); // Paper - Required since we're closing regionfiles in the next line
           this.field_219260_n.close();
@@ -877,38 +878,86 @@
           runnable.run();
        }
  
-@@ -397,17 +_,28 @@
-          if (completablefuture1 != completablefuture) {
-             this.func_219212_a(p_219212_1_, p_219212_3_);
-          } else {
+@@ -392,44 +_,82 @@
+ 
+    private void func_219212_a(long p_219212_1_, ChunkHolder p_219212_3_) {
+       CompletableFuture<IChunk> completablefuture = p_219212_3_.func_219302_f();
+-      completablefuture.thenAcceptAsync((p_219185_5_) -> {
+-         CompletableFuture<IChunk> completablefuture1 = p_219212_3_.func_219302_f();
+-         if (completablefuture1 != completablefuture) {
+-            this.func_219212_a(p_219212_1_, p_219212_3_);
+-         } else {
 -            if (this.field_219253_g.remove(p_219212_1_, p_219212_3_) && p_219185_5_ != null) {
-+            if (this.pendingUnload.remove(p_219212_1_, p_219212_3_) && p_219185_5_ != null) {
-                if (p_219185_5_ instanceof Chunk) {
-                   ((Chunk)p_219185_5_).func_177417_c(false);
-+                  net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.world.ChunkEvent.Unload((Chunk)p_219185_5_));
-                }
- 
+-               if (p_219185_5_ instanceof Chunk) {
+-                  ((Chunk)p_219185_5_).func_177417_c(false);
+-               }
+-
 -               this.func_219229_a(p_219185_5_);
-+               //this.save(p_219185_5_);
-                if (this.field_219254_h.remove(p_219212_1_) && p_219185_5_ instanceof Chunk) {
-                   Chunk chunk = (Chunk)p_219185_5_;
-                   this.field_219255_i.func_217466_a(chunk);
-                }
+-               if (this.field_219254_h.remove(p_219212_1_) && p_219185_5_ instanceof Chunk) {
+-                  Chunk chunk = (Chunk)p_219185_5_;
+-                  this.field_219255_i.func_217466_a(chunk);
+-               }
+-
+-               this.field_219256_j.func_215581_a(p_219185_5_.func_76632_l());
+-               this.field_219256_j.func_215588_z_();
+-               this.field_219266_t.func_219508_a(p_219185_5_.func_76632_l(), (ChunkStatus)null);
+-            }
+-
+-         }
+-      }, this.field_223181_A::add).whenComplete((p_223171_1_, p_223171_2_) -> {
+-         if (p_223171_2_ != null) {
+-            field_219250_d.error("Failed to save chunk " + p_219212_3_.func_219277_h(), p_223171_2_);
+-         }
+-
++      Consumer<IChunk> consumer = (p_219185_5_) -> {
++                 CompletableFuture<IChunk> completablefuture1 = p_219212_3_.func_219302_f();
++                 if (completablefuture1 != completablefuture) {
++                    this.func_219212_a(p_219212_1_, p_219212_3_);
++                 } else {
++                    if (this.pendingUnload.remove(p_219212_1_, p_219212_3_) && p_219185_5_ != null) {
++                       if (p_219185_5_ instanceof Chunk) {
++                          ((Chunk) p_219185_5_).func_177417_c(false);
++                          net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.world.ChunkEvent.Unload((Chunk) p_219185_5_));
++                       }
++
++                       //this.save(p_219185_5_);
++                       if (this.field_219254_h.remove(p_219212_1_) && p_219185_5_ instanceof Chunk) {
++                          Chunk chunk = (Chunk) p_219185_5_;
++                          this.field_219255_i.func_217466_a(chunk);
++                       }
++
++                       this.autoSaveQueue.remove(p_219212_3_); // Paper
++
++
++                       try {
++                          this.asyncSave(p_219185_5_); // Paper - async chunk saving
++                       } catch (Throwable ex) {
++                          field_219250_d.fatal("Failed to prepare async save, attempting synchronous save", ex);
++                          this.func_219229_a(p_219185_5_);
++                       }
++
++                       this.field_219256_j.func_215581_a(p_219185_5_.func_76632_l());
++                       this.field_219256_j.func_215588_z_();
++                       this.field_219266_t.func_219508_a(p_219185_5_.func_76632_l(), (ChunkStatus) null);
++                    }
++
++                 }
++              };
++
++      completablefuture.thenAcceptAsync(consumer, field_223181_A::add).whenComplete((ovoid, throwable) -> {
++         if (throwable != null) {
++            field_219250_d.error("Failed to save chunk " + p_219212_3_.func_219277_h(), throwable);
++         }
+       });
++//      }, this.unloadQueue::add).whenComplete((p_223171_1_, p_223171_2_) -> {
++//         if (p_223171_2_ != null) {
++//            LOGGER.error("Failed to save chunk " + p_219212_3_.getPos(), p_223171_2_);
++//         }
++//
++//      });
+    }
  
-+               this.autoSaveQueue.remove(p_219212_3_); // Paper
-+
-+
-+               try {
-+                  this.asyncSave(p_219185_5_); // Paper - async chunk saving
-+               } catch (Throwable ex) {
-+                  field_219250_d.fatal("Failed to prepare async save, attempting synchronous save", ex);
-+                  this.func_219229_a(p_219185_5_);
-+               }
-+
-                this.field_219256_j.func_215581_a(p_219185_5_.func_76632_l());
-                this.field_219256_j.func_215588_z_();
-                this.field_219266_t.func_219508_a(p_219185_5_.func_76632_l(), (ChunkStatus)null);
-@@ -426,10 +_,30 @@
+    protected boolean func_219245_b() {
        if (!this.field_219262_p) {
           return false;
        } else {
@@ -1066,7 +1115,7 @@
     }
  
     private void func_241089_g_(ChunkPos p_241089_1_) {
-@@ -538,6 +_,12 @@
+@@ -538,8 +_,17 @@
              return CompletableFuture.completedFuture(Either.right(p_219211_2_));
           });
        }, (p_219216_2_) -> {
@@ -1077,8 +1126,14 @@
 +         }
 +         // Paper end
           this.field_219264_r.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219081_a(p_223156_1_, p_219216_2_));
-       });
+-      });
++      }).thenComposeAsync((either) -> { // Tuinity start - force competion on the main thread
++         return CompletableFuture.completedFuture(either);
++      }, this.mainInvokingExecutor);
++      // Tuinity end - force competion on the main thread
     }
+ 
+    protected void func_219209_c(ChunkPos p_219209_1_) {
 @@ -575,6 +_,9 @@
                 p_219200_1_.func_219294_a(new ChunkPrimerWrapper(chunk));
              }
@@ -1153,7 +1208,7 @@
 +
 +
 +      com.destroystokyo.paper.io.PaperFileIOThread.Holder.INSTANCE.scheduleSave(this.field_219255_i, chunkPos.field_77276_a, chunkPos.field_77275_b,
-+              poiData, null, com.destroystokyo.paper.io.PrioritizedTaskQueue.LOW_PRIORITY);
++              poiData, null, PrioritizedTaskQueue.NORMAL_PRIORITY);
 +
 +      if (!chunk.func_201593_f()) {
 +         return;

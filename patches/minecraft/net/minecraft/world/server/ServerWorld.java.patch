@@ -77,7 +77,7 @@
     private final Set<PathNavigator> field_217495_I = Sets.newHashSet();
     protected final RaidManager field_217494_c;
     private final ObjectLinkedOpenHashSet<BlockEventData> field_147490_S = new ObjectLinkedOpenHashSet<>();
-@@ -173,14 +_,114 @@
+@@ -173,14 +_,121 @@
     private final DragonFightManager field_241105_O_;
     private final StructureManager field_241106_P_;
     private final boolean field_241107_Q_;
@@ -156,6 +156,13 @@
 +   public final com.destroystokyo.paper.io.chunk.ChunkTaskManager asyncChunkTaskManager;
 +   // Paper end
 +
++   // Paper start
++   @Override
++   public boolean func_217354_b(int x, int z) {
++      return this.func_72863_F().getChunkAtIfLoadedImmediately(x, z) != null;
++   }
++   // Paper end
++
 +   // Paper start - rewrite ticklistserver
 +   public void onChunkSetTicking(int chunkX, int chunkZ) {
 +      if (com.destroystokyo.paper.PaperConfig.useOptimizedTickList) {
@@ -193,7 +200,7 @@
           return p_i241885_1_.func_241755_D_().func_217481_x();
        });
        this.field_85177_Q = new Teleporter(this);
-@@ -200,7 +_,100 @@
+@@ -200,7 +_,134 @@
        } else {
           this.field_241105_O_ = null;
        }
@@ -243,6 +250,40 @@
 +         });
 +      });
 +   }
++
++   public void removeTicketsForSpawn(int radiusInBlocks, BlockPos spawn) {
++      // In order to respect vanilla behavior, which is ensuring everything but the spawn border can tick, we added tickets
++      // with level 31 for the non-border spawn chunks
++      ServerChunkProvider chunkproviderserver = this.func_72863_F();
++      int tickRadius = radiusInBlocks - 16;
++
++      // remove ticking chunks
++      for (int x = -tickRadius; x <= tickRadius; x += 16) {
++         for (int z = -tickRadius; z <= tickRadius; z += 16) {
++            // radius of 2 will have the current chunk be level 31
++            chunkproviderserver.releaseTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, z)), 2, Unit.INSTANCE);
++         }
++      }
++
++      // remove border chunks
++
++      // remove border along x axis (including corner chunks)
++      for (int x = -radiusInBlocks; x <= radiusInBlocks; x += 16) {
++         // top
++         chunkproviderserver.releaseTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++         // bottom
++         chunkproviderserver.releaseTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, -radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++      }
++
++      // remove border along z axis (excluding corner chunks)
++      for (int z = -radiusInBlocks + 16; z < radiusInBlocks; z += 16) {
++         // right
++         chunkproviderserver.releaseTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++         // left
++         chunkproviderserver.releaseTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(-radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++      }
++   }
++   // Paper end
 +
 +   public boolean loadChunk(int x, int z, boolean generate) {
 +      org.spigotmc.AsyncCatcher.catchOp("chunk load"); // Spigot
@@ -450,6 +491,24 @@
                 iprofiler.func_76319_b();
              }
  
+@@ -649,9 +_,16 @@
+       if (p_217464_1_.func_233578_ci_()) {
+          this.func_217381_Z().func_76320_a("chunkCheck");
+          int i = MathHelper.func_76128_c(p_217464_1_.func_226277_ct_() / 16.0D);
+-         int j = MathHelper.func_76128_c(p_217464_1_.func_226278_cu_() / 16.0D);
++         //int j = MathHelper.floor(p_217464_1_.getY() / 16.0D);
++         int j =  Math.min(15, Math.max(0, MathHelper.func_76128_c(p_217464_1_.func_226278_cu_() / 16.0D))); // Paper - stay consistent with chunk add/remove behavior
+          int k = MathHelper.func_76128_c(p_217464_1_.func_226281_cx_() / 16.0D);
+          if (!p_217464_1_.field_70175_ag || p_217464_1_.field_70176_ah != i || p_217464_1_.field_70162_ai != j || p_217464_1_.field_70164_aj != k) {
++            // Paper start - remove entity if its in a chunk more correctly.
++            Chunk currentChunk = p_217464_1_.getCurrentChunk();
++            if (currentChunk != null) {
++               currentChunk.func_76622_b(p_217464_1_);
++            }
++            // Paper end
+             if (p_217464_1_.field_70175_ag && this.func_217354_b(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj)) {
+                this.func_212866_a_(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj).func_76608_a(p_217464_1_, p_217464_1_.field_70162_ai);
+             }
 @@ -675,6 +_,37 @@
        return !this.field_73061_a.func_175579_a(this, p_175660_2_, p_175660_1_) && this.func_175723_af().func_177746_a(p_175660_2_);
     }
@@ -526,7 +585,7 @@
        Entity entity = this.field_175741_N.get(p_217448_1_.func_110124_au());
        if (entity != null) {
           field_147491_a.warn("Force-added player with duplicate UUID {}", (Object)p_217448_1_.func_110124_au().toString());
-@@ -794,13 +_,16 @@
+@@ -794,14 +_,17 @@
        this.func_217465_m(p_217448_1_);
     }
  
@@ -540,10 +599,12 @@
        } else if (this.func_217478_l(p_72838_1_)) {
           return false;
        } else {
+-         IChunk ichunk = this.func_217353_a(MathHelper.func_76128_c(p_72838_1_.func_226277_ct_() / 16.0D), MathHelper.func_76128_c(p_72838_1_.func_226281_cx_() / 16.0D), ChunkStatus.field_222617_m, p_72838_1_.field_98038_p);
 +         if (net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.entity.EntityJoinWorldEvent(p_72838_1_, this))) return false;
-          IChunk ichunk = this.func_217353_a(MathHelper.func_76128_c(p_72838_1_.func_226277_ct_() / 16.0D), MathHelper.func_76128_c(p_72838_1_.func_226281_cx_() / 16.0D), ChunkStatus.field_222617_m, p_72838_1_.field_98038_p);
++         IChunk ichunk = this.func_217353_a(MathHelper.func_76128_c(p_72838_1_.func_226277_ct_() / 16.0D), MathHelper.func_76128_c(p_72838_1_.func_226281_cx_() / 16.0D), ChunkStatus.field_222617_m, true); // Paper - always load chunks for entity adds
           if (!(ichunk instanceof Chunk)) {
              return false;
+          } else {
 @@ -816,6 +_,7 @@
        if (this.func_217478_l(p_217440_1_)) {
           return false;
@@ -552,8 +613,37 @@
           this.func_217465_m(p_217440_1_);
           return true;
        }
-@@ -879,12 +_,17 @@
+@@ -864,27 +_,47 @@
+       ClassInheritanceMultiMap<Entity>[] aclassinheritancemultimap = p_217466_1_.func_177429_s();
+       int i = aclassinheritancemultimap.length;
  
++      java.util.List<Entity> toMoveChunks = new java.util.ArrayList<>(); // Paper
+       for(int j = 0; j < i; ++j) {
++
+          for(Entity entity : aclassinheritancemultimap[j]) {
+             if (!(entity instanceof ServerPlayerEntity)) {
+                if (this.field_217492_a) {
+                   throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException("Removing entity while ticking!"));
+                }
+ 
++               // Paper start - move out entities that shouldn't be in this chunk before it unloads
++               if (!entity.field_70128_L && (int) Math.floor(entity.func_226277_ct_()) >> 4 != p_217466_1_.func_76632_l().field_77276_a || (int) Math.floor(entity.func_226281_cx_()) >> 4 != p_217466_1_.func_76632_l().field_77275_b) {
++                  toMoveChunks.add(entity);
++                  continue;
++               }
++               // Paper end
++
+                this.field_217498_x.remove(entity.func_145782_y());
+                this.func_217484_g(entity);
+             }
+          }
+       }
+ 
++      // Paper start - move out entities that shouldn't be in this chunk before it unloads
++      for (Entity entity : toMoveChunks) {
++         this.func_217464_b(entity);
++      }
++      // Paper end
     }
  
 +   @Deprecated //Forge: Use removeEntityComplete(entity,boolean)
@@ -564,6 +654,7 @@
 +      removeEntityComplete(p_217484_1_, false);
 +   }
 +   public void removeEntityComplete(Entity p_217484_1_, boolean keepData) {
++      org.spigotmc.AsyncCatcher.catchOp("entity unregister"); // Spigot
 +      if (p_217484_1_.isMultipartEntity()) {
 +         for(net.minecraftforge.entity.PartEntity<?> enderdragonpartentity : p_217484_1_.getParts()) {
 +            enderdragonpartentity.remove(keepData);
@@ -657,6 +748,27 @@
        explosion.func_77278_a();
        explosion.func_77279_a(false);
        if (p_230546_12_ == Explosion.Mode.NONE) {
+@@ -1144,10 +_,17 @@
+    }
+ 
+    public void func_241124_a__(BlockPos p_241124_1_, float p_241124_2_) {
+-      ChunkPos chunkpos = new ChunkPos(new BlockPos(this.field_72986_A.func_76079_c(), 0, this.field_72986_A.func_76074_e()));
++      // Paper - configurable spawn radius
++      BlockPos prevSpawn = this.func_241135_u_();
++      //ChunkPos chunkpos = new ChunkPos(new BlockPos(this.levelData.getXSpawn(), 0, this.levelData.getZSpawn()));
+       this.field_72986_A.func_176143_a(p_241124_1_, p_241124_2_);
+-      this.func_72863_F().func_217222_b(TicketType.field_219488_a, chunkpos, 11, Unit.INSTANCE);
+-      this.func_72863_F().func_217228_a(TicketType.field_219488_a, new ChunkPos(p_241124_1_), 11, Unit.INSTANCE);
++      if (this.paperConfig.keepSpawnInMemory) {
++         // if this keepSpawnInMemory is false a plugin has already removed our tickets, do not re-add
++         this.removeTicketsForSpawn(this.paperConfig.keepLoadedRange, prevSpawn);
++         this.addTicketsForSpawn(this.paperConfig.keepLoadedRange, p_241124_1_);
++      }
++//      this.getChunkSource().removeRegionTicket(TicketType.START, chunkpos, 11, Unit.INSTANCE);
++//      this.getChunkSource().addRegionTicket(TicketType.START, new ChunkPos(p_241124_1_), 11, Unit.INSTANCE);
+       this.func_73046_m().func_184103_al().func_148540_a(new SWorldSpawnChangedPacket(p_241124_1_, p_241124_2_));
+    }
+ 
 @@ -1409,5 +_,15 @@
        BlockPos.func_191531_b(i - 2, j, k - 2, i + 2, j, k + 2).forEach((p_241122_1_) -> {
           p_241121_0_.func_175656_a(p_241122_1_, Blocks.field_150343_Z.func_176223_P());

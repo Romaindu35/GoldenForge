@@ -31,7 +31,7 @@
  import net.minecraft.world.chunk.listener.IChunkStatusListener;
  import net.minecraft.world.chunk.listener.IChunkStatusListenerFactory;
  import net.minecraft.world.gen.ChunkGenerator;
-@@ -152,12 +_,21 @@
+@@ -152,12 +_,22 @@
  import net.minecraft.world.storage.WorldSavedDataCallableSave;
  import net.minecraftforge.api.distmarker.Dist;
  import net.minecraftforge.api.distmarker.OnlyIn;
@@ -44,6 +44,7 @@
 +import org.goldenforge.BukkitConfig;
 +import org.goldenforge.BukkitConfiguration;
 +import org.goldenforge.scheduler.GoldenScheduler;
++import org.goldenforge.threads.ServerShutdownThread;
 +import org.spigotmc.SlackActivityAccountant;
 +import org.spigotmc.SpigotConfig;
  
@@ -244,6 +245,15 @@
        this.field_240767_f_ = p_i232576_2_;
        this.field_240768_i_ = p_i232576_4_;
        this.field_110456_c = p_i232576_6_;
+@@ -259,6 +_,8 @@
+       this.field_240765_ak_ = new TemplateManager(p_i232576_8_.func_240970_h_(), p_i232576_3_, p_i232576_7_);
+       this.field_175590_aa = p_i232576_1_;
+       this.field_213217_au = Util.func_215072_e();
++
++      Runtime.getRuntime().addShutdownHook(new ServerShutdownThread(this));
+    }
+ 
+    private void func_213204_a(DimensionSavedDataManager p_213204_1_) {
 @@ -307,7 +_,18 @@
        IChunkStatusListener ichunkstatuslistener = this.field_213220_d.create(11);
        this.func_240787_a_(ichunkstatuslistener);
@@ -286,13 +296,12 @@
  
 +
 +   private void prepareLevels(IChunkStatusListener p_213186_1_, ServerWorld serverworld) {
-+      net.minecraftforge.common.world.StructureSpawnManager.gatherEntitySpawns();
++      //net.minecraftforge.common.world.StructureSpawnManager.gatherEntitySpawns();
 +      ServerChunkProvider serverchunkprovider = serverworld.func_72863_F();
 +
 +      this.forceTicks = true;
 +      // CraftBukkit end
-+      if (serverworld.paperConfig.keepSpawnInMemory) { // Paper
-+
++      if (serverworld.getKeepSpawnInMemory()) { // Paper
 +
 +         field_147145_h.info("Preparing start region for dimension {}", (Object) serverworld.func_234923_W_().func_240901_a_());
 +         BlockPos blockpos = serverworld.func_241135_u_();
@@ -323,6 +332,7 @@
 +
 +      }
 +
++      if (true) {
 +         ForcedChunksSaveData forcedchunkssavedata = serverworld.func_217481_x().func_215753_b(ForcedChunksSaveData::new, "chunks");
 +         if (forcedchunkssavedata != null) {
 +            LongIterator longiterator = forcedchunkssavedata.func_212438_a().iterator();
@@ -334,7 +344,7 @@
 +            }
 +            net.minecraftforge.common.world.ForgeChunkManager.reinstatePersistentChunks(serverworld, forcedchunkssavedata);
 +         }
-+
++      }
 +//      this.nextTickTime = Util.getMillis() + 10L;
 +//      this.waitUntilNextTick();
 +      this.executeModerately();
@@ -508,15 +518,19 @@
           this.func_71228_a(crashreport);
        } finally {
           try {
-@@ -670,6 +_,7 @@
+@@ -669,26 +_,73 @@
+             this.func_71260_j();
           } catch (Throwable throwable) {
              field_147145_h.error("Exception stopping the server", throwable);
-          } finally {
-+            net.minecraftforge.fml.server.ServerLifecycleHooks.handleServerStopped(this);
-             this.func_71240_o();
-          }
+-         } finally {
+-            this.func_71240_o();
+-         }
++         }  //finally {
++//            net.minecraftforge.fml.server.ServerLifecycleHooks.handleServerStopped(this);
++//            this.onServerExit();
++//         }
  
-@@ -677,18 +_,64 @@
+       }
  
     }
  

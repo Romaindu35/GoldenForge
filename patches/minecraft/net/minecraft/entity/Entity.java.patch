@@ -7,9 +7,11 @@
  import com.google.common.collect.Iterables;
  import com.google.common.collect.Lists;
  import com.google.common.collect.Sets;
-@@ -102,6 +_,7 @@
+@@ -101,7 +_,9 @@
+ import net.minecraft.world.IWorldReader;
  import net.minecraft.world.World;
  import net.minecraft.world.border.WorldBorder;
++import net.minecraft.world.chunk.Chunk;
  import net.minecraft.world.gen.Heightmap;
 +import net.minecraft.world.server.ChunkManager;
  import net.minecraft.world.server.ServerWorld;
@@ -66,7 +68,7 @@
     protected int field_82153_h;
     protected BlockPos field_242271_ac;
     private boolean field_83001_bt;
-@@ -194,7 +_,24 @@
+@@ -194,7 +_,41 @@
     private EntitySize field_213325_aI;
     private float field_213326_aJ;
  
@@ -79,6 +81,23 @@
 +   public long activatedTick = Integer.MIN_VALUE;
 +   public ChunkManager.EntityTracker tracker; // Paper package private -> public
 +   public SpawnReason spawnReason;
++
++   public java.lang.ref.WeakReference<Chunk> currentChunk = null;
++
++   public void setCurrentChunk(Chunk chunk) {
++      this.currentChunk = chunk != null ? new java.lang.ref.WeakReference<>(chunk) : null;
++   }
++   /**
++    * Returns the entities current registered chunk. If the entity is not added to a chunk yet, it will return null
++    */
++   public Chunk getCurrentChunk() {
++      final Chunk chunk = currentChunk != null ? currentChunk.get() : null;
++      if (chunk != null && chunk.field_76636_d) {
++         return chunk;
++      }
++
++      return !field_70175_ag ? null : ((ServerWorld)field_70170_p).func_72863_F().getChunkAtIfLoadedMainThreadNoCache(field_70176_ah, field_70164_aj);
++   }
 +
 +
 +   public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> getPlayersInTrackRange() {

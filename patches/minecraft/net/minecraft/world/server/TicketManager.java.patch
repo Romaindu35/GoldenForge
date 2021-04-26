@@ -106,7 +106,7 @@
           return true;
        } else {
           if (!this.field_219387_o.isEmpty()) {
-@@ -134,7 +_,10 @@
+@@ -134,7 +_,11 @@
        }
     }
  
@@ -115,6 +115,7 @@
 +
 +
 +   private boolean addTicket(long p_219347_1_, Ticket<?> p_219347_3_) {
++      AsyncCatcher.catchOp("ChunkMapDistance::addTicket"); // Paper
        SortedArraySet<Ticket<?>> sortedarrayset = this.func_229848_e_(p_219347_1_);
        int i = func_229844_a_(sortedarrayset);
        Ticket<?> ticket = sortedarrayset.func_226175_a_(p_219347_3_);
@@ -134,10 +135,10 @@
 -      }
 -
 -      this.field_219378_f.func_215491_b(p_219349_1_, func_229844_a_(sortedarrayset), false);
-+      if (p_219347_3_.isForceTicks()) {
-+          SortedArraySet<Ticket<?>> tickets = forcedTickets.computeIfAbsent(p_219347_1_, e -> SortedArraySet.func_226172_a_(4));
-+          tickets.func_226175_a_(ticket);
-+      }
++//      if (p_219347_3_.isForceTicks()) {
++//          SortedArraySet<Ticket<?>> tickets = forcedTickets.computeIfAbsent(p_219347_1_, e -> SortedArraySet.create(4));
++//          tickets.addOrGet(ticket);
++//      }
 +
 +      return ticket == p_219347_3_;
 +   }
@@ -180,12 +181,12 @@
 +      int newLevel = func_229844_a_(arraysetsorted); // Paper
 +      if (newLevel > oldLevel) this.field_219378_f.func_215491_b(i, newLevel, false); // Paper
 +
-+      if (ticket.isForceTicks()) {
-+          SortedArraySet<Ticket<?>> tickets = forcedTickets.get(i);
-+          if (tickets != null) {
-+              tickets.remove(ticket);
-+          }
-+      }
++//      if (ticket.isForceTicks()) {
++//          SortedArraySet<Ticket<?>> tickets = forcedTickets.get(i);
++//          if (tickets != null) {
++//              tickets.remove(ticket);
++//          }
++//      }
 +
 +      return removed; // CraftBukkit
 +//      SortedArraySet<Ticket<?>> sortedarrayset = this.getTickets(p_219349_1_);

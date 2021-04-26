@@ -1,0 +1,46 @@
+--- a/net/minecraft/util/math/vector/Vector3i.java
++++ b/net/minecraft/util/math/vector/Vector3i.java
+@@ -25,6 +_,15 @@
+    private int field_177960_b;
+    private int field_177961_c;
+ 
++   // Paper start
++   public boolean isValidLocation() {
++      return func_177958_n() >= -30000000 && func_177952_p() >= -30000000 && func_177958_n() < 30000000 && func_177952_p() < 30000000 && func_177956_o() >= 0 && func_177956_o() < 256;
++   }
++   public boolean isInvalidYLocation() {
++      return field_177960_b < 0 || field_177960_b >= 256;
++   }
++   // Paper end
++
+    public Vector3i(int p_i46007_1_, int p_i46007_2_, int p_i46007_3_) {
+       this.field_177962_a = p_i46007_1_;
+       this.field_177960_b = p_i46007_2_;
+@@ -35,7 +_,7 @@
+       this(MathHelper.func_76128_c(p_i46008_1_), MathHelper.func_76128_c(p_i46008_3_), MathHelper.func_76128_c(p_i46008_5_));
+    }
+ 
+-   public boolean equals(Object p_equals_1_) {
++   public final boolean equals(Object p_equals_1_) { // Paper
+       if (this == p_equals_1_) {
+          return true;
+       } else if (!(p_equals_1_ instanceof Vector3i)) {
+@@ -76,15 +_,15 @@
+       return this.field_177961_c;
+    }
+ 
+-   protected void func_223471_o(int p_223471_1_) {
++   public void func_223471_o(int p_223471_1_) {
+       this.field_177962_a = p_223471_1_;
+    }
+ 
+-   protected void func_185336_p(int p_185336_1_) {
++   public void func_185336_p(int p_185336_1_) {
+       this.field_177960_b = p_185336_1_;
+    }
+ 
+-   protected void func_223472_q(int p_223472_1_) {
++   public void func_223472_q(int p_223472_1_) {
+       this.field_177961_c = p_223472_1_;
+    }
+ 

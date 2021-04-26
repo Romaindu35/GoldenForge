@@ -42,7 +42,7 @@
     public final ChunkManager field_217237_a;
     private final DimensionSavedDataManager field_217244_j;
     private long field_217245_k;
-@@ -65,6 +_,338 @@
+@@ -65,6 +_,339 @@
     @Nullable
     private WorldEntitySpawner.EntityDensityManager field_241097_p_;
  
@@ -286,14 +286,15 @@
 +      });
 +   }
 +
++   private long asyncLoadSeqCounter;
++
 +   private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> bringToFullStatusAsync(int x, int z, ChunkPos chunkPos, boolean isUrgent) {
 +      return this.bringToStatusAsync(x, z, chunkPos, ChunkStatus.field_222617_m, isUrgent);
 +   }
-+   private long asyncLoadSeqCounter;
 +
 +   private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> bringToStatusAsync(int x, int z, ChunkPos chunkPos, ChunkStatus status, boolean isUrgent) {
 +      CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.getChunkFutureMainThread(x, z, status, true, isUrgent);
-+      Long identifier = Long.valueOf(this.asyncLoadSeqCounter++);
++      Long identifier = this.asyncLoadSeqCounter++;
 +      int ticketLevel = MCUtil.getTicketLevelFor(status);
 +      this.registerTickingTicket(TicketType.ASYNC_LOAD, chunkPos, ticketLevel, identifier);
 +

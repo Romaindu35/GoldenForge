@@ -24,6 +24,19 @@
     public static long func_218174_a(long p_218174_0_, int p_218174_2_, int p_218174_3_, int p_218174_4_) {
        return func_218166_b(func_218173_b(p_218174_0_) + p_218174_2_, func_218144_c(p_218174_0_) + p_218174_3_, func_218153_d(p_218174_0_) + p_218174_4_);
     }
+@@ -50,10 +_,8 @@
+    }
+ 
+    public static short func_218150_b(BlockPos p_218150_0_) {
+-      int i = func_218171_b(p_218150_0_.func_177958_n());
+-      int j = func_218171_b(p_218150_0_.func_177956_o());
+-      int k = func_218171_b(p_218150_0_.func_177952_p());
+-      return (short)(i << 8 | k << 4 | j << 0);
++      return (short) ((p_218150_0_.func_177958_n() & 15) << 8 | (p_218150_0_.func_177952_p() & 15) << 4 | p_218150_0_.func_177956_o() & 15); // Paper - simplify/inline
++
+    }
+ 
+    public static int func_243641_a(short p_243641_0_) {
 @@ -100,6 +_,14 @@
        return (int)(p_218153_0_ << 22 >> 42);
     }
@@ -39,10 +52,22 @@
     public int func_218149_a() {
        return this.func_177958_n();
     }
-@@ -167,6 +_,12 @@
-    public long func_218146_v() {
-       return func_218166_b(this.func_218149_a(), this.func_218163_b(), this.func_218148_c());
+@@ -158,15 +_,18 @@
     }
+ 
+    public static long func_218166_b(int p_218166_0_, int p_218166_1_, int p_218166_2_) {
+-      long i = 0L;
+-      i = i | ((long)p_218166_0_ & 4194303L) << 42;
+-      i = i | ((long)p_218166_1_ & 1048575L) << 0;
+-      return i | ((long)p_218166_2_ & 4194303L) << 20;
++      return (((long) p_218166_0_ & 4194303L) << 42) | (((long) p_218166_1_ & 1048575L)) | (((long) p_218166_2_ & 4194303L) << 20); // Paper - Simplify to reduce instruction count
+    }
+ 
+    public long func_218146_v() {
+-      return func_218166_b(this.func_218149_a(), this.func_218163_b(), this.func_218148_c());
+-   }
++      return (((long) func_177958_n() & 4194303L) << 42) | (((long) func_177956_o() & 1048575L)) | (((long) func_177952_p() & 4194303L) << 20); // Paper - Simplify to reduce instruction count
++   }
 +
 +   // Paper start
 +   public static long blockPosAsSectionLong(int i, int j, int k) {

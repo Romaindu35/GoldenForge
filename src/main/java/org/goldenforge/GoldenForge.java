@@ -9,7 +9,6 @@ public class GoldenForge {
     public static final Logger LOGGER = LogManager.getLogger("GoldenForge");
 
     private static String name = "GoldenForge";
-    private static String version = "1.0.0";
 
     public static GoldenScheduler getScheduler() {
         return MinecraftServer.getServer().getScheduler();
@@ -20,7 +19,7 @@ public class GoldenForge {
     }
 
     public static String getVersion() {
-        return version;
+        return GoldenForgeEntryPoint.getVersion();
     }
 
     public static final boolean isEnabled() {
