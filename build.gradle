@@ -118,6 +118,7 @@ project(':forge') {
     apply plugin: 'org.cadixdev.licenser'
 
     java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+    compileJava.options.encoding = 'UTF-8'
     group = 'net.minecraftforge'
 
     sourceSets {
