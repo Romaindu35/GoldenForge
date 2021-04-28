@@ -166,7 +166,7 @@
     }
  
     public boolean func_201670_d() {
-@@ -124,7 +_,7 @@
+@@ -124,11 +_,12 @@
  
     @Nullable
     public MinecraftServer func_73046_m() {
@@ -175,11 +175,45 @@
     }
  
     public static boolean func_175701_a(BlockPos p_175701_0_) {
-@@ -155,6 +_,13 @@
+-      return !func_189509_E(p_175701_0_) && func_234934_e_(p_175701_0_);
++      return p_175701_0_.isValidLocation();
++      //return !isOutsideBuildHeight(p_175701_0_) && isInWorldBoundsHorizontal(p_175701_0_);
+    }
+ 
+    public static boolean func_234935_k_(BlockPos p_234935_0_) {
+@@ -155,11 +_,46 @@
        return this.func_212866_a_(p_175726_1_.func_177958_n() >> 4, p_175726_1_.func_177952_p() >> 4);
     }
  
 +   // Paper start - if loaded
++
++   public final boolean func_175667_e(BlockPos blockposition) {
++      return getChunkIfLoaded(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null; // Paper
++   }
++
++   public final boolean isLoadedAndInBounds(BlockPos blockposition) { // Paper - final for inline
++      return func_175723_af().func_177746_a(blockposition) && getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null;
++   }
++
++   public Chunk getChunkIfLoaded(int x, int z) { // Overridden in WorldServer for ABI compat which has final
++      return ((ServerWorld) this).func_72863_F().getChunkAtIfLoadedImmediately(x, z);
++   }
++
++   //  reduces need to do isLoaded before getType
++   public final BlockState getTypeIfLoadedAndInBounds(BlockPos blockposition) {
++      return func_175723_af().func_177746_a(blockposition) ? getTypeIfLoaded(blockposition) : null;
++   }
++
++   public final BlockState getTypeIfLoaded(BlockPos blockposition) {
++      if (!func_175701_a(blockposition)) {
++         return Blocks.field_150350_a.func_176223_P();
++      }
++      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++
++      return chunk == null ? null : chunk.func_180495_p(blockposition);
++   }
++   // Paper end
++
 +   @Nullable
 +   @Override
 +   public final IChunk getChunkIfLoadedImmediately(int x, int z) {
@@ -189,6 +223,12 @@
     public Chunk func_212866_a_(int p_212866_1_, int p_212866_2_) {
        return (Chunk)this.func_217348_a(p_212866_1_, p_212866_2_, ChunkStatus.field_222617_m);
     }
+ 
+-   public IChunk func_217353_a(int p_217353_1_, int p_217353_2_, ChunkStatus p_217353_3_, boolean p_217353_4_) {
++   public final IChunk func_217353_a(int p_217353_1_, int p_217353_2_, ChunkStatus p_217353_3_, boolean p_217353_4_) {
+       IChunk ichunk = this.func_72863_F().func_212849_a_(p_217353_1_, p_217353_2_, p_217353_3_, p_217353_4_);
+       if (ichunk == null && p_217353_4_) {
+          throw new IllegalStateException("Should always be able to create a chunk!");
 @@ -180,17 +_,45 @@
        } else {
           Chunk chunk = this.func_175726_f(p_241211_1_);

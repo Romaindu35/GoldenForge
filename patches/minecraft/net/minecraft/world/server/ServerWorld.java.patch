@@ -769,6 +769,15 @@
        this.func_73046_m().func_184103_al().func_148540_a(new SWorldSpawnChangedPacket(p_241124_1_, p_241124_2_));
     }
  
+@@ -1368,7 +_,7 @@
+       return this.func_241112_a_().func_235011_a_(p_241827_1_, p_241827_2_);
+    }
+ 
+-   public ServerWorld func_201672_e() {
++   public ServerWorld getLevel() {
+       return this;
+    }
+ 
 @@ -1409,5 +_,15 @@
        BlockPos.func_191531_b(i - 2, j, k - 2, i + 2, j, k + 2).forEach((p_241122_1_) -> {
           p_241121_0_.func_175656_a(p_241122_1_, Blocks.field_150343_Z.func_176223_P());

@@ -1,5 +1,14 @@
 --- a/net/minecraft/entity/passive/CatEntity.java
 +++ b/net/minecraft/entity/passive/CatEntity.java
+@@ -353,7 +_,7 @@
+          this.func_213422_r(this.field_70146_Z.nextInt(10));
+       }
+ 
+-      World world = p_213386_1_.func_201672_e();
++      World world = p_213386_1_.getLevel();
+       if (world instanceof ServerWorld && ((ServerWorld)world).func_241112_a_().func_235010_a_(this.func_233580_cy_(), true, Structure.field_236374_j_).func_75069_d()) {
+          this.func_213422_r(10);
+          this.func_110163_bv();
 @@ -402,7 +_,7 @@
              }
           } else if (this.func_70877_b(itemstack)) {

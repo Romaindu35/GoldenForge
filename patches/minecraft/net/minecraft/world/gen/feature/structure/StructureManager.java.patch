@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/gen/feature/structure/StructureManager.java
 +++ b/net/minecraft/world/gen/feature/structure/StructureManager.java
-@@ -3,6 +_,8 @@
+@@ -3,11 +_,14 @@
  import com.mojang.datafixers.DataFixUtils;
  import java.util.stream.Stream;
  import javax.annotation.Nullable;
@@ -9,7 +9,22 @@
  import net.minecraft.util.math.BlockPos;
  import net.minecraft.util.math.ChunkPos;
  import net.minecraft.util.math.SectionPos;
-@@ -29,6 +_,19 @@
+ import net.minecraft.world.IStructureReader;
+ import net.minecraft.world.IWorld;
++import net.minecraft.world.World;
+ import net.minecraft.world.chunk.ChunkStatus;
+ import net.minecraft.world.gen.WorldGenRegion;
+ import net.minecraft.world.gen.settings.DimensionGeneratorSettings;
+@@ -22,13 +_,26 @@
+    }
+ 
+    public StructureManager func_241464_a_(WorldGenRegion p_241464_1_) {
+-      if (p_241464_1_.func_201672_e() != this.field_235003_a_) {
+-         throw new IllegalStateException("Using invalid feature manager (source level: " + p_241464_1_.func_201672_e() + ", region: " + p_241464_1_);
++      if (p_241464_1_.getLevel() != this.field_235003_a_) {
++         throw new IllegalStateException("Using invalid feature manager (source level: " + p_241464_1_.getLevel() + ", region: " + p_241464_1_);
+       } else {
+          return new StructureManager(p_241464_1_, this.field_235004_b_);
        }
     }
  
@@ -29,7 +44,7 @@
     public Stream<? extends StructureStart<?>> func_235011_a_(SectionPos p_235011_1_, Structure<?> p_235011_2_) {
        return this.field_235003_a_.func_217348_a(p_235011_1_.func_218149_a(), p_235011_1_.func_218148_c(), ChunkStatus.field_222607_c).func_230346_b_(p_235011_2_).stream().map((p_235015_0_) -> {
           return SectionPos.func_218156_a(new ChunkPos(p_235015_0_), 0);
-@@ -57,12 +_,27 @@
+@@ -57,12 +_,33 @@
     }
  
     public StructureStart<?> func_235010_a_(BlockPos p_235010_1_, boolean p_235010_2_, Structure<?> p_235010_3_) {
@@ -40,6 +55,7 @@
 -            return p_235008_1_.func_74874_b().func_175898_b(p_235010_1_);
 -         });
 -      }).findFirst(), StructureStart.field_214630_a);
+-   }
 +      // Paper start - remove structure streams
 +      for (StructureStart<?> structurestart : getFeatureStarts(SectionPos.func_218167_a(p_235010_1_), p_235010_3_)) {
 +         if (structurestart.func_75071_a().func_175898_b(p_235010_1_)) {
@@ -62,5 +78,11 @@
 +//            return p_235008_1_.getBoundingBox().isInside(p_235010_1_);
 +//         });
 +//      }).findFirst(), StructureStart.INVALID_START);
-    }
++   }
++
++   // Spigot start
++   public World getWorld() {
++      return this.field_235003_a_.getLevel();
++   }
++   // Spigot end
  }

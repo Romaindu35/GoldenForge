@@ -79,6 +79,20 @@
     public ServerPlayerEntity(MinecraftServer p_i45285_1_, ServerWorld p_i45285_2_, GameProfile p_i45285_3_, PlayerInteractionManager p_i45285_4_) {
        super(p_i45285_2_, p_i45285_2_.func_241135_u_(), p_i45285_2_.func_242107_v(), p_i45285_3_);
        p_i45285_4_.field_73090_b = this;
+@@ -400,10 +_,12 @@
+ 
+    public void func_71127_g() {
+       try {
+-         if (!this.func_175149_v() || this.field_70170_p.func_175667_e(this.func_233580_cy_())) {
++         if (!this.func_175149_v() || this.field_70170_p.func_175667_e(this.func_233580_cy_())) { // Paper - don't tick dead players that are not in the world currently (pending respawn)
+             super.func_70071_h_();
+          }
+ 
++         if (func_70089_S() && field_71135_a != null) ((ServerWorld)field_70170_p).func_72863_F().field_217237_a.checkHighPriorityChunks(this); // Paper
++
+          for(int i = 0; i < this.field_71071_by.func_70302_i_(); ++i) {
+             ItemStack itemstack = this.field_71071_by.func_70301_a(i);
+             if (itemstack.func_77973_b().func_77643_m_()) {
 @@ -475,6 +_,7 @@
     }
  

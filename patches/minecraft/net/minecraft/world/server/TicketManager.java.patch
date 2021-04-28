@@ -490,7 +490,7 @@
 +                        }
 +                     });
 +                  }, p_215504_1_, () -> {
-+                     return p_215504_3_;
++                     return Math.min(ChunkManager.field_219249_a, priority); // Paper
 +                  }));
 +               }); // Paper
              } else {

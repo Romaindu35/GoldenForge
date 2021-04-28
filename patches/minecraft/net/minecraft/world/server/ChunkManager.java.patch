@@ -1180,17 +1180,19 @@
              return Either.left(p_219196_2_);
           });
        }, (p_219202_2_) -> {
-@@ -678,7 +_,12 @@
+@@ -678,7 +_,14 @@
  
              this.field_219255_i.func_217381_Z().func_230035_c_("chunkSave");
              CompoundNBT compoundnbt = ChunkSerializer.func_222645_a(this.field_219255_i, p_219229_1_);
 -            this.func_219100_a(chunkpos, compoundnbt);
 +            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.world.ChunkDataEvent.Save(p_219229_1_, p_219229_1_.getWorldForge() != null ? p_219229_1_.getWorldForge() : this.field_219255_i, compoundnbt));
++
 +            //this.write(chunkpos, compoundnbt);
 +            // Paper start - async chunk io
 +            com.destroystokyo.paper.io.PaperFileIOThread.Holder.INSTANCE.scheduleSave(this.field_219255_i, chunkpos.field_77276_a, chunkpos.field_77275_b,
 +                    null, compoundnbt, com.destroystokyo.paper.io.PrioritizedTaskQueue.NORMAL_PRIORITY);
 +            // Paper end - async chunk io
++
              this.func_241088_a_(chunkpos, chunkstatus.func_202129_d());
              return true;
           } catch (Exception exception) {

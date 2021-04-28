@@ -359,7 +359,8 @@ public final class ChunkTaskManager {
      * @param chunkX Chunk's x coordinate
      * @param chunkZ Chunk's z coordinate
      * @param priority Priority for this task
-     * @param asyncSaveData Async save data. See {@link ChunkSerializer#getAsyncSaveData(WorldServer, IChunkAccess)}
+     * @param asyncSaveData Async save data. See {@link ChunkSerializer#getAsyncSaveData(ServerWorld, IChunk)}
+     *
      * @param chunk Chunk to save
      * @return The {@link ChunkSaveTask} associated with the save task.
      */

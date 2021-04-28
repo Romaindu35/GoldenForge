@@ -424,13 +424,14 @@
        double d0 = p_175089_9_.contains(SPlayerPositionLookPacket.Flags.X) ? this.field_147369_b.func_226277_ct_() : 0.0D;
        double d1 = p_175089_9_.contains(SPlayerPositionLookPacket.Flags.Y) ? this.field_147369_b.func_226278_cu_() : 0.0D;
        double d2 = p_175089_9_.contains(SPlayerPositionLookPacket.Flags.Z) ? this.field_147369_b.func_226281_cx_() : 0.0D;
-@@ -887,7 +_,8 @@
+@@ -887,7 +_,9 @@
        }
  
        this.field_184343_A = this.field_147368_e;
 -      this.field_147369_b.func_70080_a(p_175089_1_, p_175089_3_, p_175089_5_, p_175089_7_, p_175089_8_);
 +      this.field_147369_b.func_70012_b(p_175089_1_, p_175089_3_, p_175089_5_, p_175089_7_, p_175089_8_);
 +      this.field_147369_b.func_143004_u(); // Paper
++      this.field_147369_b.forceCheckHighPriority();
        this.field_147369_b.field_71135_a.func_147359_a(new SPlayerPositionLookPacket(p_175089_1_ - d0, p_175089_3_ - d1, p_175089_5_ - d2, p_175089_7_ - f, p_175089_8_ - f1, p_175089_9_, this.field_184363_z));
     }
  

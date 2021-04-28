@@ -8,7 +8,8 @@
  import net.minecraft.world.server.ServerWorld;
  
  public interface IServerWorld extends IWorld {
-    ServerWorld func_201672_e();
+-   ServerWorld func_201672_e();
++   ServerWorld getLevel();
  
     default void func_242417_l(Entity p_242417_1_) {
 -      p_242417_1_.func_226276_cg_().forEach(this::func_217376_c);

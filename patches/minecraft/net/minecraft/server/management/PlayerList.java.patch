@@ -395,6 +395,16 @@
        serverplayerentity.func_145769_d(p_232644_1_.func_145782_y());
        serverplayerentity.func_184819_a(p_232644_1_.func_184591_cq());
  
+@@ -452,6 +_,9 @@
+          serverplayerentity.field_71135_a.func_147359_a(new SChangeGameStatePacket(SChangeGameStatePacket.field_241764_a_, 0.0F));
+       }
+ 
++      serverworld1.func_72863_F().registerTickingTicket(TicketType.field_223185_g, new ChunkPos(serverplayerentity.field_70176_ah, serverplayerentity.field_70164_aj), 1, serverplayerentity.func_145782_y()); // Paper
++      serverplayerentity.forceCheckHighPriority(); // Player
++
+       while(!serverworld1.func_226669_j_(serverplayerentity) && serverplayerentity.func_226278_cu_() < 256.0D) {
+          serverplayerentity.func_70107_b(serverplayerentity.func_226277_ct_(), serverplayerentity.func_226278_cu_() + 1.0D, serverplayerentity.func_226281_cx_());
+       }
 @@ -465,10 +_,11 @@
        this.func_72354_b(serverplayerentity, serverworld1);
        this.func_187243_f(serverplayerentity);

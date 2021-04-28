@@ -1,7 +1,7 @@
 buildscript {
     repositories {
         mavenLocal()
-        maven { url = 'https://files.minecraftforge.net/maven' }
+        maven { url = 'https://maven.minecraftforge.net' }
         mavenCentral()
     }
     dependencies {
@@ -1071,7 +1071,7 @@ project(':forge') {
                         username project.properties.forgeMavenUser
                         password project.properties.forgeMavenPassword
                     }
-                    url 'https://files.minecraftforge.net/maven/manage/upload'
+                    url 'https://maven.minecraftforge.net/manage/upload'
                 } else {
                     url 'file://' + rootProject.file('repo').getAbsolutePath()
                 }

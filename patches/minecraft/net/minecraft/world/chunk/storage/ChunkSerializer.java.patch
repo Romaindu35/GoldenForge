@@ -153,7 +153,7 @@
 +//         ichunk = new Chunk(p_222656_0_.getLevel(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, (p_222648_1_) -> {
 +//            postLoadChunk(compoundnbt, p_222648_1_);
 +//         });
-+         ichunk = new Chunk(p_222656_0_.func_201672_e(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, // Paper start - fix massive nbt memory leak due to lambda. move lambda into a container method to not leak scope. Only clone needed NBT keys.
++         ichunk = new Chunk(p_222656_0_.getLevel(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, // Paper start - fix massive nbt memory leak due to lambda. move lambda into a container method to not leak scope. Only clone needed NBT keys.
 +                 createLoadEntitiesConsumer(new SafeNBTCopy(compoundnbt, "TileEntities", "Entities", "ChunkBukkitValues")) // Paper - move CB Chunk PDC into here
 +         );// Paper end
 +

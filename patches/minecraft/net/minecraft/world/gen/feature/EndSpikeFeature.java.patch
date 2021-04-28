@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/gen/feature/EndSpikeFeature.java
++++ b/net/minecraft/world/gen/feature/EndSpikeFeature.java
+@@ -86,7 +_,7 @@
+          }
+       }
+ 
+-      EnderCrystalEntity endercrystalentity = EntityType.field_200801_o.func_200721_a(p_214553_1_.func_201672_e());
++      EnderCrystalEntity endercrystalentity = EntityType.field_200801_o.func_200721_a(p_214553_1_.getLevel());
+       endercrystalentity.func_184516_a(p_214553_3_.func_214668_c());
+       endercrystalentity.func_184224_h(p_214553_3_.func_214669_a());
+       endercrystalentity.func_70012_b((double)p_214553_4_.func_186151_a() + 0.5D, (double)(p_214553_4_.func_186149_d() + 1), (double)p_214553_4_.func_186152_b() + 0.5D, p_214553_2_.nextFloat() * 360.0F, 0.0F);

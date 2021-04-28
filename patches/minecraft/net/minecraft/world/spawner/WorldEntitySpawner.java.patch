@@ -248,14 +248,25 @@
        StructureManager structuremanager = p_234966_1_.func_241112_a_();
        ChunkGenerator chunkgenerator = p_234966_1_.func_72863_F().func_201711_g();
        int i = p_234966_3_.func_177956_o();
-       BlockState blockstate = p_234966_2_.func_180495_p(p_234966_3_);
+-      BlockState blockstate = p_234966_2_.func_180495_p(p_234966_3_);
+-      if (!blockstate.func_215686_e(p_234966_2_, p_234966_3_)) {
++      BlockState blockstate = p_234966_1_.getTypeIfLoadedAndInBounds(p_234966_3_); // Paper - don't load chunks for mob spawn
 +      int j = 0;
-       if (!blockstate.func_215686_e(p_234966_2_, p_234966_3_)) {
++      if (blockstate != null && !blockstate.func_215686_e(p_234966_2_, p_234966_3_)) { // Paper - don't load chunks for mob spawn
           BlockPos.Mutable blockpos$mutable = new BlockPos.Mutable();
 -         int j = 0;
  
           for(int k = 0; k < 3; ++k) {
              int l = p_234966_3_.func_177958_n();
+@@ -152,7 +_,7 @@
+                PlayerEntity playerentity = p_234966_1_.func_217366_a(d0, (double)i, d1, -1.0D, false);
+                if (playerentity != null) {
+                   double d2 = playerentity.func_70092_e(d0, (double)i, d1);
+-                  if (func_234978_a_(p_234966_1_, p_234966_2_, blockpos$mutable, d2)) {
++                  if (func_234978_a_(p_234966_1_, p_234966_2_, blockpos$mutable, d2) && p_234966_1_.isLoadedAndInBounds(blockpos$mutable)) { // Paper - don't load chunks for mob spawn
+                      if (mobspawninfo$spawners == null) {
+                         mobspawninfo$spawners = func_234977_a_(p_234966_1_, structuremanager, chunkgenerator, p_234966_0_, p_234966_1_.field_73012_v, blockpos$mutable);
+                         if (mobspawninfo$spawners == null) {
 @@ -162,21 +_,28 @@
                          k1 = mobspawninfo$spawners.field_242589_d + p_234966_1_.field_73012_v.nextInt(1 + mobspawninfo$spawners.field_242590_e - mobspawninfo$spawners.field_242589_d);
                       }
@@ -337,6 +348,15 @@
        }
     }
  
+@@ -346,7 +_,7 @@
+ 
+                      Entity entity;
+                      try {
+-                        entity = mobspawninfo$spawners.field_242588_c.func_200721_a(p_77191_0_.func_201672_e());
++                        entity = mobspawninfo$spawners.field_242588_c.func_200721_a(p_77191_0_.getLevel());
+                      } catch (Exception exception) {
+                         field_209383_a.warn("Failed to create mob", (Throwable)exception);
+                         continue;
 @@ -355,9 +_,10 @@
                       entity.func_70012_b(d0, (double)blockpos.func_177956_o(), d1, p_77191_4_.nextFloat() * 360.0F, 0.0F);
                       if (entity instanceof MobEntity) {

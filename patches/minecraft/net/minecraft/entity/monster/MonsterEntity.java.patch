@@ -1,0 +1,11 @@
+--- a/net/minecraft/entity/monster/MonsterEntity.java
++++ b/net/minecraft/entity/monster/MonsterEntity.java
+@@ -84,7 +_,7 @@
+       if (p_223323_0_.func_226658_a_(LightType.SKY, p_223323_1_) > p_223323_2_.nextInt(32)) {
+          return false;
+       } else {
+-         int i = p_223323_0_.func_201672_e().func_72911_I() ? p_223323_0_.func_205049_d(p_223323_1_, 10) : p_223323_0_.func_201696_r(p_223323_1_);
++         int i = p_223323_0_.getLevel().func_72911_I() ? p_223323_0_.func_205049_d(p_223323_1_, 10) : p_223323_0_.func_201696_r(p_223323_1_);
+          return i <= p_223323_2_.nextInt(8);
+       }
+    }

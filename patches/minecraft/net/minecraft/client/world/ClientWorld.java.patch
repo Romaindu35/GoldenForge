@@ -1,5 +1,13 @@
 --- a/net/minecraft/client/world/ClientWorld.java
 +++ b/net/minecraft/client/world/ClientWorld.java
+@@ -70,6 +_,7 @@
+ import net.minecraft.world.chunk.ChunkStatus;
+ import net.minecraft.world.gen.Heightmap;
+ import net.minecraft.world.level.ColorResolver;
++import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.storage.ISpawnWorldInfo;
+ import net.minecraft.world.storage.MapData;
+ import net.minecraftforge.api.distmarker.Dist;
 @@ -104,6 +_,8 @@
        this.func_239136_a_(new BlockPos(8, 64, 8), 0.0F);
        this.func_72966_v();
@@ -62,6 +70,18 @@
        if (p_217384_1_ == this.field_73037_M.field_71439_g) {
           this.field_73037_M.func_147118_V().func_147682_a(new EntityTickableSound(p_217384_3_, p_217384_4_, p_217384_2_));
        }
+@@ -564,6 +_,11 @@
+       }
+    }
+ 
++   @Override
++   public ServerWorld getLevel() {
++      return null;
++   }
++
+    public void func_195594_a(IParticleData p_195594_1_, double p_195594_2_, double p_195594_4_, double p_195594_6_, double p_195594_8_, double p_195594_10_, double p_195594_12_) {
+       this.field_217430_d.func_195461_a(p_195594_1_, p_195594_1_.func_197554_b().func_197575_f(), p_195594_2_, p_195594_4_, p_195594_6_, p_195594_8_, p_195594_10_, p_195594_12_);
+    }
 @@ -876,6 +_,7 @@
        }
  

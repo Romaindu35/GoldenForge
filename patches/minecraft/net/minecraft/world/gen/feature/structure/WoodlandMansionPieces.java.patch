@@ -1,0 +1,15 @@
+--- a/net/minecraft/world/gen/feature/structure/WoodlandMansionPieces.java
++++ b/net/minecraft/world/gen/feature/structure/WoodlandMansionPieces.java
+@@ -395,10 +_,10 @@
+             AbstractIllagerEntity abstractillagerentity;
+             switch(p_186175_1_) {
+             case "Mage":
+-               abstractillagerentity = EntityType.field_200806_t.func_200721_a(p_186175_3_.func_201672_e());
++               abstractillagerentity = EntityType.field_200806_t.func_200721_a(p_186175_3_.getLevel());
+                break;
+             case "Warrior":
+-               abstractillagerentity = EntityType.field_200758_ax.func_200721_a(p_186175_3_.func_201672_e());
++               abstractillagerentity = EntityType.field_200758_ax.func_200721_a(p_186175_3_.getLevel());
+                break;
+             default:
+                return;

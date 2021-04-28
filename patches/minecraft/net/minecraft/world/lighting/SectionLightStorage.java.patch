@@ -36,6 +36,32 @@
     }
  
     @Nullable
+@@ -68,8 +_,24 @@
+ 
+    protected int func_215521_h(long p_215521_1_) {
+       long i = SectionPos.func_218162_e(p_215521_1_);
+-      NibbleArray nibblearray = this.func_215520_a(i, true);
++      NibbleArray nibblearray = this.field_215539_f.getUpdatingOptimized(i);
++      //  BUG: Sometimes returns null and crashes, try to recover, but to prevent crash just return no light.
++      if (nibblearray == null) {
++         nibblearray = this.field_215538_e.lookup.apply(i);
++      }
++      if (nibblearray == null) {
++         System.err.println("Null nibble, preventing crash " + BlockPos.func_218283_e(i));
++         return 0;
++      }
++
+       return nibblearray.func_76582_a(SectionPos.func_218171_b(BlockPos.func_218290_b(p_215521_1_)), SectionPos.func_218171_b(BlockPos.func_218274_c(p_215521_1_)), SectionPos.func_218171_b(BlockPos.func_218282_d(p_215521_1_)));
++      // Paper end
++
++
++
++//      long i = SectionPos.blockToSection(p_215521_1_);
++//      NibbleArray nibblearray = this.getDataLayer(i, true);
++//      return nibblearray.get(SectionPos.sectionRelative(BlockPos.getX(p_215521_1_)), SectionPos.sectionRelative(BlockPos.getY(p_215521_1_)), SectionPos.sectionRelative(BlockPos.getZ(p_215521_1_)));
+    }
+ 
+    protected void func_215517_b(long p_215517_1_, int p_215517_3_) {
 @@ -148,7 +_,7 @@
  
     protected NibbleArray func_215530_i(long p_215530_1_) {
@@ -45,6 +71,68 @@
     }
  
     protected void func_215528_a(LightEngine<?, ?> p_215528_1_, long p_215528_2_) {
+@@ -201,18 +_,37 @@
+          this.field_215547_n.clear();
+          this.field_215543_j = false;
+ 
+-         for(Entry<NibbleArray> entry : this.field_215542_i.long2ObjectEntrySet()) {
+-            long j = entry.getLongKey();
+-            if (this.func_215518_g(j)) {
+-               NibbleArray nibblearray2 = entry.getValue();
+-               if (this.field_215539_f.func_215638_c(j) != nibblearray2) {
++         ObjectIterator objectiterator = this.field_215542_i.long2ObjectEntrySet().iterator();
++
++         Entry entry;
++         long j;
++
++         NibbleArray test = null; // Paper
++         while (objectiterator.hasNext()) {
++            entry = (Entry) objectiterator.next();
++            j = entry.getLongKey();
++            if ((test = this.field_215539_f.getUpdatingOptimized(j)) != null) { // Paper - dont look up nibble twice
++               NibbleArray nibblearray = (NibbleArray) entry.getValue();
++               if (test != nibblearray) { // Paper
+                   this.func_215528_a(p_215522_1_, j);
+-                  this.field_215539_f.func_215640_a(j, nibblearray2);
++                  this.field_215539_f.func_215640_a(j, nibblearray);
+                   this.field_215540_g.add(j);
+                }
+             }
+          }
+ 
++//         for(Entry<NibbleArray> entry : this.queuedSections.long2ObjectEntrySet()) {
++//            long j = entry.getLongKey();
++//            if (this.storingLightForSection(j)) {
++//               NibbleArray nibblearray2 = entry.getValue();
++//               if (this.updatingSectionData.getLayer(j) != nibblearray2) {
++//                  this.clearQueuedSectionBlocks(p_215522_1_, j);
++//                  this.updatingSectionData.setLayer(j, nibblearray2);
++//                  this.changedSections.add(j);
++//               }
++//            }
++//         }
++
+          this.field_215539_f.func_215643_c();
+          if (!p_215522_3_) {
+             for(long l : this.field_215542_i.keySet()) {
+@@ -225,13 +_,13 @@
+          }
+ 
+          this.field_241536_n_.clear();
+-         ObjectIterator<Entry<NibbleArray>> objectiterator = this.field_215542_i.long2ObjectEntrySet().iterator();
++         ObjectIterator<Entry<NibbleArray>> objectiterator1 = this.field_215542_i.long2ObjectEntrySet().iterator();
+ 
+-         while(objectiterator.hasNext()) {
+-            Entry<NibbleArray> entry1 = objectiterator.next();
++         while(objectiterator1.hasNext()) {
++            Entry<NibbleArray> entry1 = objectiterator1.next();
+             long j1 = entry1.getLongKey();
+             if (this.func_215518_g(j1)) {
+-               objectiterator.remove();
++               objectiterator1.remove();
+             }
+          }
+ 
 @@ -340,9 +_,14 @@
  
     protected void func_215533_d() {

@@ -8,7 +8,7 @@
  import net.minecraft.world.chunk.IChunkLightProvider;
  import net.minecraft.world.chunk.NibbleArray;
  import net.minecraftforge.api.distmarker.Dist;
-@@ -26,7 +_,38 @@
+@@ -26,7 +_,42 @@
     private boolean field_215629_e;
     protected final BlockPos.Mutable field_215630_f = new BlockPos.Mutable();
     private final long[] field_215631_g = new long[2];
@@ -20,6 +20,10 @@
 +   // avoid using mutable version if can
 +   protected final BlockState getBlockOptimized(long pos, MutableInt mutableInt) {
 +      return getBlockOptimized(BlockPos.func_218290_b(pos), BlockPos.func_218274_c(pos), BlockPos.func_218282_d(pos), mutableInt);
++   }
++
++   protected final BlockState getBlockOptimized(long pos) {
++      return getBlockOptimized(BlockPos.func_218290_b(pos), BlockPos.func_218274_c(pos), BlockPos.func_218282_d(pos));
 +   }
 +   protected final BlockState getBlockOptimized(int x, int y, int z, MutableInt mutableint) {
 +      IChunk iblockaccess = this.getChunk(x >> 4, z >> 4);
@@ -66,15 +70,71 @@
  
        for(int k = 1; k > 0; --k) {
           this.field_215631_g[k] = this.field_215631_g[k - 1];
-@@ -81,7 +_,7 @@
-       } else {
-          int i = SectionPos.func_218159_a(BlockPos.func_218290_b(p_227468_1_));
-          int j = SectionPos.func_218159_a(BlockPos.func_218282_d(p_227468_1_));
+@@ -71,35 +_,35 @@
+       Arrays.fill(this.field_215632_h, (Object)null);
+    }
+ 
+-   protected BlockState func_227468_a_(long p_227468_1_, @Nullable MutableInt p_227468_3_) {
+-      if (p_227468_1_ == Long.MAX_VALUE) {
+-         if (p_227468_3_ != null) {
+-            p_227468_3_.setValue(0);
+-         }
+-
+-         return Blocks.field_150350_a.func_176223_P();
+-      } else {
+-         int i = SectionPos.func_218159_a(BlockPos.func_218290_b(p_227468_1_));
+-         int j = SectionPos.func_218159_a(BlockPos.func_218282_d(p_227468_1_));
 -         IBlockReader iblockreader = this.func_215615_a(i, j);
-+         IBlockReader iblockreader = this.getChunk(i, j);
-          if (iblockreader == null) {
-             if (p_227468_3_ != null) {
-                p_227468_3_.setValue(16);
+-         if (iblockreader == null) {
+-            if (p_227468_3_ != null) {
+-               p_227468_3_.setValue(16);
+-            }
+-
+-            return Blocks.field_150357_h.func_176223_P();
+-         } else {
+-            this.field_215630_f.func_218294_g(p_227468_1_);
+-            BlockState blockstate = iblockreader.func_180495_p(this.field_215630_f);
+-            boolean flag = blockstate.func_200132_m() && blockstate.func_215691_g();
+-            if (p_227468_3_ != null) {
+-               p_227468_3_.setValue(blockstate.func_200016_a(this.field_215625_a.func_212864_k_(), this.field_215630_f));
+-            }
+-
+-            return flag ? blockstate : Blocks.field_150350_a.func_176223_P();
+-         }
+-      }
+-   }
++//   protected BlockState getStateAndOpacity(long p_227468_1_, @Nullable MutableInt p_227468_3_) {
++//      if (p_227468_1_ == Long.MAX_VALUE) {
++//         if (p_227468_3_ != null) {
++//            p_227468_3_.setValue(0);
++//         }
++//
++//         return Blocks.AIR.defaultBlockState();
++//      } else {
++//         int i = SectionPos.blockToSectionCoord(BlockPos.getX(p_227468_1_));
++//         int j = SectionPos.blockToSectionCoord(BlockPos.getZ(p_227468_1_));
++//         IBlockReader iblockreader = this.getChunk(i, j);
++//         if (iblockreader == null) {
++//            if (p_227468_3_ != null) {
++//               p_227468_3_.setValue(16);
++//            }
++//
++//            return Blocks.BEDROCK.defaultBlockState();
++//         } else {
++//            this.pos.set(p_227468_1_);
++//            BlockState blockstate = iblockreader.getBlockState(this.pos);
++//            boolean flag = blockstate.canOcclude() && blockstate.useShapeForLightOcclusion();
++//            if (p_227468_3_ != null) {
++//               p_227468_3_.setValue(blockstate.getLightBlock(this.chunkSource.getLevel(), this.pos));
++//            }
++//
++//            return flag ? blockstate : Blocks.AIR.defaultBlockState();
++//         }
++//      }
++//   }
+ 
+    protected VoxelShape func_223405_a(BlockState p_223405_1_, long p_223405_2_, Direction p_223405_4_) {
+       return p_223405_1_.func_200132_m() ? p_223405_1_.func_215702_a(this.field_215625_a.func_212864_k_(), this.field_215630_f.func_218294_g(p_223405_2_), p_223405_4_) : VoxelShapes.func_197880_a();
 @@ -215,4 +_,6 @@
        long i = SectionPos.func_218169_f(SectionPos.func_218166_b(p_223129_1_.field_77276_a, 0, p_223129_1_.field_77275_b));
        this.field_215627_c.func_223113_c(i, p_223129_2_);

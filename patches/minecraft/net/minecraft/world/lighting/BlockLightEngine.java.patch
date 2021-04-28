@@ -21,7 +21,8 @@
 +            if (blockedLight >= 15) {
                 return 15;
              } else {
-                BlockState blockstate1 = this.func_227468_a_(p_215480_1_, (MutableInt)null);
+-               BlockState blockstate1 = this.func_227468_a_(p_215480_1_, (MutableInt)null);
++               BlockState blockstate1 = this.getBlockOptimized(p_215480_1_); // Paper
                 VoxelShape voxelshape = this.func_223405_a(blockstate1, p_215480_1_, direction);
                 VoxelShape voxelshape1 = this.func_223405_a(blockstate, p_215480_3_, direction.func_176734_d());
 -               return VoxelShapes.func_223416_b(voxelshape, voxelshape1) ? 15 : p_215480_5_ + Math.max(1, mutableint.getValue());
@@ -29,6 +30,24 @@
              }
           }
        }
+@@ -84,7 +_,7 @@
+       }
+ 
+       long j1 = SectionPos.func_218162_e(p_215477_1_);
+-      NibbleArray nibblearray = this.field_215627_c.func_215520_a(j1, true);
++      NibbleArray nibblearray = this.field_215627_c.field_215539_f.getUpdatingOptimized(j1);
+ 
+       for(Direction direction : field_215636_d) {
+          long k = BlockPos.func_218289_a(p_215477_1_, direction);
+@@ -94,7 +_,7 @@
+             if (j1 == l) {
+                nibblearray1 = nibblearray;
+             } else {
+-               nibblearray1 = this.field_215627_c.func_215520_a(l, true);
++               nibblearray1 = this.field_215627_c.field_215539_f.getUpdatingOptimized(l);
+             }
+ 
+             if (nibblearray1 != null) {
 @@ -116,5 +_,10 @@
     public void func_215623_a(BlockPos p_215623_1_, int p_215623_2_) {
        this.field_215627_c.func_215532_c();

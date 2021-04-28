@@ -71,3 +71,12 @@
           ichunk.func_177425_e(p_241211_1_);
        }
  
+@@ -274,7 +_,7 @@
+    }
+ 
+    @Deprecated
+-   public ServerWorld func_201672_e() {
++   public ServerWorld getLevel() {
+       return this.field_201689_f;
+    }
+ 

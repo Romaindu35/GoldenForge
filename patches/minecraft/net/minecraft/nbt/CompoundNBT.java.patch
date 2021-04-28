@@ -1,6 +1,22 @@
 --- a/net/minecraft/nbt/CompoundNBT.java
 +++ b/net/minecraft/nbt/CompoundNBT.java
-@@ -49,6 +_,7 @@
+@@ -19,6 +_,8 @@
+ import java.util.UUID;
+ import java.util.regex.Pattern;
+ import javax.annotation.Nullable;
++
++import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+ import net.minecraft.crash.CrashReport;
+ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+@@ -43,12 +_,13 @@
+          if (p_225649_2_ > 512) {
+             throw new RuntimeException("Tried to read NBT tag with too high complexity, depth > 512");
+          } else {
+-            Map<String, INBT> map = Maps.newHashMap();
++            Map<String, INBT> map = new Object2ObjectOpenHashMap<>(8, 0.8f); // Paper - reduce memory footprint of NBTTagCompound
+ 
+             byte b0;
              while((b0 = CompoundNBT.func_152447_a(p_225649_1_, p_225649_3_)) != 0) {
                 String s = CompoundNBT.func_152448_b(p_225649_1_, p_225649_3_);
                 p_225649_3_.func_152450_a((long)(224 + 16 * s.length()));
@@ -8,6 +24,15 @@
                 INBT inbt = CompoundNBT.func_229680_b_(NBTTypes.func_229710_a_(b0), s, p_225649_1_, p_225649_2_ + 1, p_225649_3_);
                 if (map.put(s, inbt) != null) {
                    p_225649_3_.func_152450_a(288L);
+@@ -74,7 +_,7 @@
+    }
+ 
+    public CompoundNBT() {
+-      this(Maps.newHashMap());
++      this(new Object2ObjectOpenHashMap<>(8, 0.8f)); // Paper - reduce memory footprint of NBTTagCompound
+    }
+ 
+    public void func_74734_a(DataOutput p_74734_1_) throws IOException {
 @@ -104,6 +_,7 @@
  
     @Nullable
@@ -16,6 +41,28 @@
        return this.field_74784_a.put(p_218657_1_, p_218657_2_);
     }
  
+@@ -383,8 +_,19 @@
+    }
+ 
+    public CompoundNBT func_74737_b() {
+-      Map<String, INBT> map = Maps.newHashMap(Maps.transformValues(this.field_74784_a, INBT::func_74737_b));
+-      return new CompoundNBT(map);
++      // Paper start - reduce memory footprint of NBTTagCompound
++      Object2ObjectOpenHashMap<String, INBT> ret = new Object2ObjectOpenHashMap<>(this.field_74784_a.size(), 0.8f);
++
++      Iterator<Map.Entry<String, INBT>> iterator = (this.field_74784_a instanceof Object2ObjectOpenHashMap) ? ((Object2ObjectOpenHashMap)this.field_74784_a).object2ObjectEntrySet().fastIterator() : this.field_74784_a.entrySet().iterator();
++      while (iterator.hasNext()) {
++         Map.Entry<String, INBT> entry = iterator.next();
++         ret.put(entry.getKey(), entry.getValue().func_74737_b());
++      }
++
++      return new CompoundNBT(ret);
++      // Paper end - reduce memory footprint of NBTTagCompound
++//      Map<String, INBT> map = Maps.newHashMap(Maps.transformValues(this.tags, INBT::copy));
++//      return new CompoundNBT(map);
+    }
+ 
+    public boolean equals(Object p_equals_1_) {
 @@ -408,11 +_,12 @@
     }
  

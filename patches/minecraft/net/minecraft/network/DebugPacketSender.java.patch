@@ -1,0 +1,11 @@
+--- a/net/minecraft/network/DebugPacketSender.java
++++ b/net/minecraft/network/DebugPacketSender.java
+@@ -88,7 +_,7 @@
+    private static void func_229753_a_(ServerWorld p_229753_0_, PacketBuffer p_229753_1_, ResourceLocation p_229753_2_) {
+       IPacket<?> ipacket = new SCustomPayloadPlayPacket(p_229753_2_, p_229753_1_);
+ 
+-      for(PlayerEntity playerentity : p_229753_0_.func_201672_e().func_217369_A()) {
++      for(PlayerEntity playerentity : p_229753_0_.getLevel().func_217369_A()) {
+          ((ServerPlayerEntity)playerentity).field_71135_a.func_147359_a(ipacket);
+       }
+ 
