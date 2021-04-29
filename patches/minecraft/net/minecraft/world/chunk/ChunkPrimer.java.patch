@@ -1,9 +1,21 @@
 --- a/net/minecraft/world/chunk/ChunkPrimer.java
 +++ b/net/minecraft/world/chunk/ChunkPrimer.java
-@@ -87,6 +_,17 @@
+@@ -87,6 +_,29 @@
  
     }
  
++   // Paper start - If loaded util
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      return this.func_204610_c(blockposition);
++   }
++
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      return this.func_180495_p(blockposition);
++   }
++   // Paper end
++
 +   // Paper start
 +   public BlockState getBlockState(final int x, final int y, final int z) {
 +      if (y < 0 || y >= 256) {

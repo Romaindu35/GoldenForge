@@ -68,12 +68,13 @@
     protected int field_82153_h;
     protected BlockPos field_242271_ac;
     private boolean field_83001_bt;
-@@ -194,7 +_,41 @@
+@@ -194,7 +_,42 @@
     private EntitySize field_213325_aI;
     private float field_213326_aJ;
  
 +   // Paper start
 +   public boolean isTemporarilyActive = false; // Paper
++   public boolean collisionLoadChunks = false; // Paper
 +   public void inactiveTick() { }
 +   public final org.spigotmc.ActivationRange.ActivationType activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(this);
 +   final org.spigotmc.TrackingRange.TrackingRangeType trackingRangeType = org.spigotmc.TrackingRange.getTrackingRangeType(this);

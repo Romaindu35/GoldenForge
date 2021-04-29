@@ -1,6 +1,28 @@
 --- a/net/minecraft/world/IBlockReader.java
 +++ b/net/minecraft/world/IBlockReader.java
-@@ -26,7 +_,7 @@
+@@ -5,6 +_,8 @@
+ import java.util.function.Supplier;
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
++
++import net.minecraft.block.Block;
+ import net.minecraft.block.BlockState;
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.tileentity.TileEntity;
+@@ -22,11 +_,20 @@
+    TileEntity func_175625_s(BlockPos p_175625_1_);
+ 
+    BlockState func_180495_p(BlockPos p_180495_1_);
++   // Paper start - if loaded util
++   BlockState getTypeIfLoaded(BlockPos blockposition);
++
++   default Block getBlockIfLoaded(BlockPos blockposition) {
++      BlockState type = this.getTypeIfLoaded(blockposition);
++      return type == null ? null : type.func_177230_c();
++   }
++   FluidState getFluidIfLoaded(BlockPos blockposition);
++   // Paper end
+ 
     FluidState func_204610_c(BlockPos p_204610_1_);
  
     default int func_217298_h(BlockPos p_217298_1_) {

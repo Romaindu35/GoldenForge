@@ -1,0 +1,19 @@
+--- a/net/minecraft/client/renderer/chunk/ChunkRenderCache.java
++++ b/net/minecraft/client/renderer/chunk/ChunkRenderCache.java
+@@ -102,6 +_,16 @@
+       return this.field_217340_h[this.func_212398_a(p_180495_1_)];
+    }
+ 
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      return null;
++   }
++
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      return null;
++   }
++
+    public FluidState func_204610_c(BlockPos p_204610_1_) {
+       return this.field_217341_i[this.func_212398_a(p_204610_1_)];
+    }

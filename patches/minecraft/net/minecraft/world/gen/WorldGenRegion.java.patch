@@ -1,14 +1,28 @@
 --- a/net/minecraft/world/gen/WorldGenRegion.java
 +++ b/net/minecraft/world/gen/WorldGenRegion.java
-@@ -106,6 +_,12 @@
+@@ -106,6 +_,26 @@
        return this.func_217348_a(p_212866_1_, p_212866_2_, ChunkStatus.field_223226_a_);
     }
  
-+   @org.jetbrains.annotations.Nullable
++   // Paper start - if loaded util
++   @Nullable
 +   @Override
 +   public IChunk getChunkIfLoadedImmediately(int x, int z) {
 +      return this.func_217353_a(x, z, ChunkStatus.field_222617_m, false);
 +   }
++
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++      return chunk == null ? null : chunk.func_180495_p(blockposition);
++   }
++
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++      return chunk == null ? null : chunk.func_204610_c(blockposition);
++   }
++   // Paper end
 +
     @Nullable
     public IChunk func_217353_a(int p_217353_1_, int p_217353_2_, ChunkStatus p_217353_3_, boolean p_217353_4_) {

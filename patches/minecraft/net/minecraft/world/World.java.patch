@@ -181,7 +181,7 @@
     }
  
     public static boolean func_234935_k_(BlockPos p_234935_0_) {
-@@ -155,11 +_,46 @@
+@@ -155,11 +_,53 @@
        return this.func_212866_a_(p_175726_1_.func_177958_n() >> 4, p_175726_1_.func_177952_p() >> 4);
     }
  
@@ -204,6 +204,7 @@
 +      return func_175723_af().func_177746_a(blockposition) ? getTypeIfLoaded(blockposition) : null;
 +   }
 +
++   @Override
 +   public final BlockState getTypeIfLoaded(BlockPos blockposition) {
 +      if (!func_175701_a(blockposition)) {
 +         return Blocks.field_150350_a.func_176223_P();
@@ -212,7 +213,13 @@
 +
 +      return chunk == null ? null : chunk.func_180495_p(blockposition);
 +   }
-+   // Paper end
++
++   @Override
++   public final FluidState getFluidIfLoaded(BlockPos blockposition) {
++      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++
++      return chunk == null ? null : chunk.func_204610_c(blockposition);
++   }
 +
 +   @Nullable
 +   @Override

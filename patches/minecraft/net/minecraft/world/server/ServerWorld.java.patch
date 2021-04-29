@@ -778,11 +778,10 @@
        return this;
     }
  
-@@ -1409,5 +_,15 @@
-       BlockPos.func_191531_b(i - 2, j, k - 2, i + 2, j, k + 2).forEach((p_241122_1_) -> {
+@@ -1410,4 +_,15 @@
           p_241121_0_.func_175656_a(p_241122_1_, Blocks.field_150343_Z.func_176223_P());
        });
-+   }
+    }
 +
 +   protected void initCapabilities() {
 +      this.gatherCapabilities();
@@ -792,5 +791,6 @@
 +
 +   public java.util.stream.Stream<Entity> getEntities() {
 +       return field_217498_x.values().stream();
-    }
++   }
++
  }

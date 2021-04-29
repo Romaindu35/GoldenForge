@@ -1,0 +1,17 @@
+--- a/net/minecraft/tileentity/TileEntityMerger.java
++++ b/net/minecraft/tileentity/TileEntityMerger.java
+@@ -23,7 +_,13 @@
+             return new TileEntityMerger.ICallbackWrapper.Single<>(s);
+          } else {
+             BlockPos blockpos = p_226924_6_.func_177972_a(p_226924_2_.apply(p_226924_4_));
+-            BlockState blockstate = p_226924_5_.func_180495_p(blockpos);
++            // Paper start
++            BlockState blockstate = p_226924_5_.getTypeIfLoaded(blockpos);
++            if (blockstate == null) {
++               return new TileEntityMerger.ICallbackWrapper.Single<>(s);
++            }
++            // Paper end
++            //BlockState blockstate = p_226924_5_.getBlockState(blockpos);
+             if (blockstate.func_203425_a(p_226924_4_.func_177230_c())) {
+                TileEntityMerger.Type tileentitymerger$type1 = p_226924_1_.apply(blockstate);
+                if (tileentitymerger$type1 != TileEntityMerger.Type.SINGLE && tileentitymerger$type != tileentitymerger$type1 && blockstate.func_177229_b(p_226924_3_) == p_226924_4_.func_177229_b(p_226924_3_)) {

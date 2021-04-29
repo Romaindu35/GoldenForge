@@ -51,7 +51,15 @@
              return false;
           } else {
              return this.field_179475_a.func_70681_au().nextInt(2000) == 0;
-@@ -449,7 +_,7 @@
+@@ -443,13 +_,14 @@
+          int j = MathHelper.func_76128_c(this.field_179475_a.func_226278_cu_() + random.nextDouble() * 2.0D);
+          int k = MathHelper.func_76128_c(this.field_179475_a.func_226281_cx_() - 1.0D + random.nextDouble() * 2.0D);
+          BlockPos blockpos = new BlockPos(i, j, k);
+-         BlockState blockstate = world.func_180495_p(blockpos);
++         BlockState blockstate = world.getTypeIfLoaded(blockpos);  // Paper
++         if (blockstate == null) return; // Paper
+          BlockPos blockpos1 = blockpos.func_177977_b();
+          BlockState blockstate1 = world.func_180495_p(blockpos1);
           BlockState blockstate2 = this.field_179475_a.func_195405_dq();
           if (blockstate2 != null) {
              blockstate2 = Block.func_199770_b(blockstate2, this.field_179475_a.field_70170_p, blockpos);
@@ -78,3 +86,13 @@
              return false;
           } else {
              return this.field_179473_a.func_70681_au().nextInt(20) == 0;
+@@ -514,7 +_,8 @@
+          int j = MathHelper.func_76128_c(this.field_179473_a.func_226278_cu_() + random.nextDouble() * 3.0D);
+          int k = MathHelper.func_76128_c(this.field_179473_a.func_226281_cx_() - 2.0D + random.nextDouble() * 4.0D);
+          BlockPos blockpos = new BlockPos(i, j, k);
+-         BlockState blockstate = world.func_180495_p(blockpos);
++         BlockState blockstate = world.getTypeIfLoaded(blockpos); // Paper
++         if (blockstate == null) return; // Paper
+          Block block = blockstate.func_177230_c();
+          Vector3d vector3d = new Vector3d((double)MathHelper.func_76128_c(this.field_179473_a.func_226277_ct_()) + 0.5D, (double)j + 0.5D, (double)MathHelper.func_76128_c(this.field_179473_a.func_226281_cx_()) + 0.5D);
+          Vector3d vector3d1 = new Vector3d((double)i + 0.5D, (double)j + 0.5D, (double)k + 0.5D);

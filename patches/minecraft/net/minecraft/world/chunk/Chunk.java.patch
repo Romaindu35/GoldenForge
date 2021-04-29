@@ -265,7 +265,7 @@
     }
  
     public Chunk(World p_i49947_1_, ChunkPrimer p_i49947_2_) {
-@@ -171,6 +_,19 @@
+@@ -171,64 +_,103 @@
        return this.field_76652_q;
     }
  
@@ -283,8 +283,141 @@
 +      return this.field_76652_q[i].field_177488_d.func_186015_a((y & 15) << 8 | (z & 15) << 4 | x & 15);
 +   }
     public BlockState func_180495_p(BlockPos p_180495_1_) {
-       int i = p_180495_1_.func_177958_n();
-       int j = p_180495_1_.func_177956_o();
+-      int i = p_180495_1_.func_177958_n();
+-      int j = p_180495_1_.func_177956_o();
+-      int k = p_180495_1_.func_177952_p();
+-      if (this.field_76637_e.func_234925_Z_()) {
+-         BlockState blockstate = null;
+-         if (j == 60) {
+-            blockstate = Blocks.field_180401_cv.func_176223_P();
+-         }
+-
+-         if (j == 70) {
+-            blockstate = DebugChunkGenerator.func_177461_b(i, k);
+-         }
+-
+-         return blockstate == null ? Blocks.field_150350_a.func_176223_P() : blockstate;
+-      } else {
+-         try {
+-            if (j >= 0 && j >> 4 < this.field_76652_q.length) {
+-               ChunkSection chunksection = this.field_76652_q[j >> 4];
+-               if (!ChunkSection.func_222628_a(chunksection)) {
+-                  return chunksection.func_177485_a(i & 15, j & 15, k & 15);
+-               }
+-            }
+-
+-            return Blocks.field_150350_a.func_176223_P();
+-         } catch (Throwable throwable) {
+-            CrashReport crashreport = CrashReport.func_85055_a(throwable, "Getting block state");
+-            CrashReportCategory crashreportcategory = crashreport.func_85058_a("Block being got");
+-            crashreportcategory.func_189529_a("Location", () -> {
+-               return CrashReportCategory.func_184876_a(i, j, k);
+-            });
+-            throw new ReportedException(crashreport);
+-         }
+-      }
+-   }
++      return this.getBlockData(p_180495_1_.func_177958_n(), p_180495_1_.func_177956_o(), p_180495_1_.func_177952_p());
++//      int i = p_180495_1_.getX();
++//      int j = p_180495_1_.getY();
++//      int k = p_180495_1_.getZ();
++//      if (this.level.isDebug()) {
++//         BlockState blockstate = null;
++//         if (j == 60) {
++//            blockstate = Blocks.BARRIER.defaultBlockState();
++//         }
++//
++//         if (j == 70) {
++//            blockstate = DebugChunkGenerator.getBlockStateFor(i, k);
++//         }
++//
++//         return blockstate == null ? Blocks.AIR.defaultBlockState() : blockstate;
++//      } else {
++//         try {
++//            if (j >= 0 && j >> 4 < this.sections.length) {
++//               ChunkSection chunksection = this.sections[j >> 4];
++//               if (!ChunkSection.isEmpty(chunksection)) {
++//                  return chunksection.getBlockState(i & 15, j & 15, k & 15);
++//               }
++//            }
++//
++//            return Blocks.AIR.defaultBlockState();
++//         } catch (Throwable throwable) {
++//            CrashReport crashreport = CrashReport.forThrowable(throwable, "Getting block state");
++//            CrashReportCategory crashreportcategory = crashreport.addCategory("Block being got");
++//            crashreportcategory.setDetail("Location", () -> {
++//               return CrashReportCategory.formatLocation(i, j, k);
++//            });
++//            throw new ReportedException(crashreport);
++//         }
++//      }
++   }
++
++   // Paper start - If loaded util
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      return this.func_204610_c(blockposition);
++   }
++
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      return this.func_180495_p(blockposition);
++   }
++   // Paper end
+ 
+    public FluidState func_204610_c(BlockPos p_204610_1_) {
+       return this.func_205751_b(p_204610_1_.func_177958_n(), p_204610_1_.func_177956_o(), p_204610_1_.func_177952_p());
+    }
+ 
+    public FluidState func_205751_b(int p_205751_1_, int p_205751_2_, int p_205751_3_) {
+-      try {
+-         if (p_205751_2_ >= 0 && p_205751_2_ >> 4 < this.field_76652_q.length) {
+-            ChunkSection chunksection = this.field_76652_q[p_205751_2_ >> 4];
+-            if (!ChunkSection.func_222628_a(chunksection)) {
+-               return chunksection.func_206914_b(p_205751_1_ & 15, p_205751_2_ & 15, p_205751_3_ & 15);
+-            }
++
++      int index = p_205751_2_ >> 4;
++      if (index >= 0 && index < this.field_76652_q.length) {
++         ChunkSection chunksection = this.field_76652_q[index];
++
++         if (chunksection != null) {
++            return chunksection.field_177488_d.func_186015_a((p_205751_2_ & 15) << 8 | (p_205751_3_ & 15) << 4 | p_205751_1_ & 15).func_204520_s();
+          }
+-
+-         return Fluids.field_204541_a.func_207188_f();
+-      } catch (Throwable throwable) {
+-         CrashReport crashreport = CrashReport.func_85055_a(throwable, "Getting fluid state");
+-         CrashReportCategory crashreportcategory = crashreport.func_85058_a("Block being got");
+-         crashreportcategory.func_189529_a("Location", () -> {
+-            return CrashReportCategory.func_184876_a(p_205751_1_, p_205751_2_, p_205751_3_);
+-         });
+-         throw new ReportedException(crashreport);
++         // Paper end
+       }
++
++      return Fluids.field_204541_a.func_207188_f();
++
++//      try {
++//         if (p_205751_2_ >= 0 && p_205751_2_ >> 4 < this.sections.length) {
++//            ChunkSection chunksection = this.sections[p_205751_2_ >> 4];
++//            if (!ChunkSection.isEmpty(chunksection)) {
++//               return chunksection.getFluidState(p_205751_1_ & 15, p_205751_2_ & 15, p_205751_3_ & 15);
++//            }
++//         }
++//
++//         return Fluids.EMPTY.defaultFluidState();
++//      } catch (Throwable throwable) {
++//         CrashReport crashreport = CrashReport.forThrowable(throwable, "Getting fluid state");
++//         CrashReportCategory crashreportcategory = crashreport.addCategory("Block being got");
++//         crashreportcategory.setDetail("Location", () -> {
++//            return CrashReportCategory.formatLocation(p_205751_1_, p_205751_2_, p_205751_3_);
++//         });
++//         throw new ReportedException(crashreport);
++//      }
+    }
+ 
+    @Nullable
 @@ -264,28 +_,28 @@
  
           if (!this.field_76637_e.field_72995_K) {
