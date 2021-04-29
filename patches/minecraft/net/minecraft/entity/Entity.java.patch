@@ -7,7 +7,7 @@
  import com.google.common.collect.Iterables;
  import com.google.common.collect.Lists;
  import com.google.common.collect.Sets;
-@@ -101,7 +_,9 @@
+@@ -101,24 +_,29 @@
  import net.minecraft.world.IWorldReader;
  import net.minecraft.world.World;
  import net.minecraft.world.border.WorldBorder;
@@ -17,12 +17,13 @@
  import net.minecraft.world.server.ServerWorld;
  import net.minecraft.world.server.TicketType;
  import net.minecraftforge.api.distmarker.Dist;
-@@ -109,16 +_,18 @@
+ import net.minecraftforge.api.distmarker.OnlyIn;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
++import org.goldenforge.util.KeyedObject;
  
 -public abstract class Entity implements INameable, ICommandSource {
-+public abstract class Entity extends net.minecraftforge.common.capabilities.CapabilityProvider<Entity> implements INameable, ICommandSource, net.minecraftforge.common.extensions.IForgeEntity {
++public abstract class Entity extends net.minecraftforge.common.capabilities.CapabilityProvider<Entity> implements INameable, ICommandSource, net.minecraftforge.common.extensions.IForgeEntity, KeyedObject {
     protected static final Logger field_184243_a = LogManager.getLogger();
 +   boolean preserveMotion = true; // Paper - keep initial motion on first setPositionRotation
     private static final AtomicInteger field_213331_b = new AtomicInteger();
@@ -68,19 +69,21 @@
     protected int field_82153_h;
     protected BlockPos field_242271_ac;
     private boolean field_83001_bt;
-@@ -194,7 +_,42 @@
+@@ -194,7 +_,63 @@
     private EntitySize field_213325_aI;
     private float field_213326_aJ;
  
 +   // Paper start
 +   public boolean isTemporarilyActive = false; // Paper
 +   public boolean collisionLoadChunks = false; // Paper
++   public boolean shouldBeRemoved; // Paper
 +   public void inactiveTick() { }
 +   public final org.spigotmc.ActivationRange.ActivationType activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(this);
 +   final org.spigotmc.TrackingRange.TrackingRangeType trackingRangeType = org.spigotmc.TrackingRange.getTrackingRangeType(this);
 +   public final boolean defaultActivationState;
 +   public long activatedTick = Integer.MIN_VALUE;
 +   public ChunkManager.EntityTracker tracker; // Paper package private -> public
++   public List<Entity> entitySlice = null;
 +   public SpawnReason spawnReason;
 +
 +   public java.lang.ref.WeakReference<Chunk> currentChunk = null;
@@ -98,6 +101,25 @@
 +      }
 +
 +      return !field_70175_ag ? null : ((ServerWorld)field_70170_p).func_72863_F().getChunkAtIfLoadedMainThreadNoCache(field_70176_ah, field_70164_aj);
++   }
++
++
++   private ResourceLocation entityKey;
++   private String entityKeyString;
++
++   @Override
++   public ResourceLocation getMinecraftKey() {
++      if (entityKey == null) {
++         this.entityKey = EntityType.func_200718_a(this.func_200600_R());
++         this.entityKeyString = this.entityKey != null ? this.entityKey.toString() : null;
++      }
++      return entityKey;
++   }
++
++   @Override
++   public String getMinecraftKeyString() {
++      getMinecraftKey(); // Try to load if it doesn't exists. see: https://github.com/PaperMC/Paper/issues/1280
++      return entityKeyString;
 +   }
 +
 +

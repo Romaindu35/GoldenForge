@@ -1144,6 +1144,21 @@
              chunk.func_217314_a(() -> {
                 return ChunkHolder.func_219286_c(p_219200_1_.func_219299_i());
              });
+@@ -583,12 +_,12 @@
+                chunk.func_177417_c(true);
+                this.field_219255_i.func_147448_a(chunk.func_177434_r().values());
+                List<Entity> list = null;
+-               ClassInheritanceMultiMap<Entity>[] aclassinheritancemultimap = chunk.func_177429_s();
++               List<Entity>[] aclassinheritancemultimap = chunk.getEntitySlices();
+                int i = aclassinheritancemultimap.length;
+ 
+                for(int j = 0; j < i; ++j) {
+                   for(Entity entity : aclassinheritancemultimap[j]) {
+-                     if (!(entity instanceof PlayerEntity) && !this.field_219255_i.func_217440_f(entity)) {
++                     if (!(entity instanceof PlayerEntity) && (entity.field_70128_L || !this.field_219255_i.func_217440_f(entity))) { //Paper
+                         if (list == null) {
+                            list = Lists.newArrayList(entity);
+                         } else {
 @@ -601,12 +_,13 @@
                 if (list != null) {
                    list.forEach(chunk::func_76622_b);
@@ -1394,6 +1409,15 @@
           ChunkPos chunkpos = new ChunkPos(entry.getLongKey());
           ChunkHolder chunkholder = entry.getValue();
           Optional<IChunk> optional = Optional.ofNullable(chunkholder.func_219287_e());
+@@ -776,7 +_,7 @@
+             return p_225407_0_ instanceof Chunk ? Optional.of((Chunk)p_225407_0_) : Optional.empty();
+          });
+          csvwriter.func_225426_a(chunkpos.field_77276_a, chunkpos.field_77275_b, chunkholder.func_219299_i(), optional.isPresent(), optional.map(IChunk::func_201589_g).orElse((ChunkStatus)null), optional1.map(Chunk::func_217321_u).orElse((ChunkHolder.LocationType)null), func_225402_a(chunkholder.func_223492_c()), func_225402_a(chunkholder.func_219296_a()), func_225402_a(chunkholder.func_219297_b()), this.field_219267_u.func_225413_c(entry.getLongKey()), !this.func_219243_d(chunkpos), optional1.map((p_225401_0_) -> {
+-            return Stream.of(p_225401_0_.func_177429_s()).mapToInt(ClassInheritanceMultiMap::size).sum();
++            return Stream.of(p_225401_0_.getEntitySlices()).mapToInt(List::size).sum(); // Spigot
+          }).orElse(0), optional1.map((p_225405_0_) -> {
+             return p_225405_0_.func_177434_r().size();
+          }).orElse(0));
 @@ -784,6 +_,35 @@
  
     }

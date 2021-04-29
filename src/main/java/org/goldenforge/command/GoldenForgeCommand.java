@@ -23,7 +23,7 @@ public class GoldenForgeCommand {
         LiteralArgumentBuilder<CommandSource> tpsMonitorSubCmd = Commands.literal("tpsmonitor");
 
         versionSubCmd.executes((ctx) -> {
-            String gfVersion = String.format(TextFormatting.GOLD + "This server is using GoldenForge version %s", GoldenForge.getVersion());
+            String gfVersion = String.format(TextFormatting.GOLD + "This server is using GoldenForge build number %s \n", GoldenForge.getVersion());
             String forgeVersion = String.format(TextFormatting.GOLD + "GoldenForge run with forge version %s", ForgeVersion.getVersion());
 
             IFormattableTextComponent message = new StringTextComponent(gfVersion).append(forgeVersion);

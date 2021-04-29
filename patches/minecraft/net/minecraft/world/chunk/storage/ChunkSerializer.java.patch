@@ -263,10 +263,12 @@
           Chunk chunk = (Chunk)p_222645_1_;
           chunk.func_177409_g(false);
  
+-         for(int k = 0; k < chunk.func_177429_s().length; ++k) {
+-            for(Entity entity : chunk.func_177429_s()[k]) {
 +         // Paper start
 +         final Map<EntityType<?>, Integer> savedEntityCounts = Maps.newHashMap();
-          for(int k = 0; k < chunk.func_177429_s().length; ++k) {
-             for(Entity entity : chunk.func_177429_s()[k]) {
++         for(int k = 0; k < chunk.getEntitySlices().length; ++k) {
++            for(Entity entity : chunk.getEntitySlices()[k]) {
 +
 +               final EntityType<?> entityType = entity.func_200600_R();
 +               final int saveLimit = p_222645_0_.paperConfig.entityPerChunkSaveLimits.getOrDefault(entityType, -1);

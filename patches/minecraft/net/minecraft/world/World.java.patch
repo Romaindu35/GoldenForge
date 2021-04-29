@@ -69,7 +69,7 @@
     private final boolean field_234916_c_;
     private int field_73008_k;
     protected int field_73005_l = (new Random()).nextInt();
-@@ -92,8 +_,84 @@
+@@ -92,8 +_,85 @@
     private final WorldBorder field_175728_M;
     private final BiomeManager field_226689_w_;
     private final RegistryKey<World> field_73011_w;
@@ -78,6 +78,7 @@
 +   public java.util.ArrayList<net.minecraftforge.common.util.BlockSnapshot> capturedBlockSnapshots = new java.util.ArrayList<>();
 +
 +   //GoldenForge start
++   public static final boolean DEBUG_ENTITIES = Boolean.getBoolean("debug.entities"); // Paper
 +   public final Map<Explosion.CacheKey, Float> explosionDensityCache = new HashMap<>(); // Paper - Optimize explosions
 +   public final org.spigotmc.SpigotWorldConfig spigotConfig; // Spigot
 +   public final com.destroystokyo.paper.PaperWorldConfig paperConfig; // Paper
