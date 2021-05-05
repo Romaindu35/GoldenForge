@@ -24,15 +24,53 @@
     private QueryThread field_71342_m;
     private final RConConsoleSource field_184115_n;
     private MainThread field_71339_n;
-@@ -81,6 +_,7 @@
+@@ -81,18 +_,21 @@
     public boolean func_71197_b() throws IOException {
        Thread thread = new Thread("Server console handler") {
           public void run() {
-+            if (net.minecraftforge.server.console.TerminalHandler.handleCommands(DedicatedServer.this)) return;
-             BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
- 
-             String s1;
-@@ -150,23 +_,26 @@
+-            BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+-
+-            String s1;
+-            try {
+-               while(!DedicatedServer.this.func_71241_aa() && DedicatedServer.this.func_71278_l() && (s1 = bufferedreader.readLine()) != null) {
+-                  DedicatedServer.this.func_195581_a(s1, DedicatedServer.this.func_195573_aM());
+-               }
+-            } catch (IOException ioexception1) {
+-               DedicatedServer.field_155771_h.error("Exception handling console input", (Throwable)ioexception1);
+-            }
+-
++            new com.destroystokyo.paper.console.PaperConsole(DedicatedServer.this).start();
+          }
++//            if (net.minecraftforge.server.console.TerminalHandler.handleCommands(DedicatedServer.this)) return;
++//            BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
++//
++//            String s1;
++//            try {
++//               while(!DedicatedServer.this.isStopped() && DedicatedServer.this.isRunning() && (s1 = bufferedreader.readLine()) != null) {
++//                  DedicatedServer.this.handleConsoleInput(s1, DedicatedServer.this.createCommandSourceStack());
++//               }
++//            } catch (IOException ioexception1) {
++//               DedicatedServer.LOGGER.error("Exception handling console input", (Throwable)ioexception1);
++//            }
++//
++//         }
+       };
+       thread.setDaemon(true);
+       thread.setUncaughtExceptionHandler(new DefaultUncaughtExceptionHandler(field_155771_h));
+@@ -145,28 +_,38 @@
+       if (!this.func_71266_T()) {
+          field_155771_h.warn("**** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!");
+          field_155771_h.warn("The server will make no attempt to authenticate usernames. Beware.");
+-         field_155771_h.warn("While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.");
++         // Spigot start
++         if (org.spigotmc.SpigotConfig.bungee) {
++            field_155771_h.warn("Whilst this makes it possible to use BungeeCord, unless access to your server is properly restricted, it also opens up the ability for hackers to connect with any username they choose.");
++            field_155771_h.warn("Please see http://www.spigotmc.org/wiki/firewall-guide/ for further information.");
++         } else {
++            field_155771_h.warn("While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.");
++         }
++         // Spigot end
+          field_155771_h.warn("To change this, set \"online-mode\" to \"true\" in the server.properties file.");
        }
  
        if (this.func_152368_aE()) {
@@ -91,16 +129,24 @@
        }
     }
  
-@@ -281,6 +_,9 @@
-          this.field_71342_m.func_219591_b();
+@@ -274,12 +_,15 @@
        }
  
-+      hasFullyShutdown = true; // Paper
-+      System.exit(0); // CraftBukkit
+       if (this.field_71339_n != null) {
+-         this.field_71339_n.func_219591_b();
++         //this.rconThread.stop();
+       }
+ 
+       if (this.field_71342_m != null) {
+-         this.field_71342_m.func_219591_b();
++         //this.queryThreadGs4.stop();
+       }
 +
++      hasFullyShutdown = true; // Paper
++      Runtime.getRuntime().halt(0);
+ 
     }
  
-    public void func_71190_q(BooleanSupplier p_71190_1_) {
 @@ -303,9 +_,19 @@
     }
  

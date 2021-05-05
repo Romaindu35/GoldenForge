@@ -1,0 +1,11 @@
+--- a/net/minecraft/command/impl/StopCommand.java
++++ b/net/minecraft/command/impl/StopCommand.java
+@@ -11,7 +_,7 @@
+          return p_198727_0_.func_197034_c(4);
+       }).executes((p_198726_0_) -> {
+          p_198726_0_.getSource().func_197030_a(new TranslationTextComponent("commands.stop.stopping"), true);
+-         p_198726_0_.getSource().func_197028_i().func_71263_m(false);
++         p_198726_0_.getSource().func_197028_i().safeShutdown(false);
+          return 1;
+       }));
+    }

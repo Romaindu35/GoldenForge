@@ -1,5 +1,14 @@
 --- a/net/minecraft/entity/passive/SquidEntity.java
 +++ b/net/minecraft/entity/passive/SquidEntity.java
+@@ -46,7 +_,7 @@
+ 
+    public SquidEntity(EntityType<? extends SquidEntity> p_i50243_1_, World p_i50243_2_) {
+       super(p_i50243_1_, p_i50243_2_);
+-      this.field_70146_Z.setSeed((long)this.func_145782_y());
++      //this.random.setSeed((long)this.getId());
+       this.field_70864_bA = 1.0F / (this.field_70146_Z.nextFloat() + 1.0F) * 0.2F;
+    }
+ 
 @@ -178,7 +_,9 @@
     }
  

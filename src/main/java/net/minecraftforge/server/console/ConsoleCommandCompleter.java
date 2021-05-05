@@ -37,7 +37,7 @@ import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-final class ConsoleCommandCompleter implements Completer
+public final class ConsoleCommandCompleter implements Completer
 {
     private static final Logger logger = LogManager.getLogger();
     private final DedicatedServer server;

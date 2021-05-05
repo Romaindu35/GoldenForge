@@ -1,13 +1,31 @@
 --- a/net/minecraft/world/server/ServerWorld.java
 +++ b/net/minecraft/world/server/ServerWorld.java
-@@ -1,5 +_,7 @@
+@@ -1,5 +_,8 @@
  package net.minecraft.world.server;
  
++import com.destroystokyo.paper.PaperWorldConfig;
 +import com.destroystokyo.paper.server.ticklist.PaperTickList;
 +import com.destroystokyo.paper.util.MCUtil;
  import com.google.common.annotations.VisibleForTesting;
  import com.google.common.collect.Iterables;
  import com.google.common.collect.Lists;
+@@ -18,15 +_,7 @@
+ import java.io.Writer;
+ import java.nio.file.Files;
+ import java.nio.file.Path;
+-import java.util.Collection;
+-import java.util.Comparator;
+-import java.util.List;
+-import java.util.Map;
+-import java.util.Objects;
+-import java.util.Optional;
+-import java.util.Queue;
+-import java.util.Set;
+-import java.util.UUID;
++import java.util.*;
+ import java.util.concurrent.Executor;
+ import java.util.function.BooleanSupplier;
+ import java.util.function.Function;
 @@ -40,12 +_,7 @@
  import net.minecraft.block.BlockState;
  import net.minecraft.block.Blocks;
@@ -77,11 +95,15 @@
     private final Set<PathNavigator> field_217495_I = Sets.newHashSet();
     protected final RaidManager field_217494_c;
     private final ObjectLinkedOpenHashSet<BlockEventData> field_147490_S = new ObjectLinkedOpenHashSet<>();
-@@ -173,14 +_,121 @@
+@@ -173,14 +_,125 @@
     private final DragonFightManager field_241105_O_;
     private final StructureManager field_241106_P_;
     private final boolean field_241107_Q_;
 +   private net.minecraftforge.common.util.WorldCapabilityData capabilityData;
++
++   private static Throwable getAddToWorldStackTrace(Entity entity) {
++      return new Throwable(entity + " Added to world at " + new java.util.Date());
++   }
 +
 +   // Paper start - Asynchronous IO
 +   public final com.destroystokyo.paper.io.PaperFileIOThread.ChunkDataController poiDataController = new com.destroystokyo.paper.io.PaperFileIOThread.ChunkDataController() {
@@ -491,7 +513,7 @@
                 iprofiler.func_76319_b();
              }
  
-@@ -649,9 +_,16 @@
+@@ -649,14 +_,21 @@
        if (p_217464_1_.func_233578_ci_()) {
           this.func_217381_Z().func_76320_a("chunkCheck");
           int i = MathHelper.func_76128_c(p_217464_1_.func_226277_ct_() / 16.0D);
@@ -509,6 +531,12 @@
              if (p_217464_1_.field_70175_ag && this.func_217354_b(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj)) {
                 this.func_212866_a_(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj).func_76608_a(p_217464_1_, p_217464_1_.field_70162_ai);
              }
+ 
+-            if (!p_217464_1_.func_233577_ch_() && !this.func_217354_b(i, k)) {
++            if (!p_217464_1_.valid && !p_217464_1_.func_233577_ch_() && !this.func_217354_b(i, k)) {
+                if (p_217464_1_.field_70175_ag) {
+                   field_147491_a.warn("Entity {} left loaded chunk area", (Object)p_217464_1_);
+                }
 @@ -675,6 +_,37 @@
        return !this.field_73061_a.func_175579_a(this, p_175660_2_, p_175660_1_) && this.func_175723_af().func_177746_a(p_175660_2_);
     }
@@ -585,7 +613,7 @@
        Entity entity = this.field_175741_N.get(p_217448_1_.func_110124_au());
        if (entity != null) {
           field_147491_a.warn("Force-added player with duplicate UUID {}", (Object)p_217448_1_.func_110124_au().toString());
-@@ -794,14 +_,17 @@
+@@ -794,14 +_,38 @@
        this.func_217465_m(p_217448_1_);
     }
  
@@ -593,8 +621,30 @@
 +   private boolean addEntity(Entity p_72838_1_, SpawnReason spawnReason) {
 +      org.spigotmc.AsyncCatcher.catchOp("entity add"); // Spigot
 +      if (p_72838_1_.spawnReason == null) p_72838_1_.spawnReason = spawnReason; // Paper
++      // Paper start
++      if (p_72838_1_.valid) {
++         MinecraftServer.field_147145_h.error("Attempted Double World add on " + p_72838_1_, new Throwable());
++
++         if (DEBUG_ENTITIES) {
++            Throwable thr = p_72838_1_.addedToWorldStack;
++            if (thr == null) {
++               MinecraftServer.field_147145_h.error("Double add entity has no add stacktrace");
++            } else {
++               MinecraftServer.field_147145_h.error("Double add stacktrace: ", thr);
++            }
++         }
++         return true;
++      }
++      // Paper end
        if (p_72838_1_.field_70128_L) {
-          field_147491_a.warn("Tried to add entity {} but it was marked as removed already", (Object)EntityType.func_200718_a(p_72838_1_.func_200600_R()));
+-         field_147491_a.warn("Tried to add entity {} but it was marked as removed already", (Object)EntityType.func_200718_a(p_72838_1_.func_200600_R()));
++         // Paper start
++         if (DEBUG_ENTITIES) {
++            new Throwable("Tried to add entity " + p_72838_1_ + " but it was marked as removed already").printStackTrace(); // CraftBukkit
++            getAddToWorldStackTrace(p_72838_1_).printStackTrace();
++         }
++         // Paper end
++         //LOGGER.warn("Tried to add entity {} but it was marked as removed already", (Object)EntityType.getKey(p_72838_1_.getType()));
           return false;
        } else if (this.func_217478_l(p_72838_1_)) {
           return false;
@@ -613,7 +663,30 @@
           this.func_217465_m(p_217440_1_);
           return true;
        }
-@@ -861,30 +_,50 @@
+@@ -827,7 +_,22 @@
+       if (entity == null) {
+          return false;
+       } else {
++         // Paper start
++         if (p_217478_1_.field_70128_L) {
++            removeEntityComplete(p_217478_1_, false); // remove the existing entity
++            return false;
++         }
++         // Paper end
+          field_147491_a.warn("Trying to add entity with duplicated UUID {}. Existing {}#{}, new: {}#{}", uuid, EntityType.func_200718_a(entity.func_200600_R()), entity.func_145782_y(), EntityType.func_200718_a(p_217478_1_.func_200600_R()), p_217478_1_.func_145782_y());
++         // Paper start
++         if (DEBUG_ENTITIES && entity.field_70170_p.paperConfig.duplicateUUIDMode != PaperWorldConfig.DuplicateUUIDMode.NOTHING) {
++            if (p_217478_1_.addedToWorldStack != null) {
++               p_217478_1_.addedToWorldStack.printStackTrace();
++            }
++
++            getAddToWorldStackTrace(entity).printStackTrace();
++         }
++         // Paper end
+          return true;
+       }
+    }
+@@ -861,30 +_,70 @@
  
     public void func_217466_a(Chunk p_217466_1_) {
        this.field_147483_b.addAll(p_217466_1_.func_177434_r().values());
@@ -623,8 +696,14 @@
  
 +      java.util.List<Entity> toMoveChunks = new java.util.ArrayList<>(); // Paper
        for(int j = 0; j < i; ++j) {
+-         for(Entity entity : aclassinheritancemultimap[j]) {
 +
-          for(Entity entity : aclassinheritancemultimap[j]) {
++         List<Entity> entityslice = aclassinheritancemultimap[j]; // Spigot
++         Iterator iterator = entityslice.iterator();
++
++         while (iterator.hasNext()) {
++            Entity entity = (Entity) iterator.next();
++
              if (!(entity instanceof ServerPlayerEntity)) {
                 if (this.field_217492_a) {
                    throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException("Removing entity while ticking!"));
@@ -639,6 +718,8 @@
 +
                 this.field_217498_x.remove(entity.func_145782_y());
                 this.func_217484_g(entity);
++
++               if (entity.field_70128_L) iterator.remove(); // Paper - don't save dead entities during unload
              }
           }
        }
@@ -659,6 +740,19 @@
 +   }
 +   public void removeEntityComplete(Entity p_217484_1_, boolean keepData) {
 +      org.spigotmc.AsyncCatcher.catchOp("entity unregister"); // Spigot
++      // Paper start - fix entity registration issues
++      if (p_217484_1_.isMultipartEntity()) {
++         // Usually this is a no-op for complex parts, and ID's should be removed, but go ahead and remove it anyways
++         // Dragon parts are handled special in register. they don't receive a valid = true or register by UUID etc.
++         this.field_217498_x.remove(p_217484_1_.func_145782_y(), p_217484_1_);
++         return;
++      }
++      if (!p_217484_1_.valid) {
++         // Someone called remove before we ever got added, cancel the add.
++         p_217484_1_.isQueuedForRegister = false;
++         return;
++      }
++      // Paper end
 +      if (p_217484_1_.isMultipartEntity()) {
 +         for(net.minecraftforge.entity.PartEntity<?> enderdragonpartentity : p_217484_1_.getParts()) {
 +            enderdragonpartentity.remove(keepData);
@@ -668,18 +762,33 @@
  
        this.field_175741_N.remove(p_217484_1_.func_110124_au());
        this.func_72863_F().func_217226_b(p_217484_1_);
-@@ -898,6 +_,8 @@
+@@ -898,40 +_,63 @@
           this.field_217495_I.remove(((MobEntity)p_217484_1_).func_70661_as());
        }
  
 +      p_217484_1_.onRemovedFromWorld();
 +      net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.entity.EntityLeaveWorldEvent(p_217484_1_, this));
++      p_217484_1_.valid = false; // CraftBukkit
     }
  
     private void func_217465_m(Entity p_217465_1_) {
-@@ -905,8 +_,8 @@
-          this.field_217499_z.add(p_217465_1_);
++      org.spigotmc.AsyncCatcher.catchOp("entity register"); // Spigot
++      // Paper start - don't double enqueue entity registration
++      //noinspection ObjectEquality
++      if (this.field_217498_x.get(p_217465_1_.func_145782_y()) == p_217465_1_) {
++         field_147491_a.error(p_217465_1_ + " was already registered!");
++         new Throwable().printStackTrace();
++         return;
++      }
++      // Paper end
+       if (this.field_217492_a) {
+-         this.field_217499_z.add(p_217465_1_);
++         if (!p_217465_1_.isQueuedForRegister) { // Paper
++            this.field_217499_z.add(p_217465_1_);
++            p_217465_1_.isQueuedForRegister = true; // Paper
++         }
        } else {
++         p_217465_1_.isQueuedForRegister = false; // Paper
           this.field_217498_x.put(p_217465_1_.func_145782_y(), p_217465_1_);
 -         if (p_217465_1_ instanceof EnderDragonEntity) {
 -            for(EnderDragonPartEntity enderdragonpartentity : ((EnderDragonEntity)p_217465_1_).func_213404_dT()) {
@@ -688,8 +797,14 @@
                 this.field_217498_x.put(enderdragonpartentity.func_145782_y(), enderdragonpartentity);
              }
           }
-@@ -918,15 +_,19 @@
+ 
+          this.field_175741_N.put(p_217465_1_.func_110124_au(), p_217465_1_);
++         p_217465_1_.valid = true; // CraftBukkit
+          this.func_72863_F().func_217230_c(p_217465_1_);
+          if (p_217465_1_ instanceof MobEntity) {
+             this.field_217495_I.add(((MobEntity)p_217465_1_).func_70661_as());
           }
++         p_217465_1_.shouldBeRemoved = false; // Paper - shouldn't be removed after being re-added
        }
  
 +      p_217465_1_.onAddedToWorld();
@@ -706,9 +821,16 @@
           this.field_217498_x.remove(p_217467_1_.func_145782_y());
 -         this.func_217484_g(p_217467_1_);
 +         this.removeEntityComplete(p_217467_1_, keepData);
++         p_217467_1_.shouldBeRemoved = true; // Paper
        }
     }
  
+    private void func_217454_n(Entity p_217454_1_) {
+-      IChunk ichunk = this.func_217353_a(p_217454_1_.field_70176_ah, p_217454_1_.field_70164_aj, ChunkStatus.field_222617_m, false);
++      IChunk ichunk = p_217454_1_.getCurrentChunk(); /*this.getChunk(p_217454_1_.xChunk, p_217454_1_.zChunk, ChunkStatus.FULL, false); */
+       if (ichunk instanceof Chunk) {
+          ((Chunk)ichunk).func_76622_b(p_217454_1_);
+       }
 @@ -939,8 +_,11 @@
     }
  

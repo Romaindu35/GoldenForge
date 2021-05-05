@@ -254,21 +254,19 @@
     }
  
     private void func_213204_a(DimensionSavedDataManager p_213204_1_) {
-@@ -307,7 +_,18 @@
+@@ -307,7 +_,16 @@
        IChunkStatusListener ichunkstatuslistener = this.field_213220_d.create(11);
        this.func_240787_a_(ichunkstatuslistener);
        this.func_230543_p_();
 -      this.func_213186_a(ichunkstatuslistener);
 +
-+      for (ServerWorld level : this.func_212370_w()) {
-+         this.prepareLevels(level.func_72863_F().field_217237_a.field_219266_t, level);
++      //this.prepareLevels(ichunkstatuslistener);
++
++
++      net.minecraftforge.common.world.StructureSpawnManager.gatherEntitySpawns();
++      for (ServerWorld worldserver : this.func_212370_w()) {
++         this.prepareLevels(worldserver.func_72863_F().field_217237_a.field_219266_t, worldserver);
 +      }
-+
-+
-+//      net.minecraftforge.common.world.StructureSpawnManager.gatherEntitySpawns();
-+//      for (ServerWorld worldserver : this.getAllLevels()) {
-+//         this.loadSpawn(worldserver.getChunkSource().chunkMap.progressListener, worldserver);
-+//      }
 +
 +      this.field_147144_o.acceptConnections();
     }
@@ -369,7 +367,7 @@
           }
        }
  
-@@ -542,6 +_,30 @@
+@@ -542,6 +_,29 @@
     }
  
     protected void func_71260_j() {
@@ -378,7 +376,6 @@
 +         if (hasStopped) return;
 +         hasStopped = true;
 +      }
-+      //if (!hasLoggedStop && isDebugging()) TraceUtil.dumpTraceForThread("Server stopped"); // Paper
 +      // Paper start - kill main thread, and kill it hard
 +      shutdownThread = Thread.currentThread();
 +      org.spigotmc.WatchdogThread.doStop(); // Paper
@@ -416,7 +413,7 @@
                 serverworld1.close();
              } catch (IOException ioexception1) {
                 field_147145_h.error("Exception closing the level", (Throwable)ioexception1);
-@@ -585,6 +_,27 @@
+@@ -585,6 +_,31 @@
           field_147145_h.error("Failed to unlock level {}", this.field_71310_m.func_237282_a_(), ioexception);
        }
  
@@ -441,10 +438,14 @@
 +         net.minecrell.terminalconsole.TerminalConsoleAppender.close(); // Paper - Use TerminalConsoleAppender
 +      } catch (Exception e) {
 +      }
++
++      net.minecraftforge.fml.server.ServerLifecycleHooks.handleServerStopped(this);
++      this.func_71240_o();
++
     }
  
     public String func_71211_k() {
-@@ -613,21 +_,52 @@
+@@ -613,21 +_,50 @@
  
     protected void func_240802_v_() {
        try {
@@ -493,13 +494,11 @@
 +                  tickSection = curTime;
 +               }
 +               midTickChunksTasksRan = 0; // Paper
-+
 +               lastTick = curTime;
-+
                 this.field_211151_aa += 50L;
                 LongTickDetector longtickdetector = LongTickDetector.func_233524_a_("Server");
                 this.func_240773_a_(longtickdetector);
-@@ -643,7 +_,10 @@
+@@ -643,11 +_,26 @@
                 this.func_240795_b_(longtickdetector);
                 this.field_71296_Q = true;
              }
@@ -510,6 +509,22 @@
              this.func_71228_a((CrashReport)null);
           }
        } catch (Throwable throwable1) {
++         // Paper start
++         if (throwable1 instanceof ThreadDeath) {
++            MinecraftServer.field_147145_h.error("Main thread terminated by WatchDog due to hard crash", throwable1);
++            return;
++         }
++         // Paper end
+          field_147145_h.error("Encountered an unexpected exception", throwable1);
++         // Spigot Start
++         if ( throwable1.getCause() != null )
++         {
++            MinecraftServer.field_147145_h.error( "\tCause of unexpected exception was", throwable1.getCause() );
++         }
++         // Spigot End
+          CrashReport crashreport;
+          if (throwable1 instanceof ReportedException) {
+             crashreport = this.func_71230_b(((ReportedException)throwable1).func_71575_a());
 @@ -662,6 +_,7 @@
              field_147145_h.error("We were unable to save this crash report to disk.");
           }

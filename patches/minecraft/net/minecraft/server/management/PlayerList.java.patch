@@ -447,7 +447,7 @@
  
     }
  
-@@ -769,6 +_,8 @@
+@@ -769,13 +_,15 @@
           this.field_192055_p.put(uuid, playeradvancements);
        }
  
@@ -456,6 +456,14 @@
        playeradvancements.func_192739_a(p_192054_1_);
        return playeradvancements;
     }
+ 
+    public void func_217884_a(int p_217884_1_) {
+       this.field_72402_d = p_217884_1_;
+-      this.func_148540_a(new SUpdateViewDistancePacket(p_217884_1_));
++      //this.broadcastAll(new SUpdateViewDistancePacket(p_217884_1_));
+ 
+       for(ServerWorld serverworld : this.field_72400_f.func_212370_w()) {
+          if (serverworld != null) {
 @@ -786,7 +_,7 @@
     }
  

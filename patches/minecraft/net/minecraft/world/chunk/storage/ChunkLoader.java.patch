@@ -69,17 +69,17 @@
        int i = func_219165_a(p_235968_3_);
        int j = 1493;
 +
-+      // CraftBukkit start
-+      if (i < 1466) {
-+         CompoundNBT level = p_235968_3_.func_74775_l("Level");
-+         if (level.func_74767_n("TerrainPopulated") && !level.func_74767_n("LightPopulated")) {
-+            ServerChunkProvider cps = (generatoraccess == null) ? null : ((ServerWorld) generatoraccess).func_72863_F();
-+            if (check(cps, pos.field_77276_a - 1, pos.field_77275_b) && check(cps, pos.field_77276_a - 1, pos.field_77275_b - 1) && check(cps, pos.field_77276_a, pos.field_77275_b - 1)) {
-+               level.func_74757_a("LightPopulated", true);
-+            }
-+         }
-+      }
-+      // CraftBukkit end
++//      // CraftBukkit start
++//      if (i < 1466) {
++//         CompoundNBT level = p_235968_3_.getCompound("Level");
++//         if (level.getBoolean("TerrainPopulated") && !level.getBoolean("LightPopulated")) {
++//            ServerChunkProvider cps = (generatoraccess == null) ? null : ((ServerWorld) generatoraccess).getChunkSource();
++//            if (check(cps, pos.x - 1, pos.z) && check(cps, pos.x - 1, pos.z - 1) && check(cps, pos.x, pos.z - 1)) {
++//               level.putBoolean("LightPopulated", true);
++//            }
++//         }
++//      }
++//      // CraftBukkit end
 +
        if (i < 1493) {
           p_235968_3_ = NBTUtil.func_210821_a(this.field_219168_b, DefaultTypeReferences.CHUNK, p_235968_3_, i, 1493);
@@ -98,7 +98,7 @@
           }
        }
  
-@@ -54,22 +_,29 @@
+@@ -54,22 +_,31 @@
  
     @Nullable
     public CompoundNBT func_227078_e_(ChunkPos p_227078_1_) throws IOException {
@@ -118,7 +118,10 @@
 +      // Paper end
 +      this.regionFileCache.func_219100_a(p_219100_1_, p_219100_2_);
        if (this.field_219167_a != null) {
-          this.field_219167_a.func_208216_a(p_219100_1_.func_201841_a());
+-         this.field_219167_a.func_208216_a(p_219100_1_.func_201841_a());
++         synchronized (this.persistentDataLock) {
++            this.field_219167_a.func_208216_a(p_219100_1_.func_201841_a());
++         }
        }
  
     }

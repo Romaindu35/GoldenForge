@@ -17,7 +17,7 @@
     private int field_147336_h;
     private GameProfile field_147337_i;
     private final String field_147334_j = "";
-@@ -55,8 +_,24 @@
+@@ -55,10 +_,26 @@
     }
  
     public void func_73660_a() {
@@ -42,8 +42,20 @@
 +         }
 +         // Paper end
        } else if (this.field_147328_g == ServerLoginNetHandler.State.DELAY_ACCEPT) {
-          ServerPlayerEntity serverplayerentity = this.field_147327_f.func_184103_al().func_177451_a(this.field_147337_i.getId());
+-         ServerPlayerEntity serverplayerentity = this.field_147327_f.func_184103_al().func_177451_a(this.field_147337_i.getId());
++         ServerPlayerEntity serverplayerentity = this.field_147327_f.func_184103_al().getActivePlayer(this.field_147337_i.getId()); // Paper
           if (serverplayerentity == null) {
+             this.field_147328_g = ServerLoginNetHandler.State.READY_TO_ACCEPT;
+             this.field_147327_f.func_184103_al().func_72355_a(this.field_147333_a, this.field_181025_l);
+@@ -104,7 +_,7 @@
+          }
+ 
+          this.field_147333_a.func_179290_a(new SLoginSuccessPacket(this.field_147337_i));
+-         ServerPlayerEntity serverplayerentity = this.field_147327_f.func_184103_al().func_177451_a(this.field_147337_i.getId());
++         ServerPlayerEntity serverplayerentity = this.field_147327_f.func_184103_al().getActivePlayer(this.field_147337_i.getId());// Paper
+          if (serverplayerentity != null) {
+             this.field_147328_g = ServerLoginNetHandler.State.DELAY_ACCEPT;
+             this.field_181025_l = this.field_147327_f.func_184103_al().func_148545_a(this.field_147337_i);
 @@ -130,7 +_,7 @@
           this.field_147328_g = ServerLoginNetHandler.State.KEY;
           this.field_147333_a.func_179290_a(new SEncryptionRequestPacket("", this.field_147327_f.func_71250_E().getPublic().getEncoded(), this.field_147330_e));

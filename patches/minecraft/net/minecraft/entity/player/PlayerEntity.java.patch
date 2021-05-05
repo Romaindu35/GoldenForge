@@ -198,9 +198,11 @@
        if (p_71059_1_.func_70075_an()) {
           if (!p_71059_1_.func_85031_j(this)) {
              float f = (float)this.func_233637_b_(Attributes.field_233823_f_);
-@@ -1038,8 +_,10 @@
+@@ -1037,9 +_,12 @@
+                }
  
                 boolean flag2 = flag && this.field_70143_R > 0.0F && !this.field_70122_E && !this.func_70617_f_() && !this.func_70090_H() && !this.func_70644_a(Effects.field_76440_q) && !this.func_184218_aH() && p_71059_1_ instanceof LivingEntity;
++               flag2 = flag2 && !field_70170_p.paperConfig.disablePlayerCrits; // Paper
                 flag2 = flag2 && !this.func_70051_ag();
 +               net.minecraftforge.event.entity.player.CriticalHitEvent hitResult = net.minecraftforge.common.ForgeHooks.getCriticalHit(this, p_71059_1_, flag2, flag2 ? 1.5F : 1.0F);
 +               flag2 = hitResult != null;
@@ -210,6 +212,19 @@
                 }
  
                 f = f + f1;
+@@ -1074,7 +_,11 @@
+                      }
+ 
+                      this.func_213317_d(this.func_213322_ci().func_216372_d(0.6D, 1.0D, 0.6D));
+-                     this.func_70031_b(false);
++                     // Paper start - Configuration option to disable automatic sprint interruption
++                     if (!field_70170_p.paperConfig.disableSprintInterruptionOnAttack) {
++                        this.func_70031_b(false);
++                     }
++                     // Paper end
+                   }
+ 
+                   if (flag3) {
 @@ -1122,13 +_,15 @@
                    EnchantmentHelper.func_151385_b(this, p_71059_1_);
                    ItemStack itemstack1 = this.func_184614_ca();

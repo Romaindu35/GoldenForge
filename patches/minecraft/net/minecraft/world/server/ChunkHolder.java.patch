@@ -276,11 +276,12 @@
     @Nullable
     @OnlyIn(Dist.CLIENT)
     public ChunkStatus func_219285_d() {
-@@ -136,7 +_,7 @@
+@@ -136,7 +_,8 @@
     }
  
     public void func_244386_a(BlockPos p_244386_1_) {
 -      Chunk chunk = this.func_219298_c();
++      if (!p_244386_1_.isValidLocation()) return; // Paper - SPIGOT-6086 for all invalid locations; avoid acquiring locks
 +      Chunk chunk = this.getSendingChunk();
        if (chunk != null) {
           byte b0 = (byte)SectionPos.func_218159_a(p_244386_1_.func_177956_o());
@@ -294,6 +295,14 @@
        if (chunk != null) {
           chunk.func_177427_f(true);
           if (p_219280_1_ == LightType.SKY) {
+@@ -188,6 +_,7 @@
+                   this.func_244385_a(world, blockpos, blockstate);
+                } else {
+                   ChunkSection chunksection = p_219274_1_.func_76587_i()[sectionpos.func_177956_o()];
++                  if (chunksection == null) chunksection = new ChunkSection(sectionpos.func_177956_o(), (short) 0, (short) 0, (short) 0); // Paper - make a new chunk section if none was found
+                   SMultiBlockChangePacket smultiblockchangepacket = new SMultiBlockChangePacket(sectionpos, shortset, chunksection, this.field_244384_x);
+                   this.func_219293_a(smultiblockchangepacket, false);
+                   smultiblockchangepacket.func_244310_a((p_244387_2_, p_244387_3_) -> {
 @@ -204,7 +_,7 @@
     }
  

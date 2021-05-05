@@ -1586,7 +1586,7 @@
  
     private boolean func_219187_b(ServerPlayerEntity p_219187_1_) {
        return p_219187_1_.func_175149_v() && !this.field_219255_i.func_82736_K().func_223586_b(GameRules.field_223613_p);
-@@ -827,27 +_,29 @@
+@@ -827,38 +_,40 @@
           if (!flag) {
              this.field_219267_u.func_219341_a(SectionPos.func_218157_a(p_219234_1_), p_219234_1_);
           }
@@ -1623,6 +1623,24 @@
        return sectionpos;
     }
  
+    public void func_219183_a(ServerPlayerEntity p_219183_1_) {
+-      for(ChunkManager.EntityTracker chunkmanager$entitytracker : this.field_219272_z.values()) {
+-         if (chunkmanager$entitytracker.field_219403_c == p_219183_1_) {
+-            chunkmanager$entitytracker.func_219397_a(this.field_219255_i.func_217369_A());
+-         } else {
+-            chunkmanager$entitytracker.func_219400_b(p_219183_1_);
+-         }
+-      }
++//      for(ChunkManager.EntityTracker chunkmanager$entitytracker : this.entityMap.values()) {
++//         if (chunkmanager$entitytracker.entity == p_219183_1_) {
++//            chunkmanager$entitytracker.updatePlayers(this.level.players());
++//         } else {
++//            chunkmanager$entitytracker.updatePlayer(p_219183_1_);
++//         }
++//      }
+ 
+       int l1 = MathHelper.func_76128_c(p_219183_1_.func_226277_ct_()) >> 4;
+       int i2 = MathHelper.func_76128_c(p_219183_1_.func_226281_cx_()) >> 4;
 @@ -892,41 +_,43 @@
           }
        }

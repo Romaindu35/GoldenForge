@@ -24,3 +24,11 @@
        while(this.func_213168_p()) {
        }
  
+@@ -135,6 +_,7 @@
+       try {
+          p_213166_1_.run();
+       } catch (Exception exception) {
++         if (exception.getCause() instanceof ThreadDeath) throw exception; // Paper
+          field_213172_c.fatal("Error executing task on {}", this.func_213142_bd(), exception);
+       }
+ 
