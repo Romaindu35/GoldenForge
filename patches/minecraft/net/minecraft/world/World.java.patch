@@ -9,15 +9,17 @@
     protected static final Logger field_195596_d = LogManager.getLogger();
     public static final Codec<RegistryKey<World>> field_234917_f_ = ResourceLocation.field_240908_a_.xmap(RegistryKey.func_240902_a_(Registry.field_239699_ae_), RegistryKey::func_240901_a_);
     public static final RegistryKey<World> field_234918_g_ = RegistryKey.func_240903_a_(Registry.field_239699_ae_, new ResourceLocation("overworld"));
-@@ -73,7 +_,7 @@
+@@ -73,8 +_,8 @@
     public final List<TileEntity> field_147482_g = Lists.newArrayList();
     public final List<TileEntity> field_175730_i = Lists.newArrayList();
     protected final List<TileEntity> field_147484_a = Lists.newArrayList();
 -   protected final List<TileEntity> field_147483_b = Lists.newArrayList();
+-   private final Thread field_217407_c;
 +   protected final java.util.Set<TileEntity> field_147483_b = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); // Forge: faster "contains" makes removal much more efficient
-    private final Thread field_217407_c;
++   public final Thread field_217407_c;
     private final boolean field_234916_c_;
     private int field_73008_k;
+    protected int field_73005_l = (new Random()).nextInt();
 @@ -92,8 +_,26 @@
     private final WorldBorder field_175728_M;
     private final BiomeManager field_226689_w_;

@@ -1,10 +1,72 @@
 --- a/net/minecraft/world/server/ChunkManager.java
 +++ b/net/minecraft/world/server/ChunkManager.java
-@@ -121,6 +_,14 @@
+@@ -55,6 +_,7 @@
+ import net.minecraft.network.play.server.SUpdateChunkPositionPacket;
+ import net.minecraft.network.play.server.SUpdateLightPacket;
+ import net.minecraft.profiler.IProfiler;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.CSVWriter;
+ import net.minecraft.util.ClassInheritanceMultiMap;
+ import net.minecraft.util.Util;
+@@ -91,15 +_,17 @@
+ import org.apache.commons.lang3.mutable.MutableBoolean;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.spigotmc.AsyncCatcher;
+ 
+ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProvider {
+    private static final Logger field_219250_d = LogManager.getLogger();
+    public static final int field_219249_a = 33 + ChunkStatus.func_222600_b();
+-   private final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219251_e = new Long2ObjectLinkedOpenHashMap<>();
+-   private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219252_f = this.field_219251_e.clone();
++   public final com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<ChunkHolder> updatingChunks = new com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<>();
++   //   private final Long2ObjectLinkedOpenHashMap<ChunkHolder> updatingChunkMap = new Long2ObjectLinkedOpenHashMap<>();
++//   private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap = this.updatingChunkMap.clone();
+    private final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219253_g = new Long2ObjectLinkedOpenHashMap<>();
+    private final LongSet field_219254_h = new LongOpenHashSet();
+-   private final ServerWorld field_219255_i;
++   public final ServerWorld field_219255_i;
+    private final ServerWorldLightManager field_219256_j;
+    private final ThreadTaskExecutor<Runnable> field_219257_k;
+    private final ChunkGenerator field_219258_l;
+@@ -121,6 +_,47 @@
     private final Queue<Runnable> field_223181_A = Queues.newConcurrentLinkedQueue();
     private int field_219247_A;
  
 +   // GoldenForge start
++   public final CallbackExecutor callbackExecutor = new CallbackExecutor();
++   public static final class CallbackExecutor implements java.util.concurrent.Executor, Runnable {
++      // Tuinity start - revert paper's change
++      private Runnable queued;
++
++      @Override
++      public void execute(Runnable runnable) {
++         AsyncCatcher.catchOp("Callback Executor execute");
++         if (queued != null) {
++            MinecraftServer.field_147145_h.fatal("Failed to schedule runnable", new IllegalStateException("Already queued")); // Paper - make sure this is printed
++            throw new IllegalStateException("Already queued");
++         }
++         queued = runnable;
++      }
++      // Tuinity end - revert paper's change
++
++      @Override
++      public void run() {
++         AsyncCatcher.catchOp("Callback Executor run");
++         // Tuinity start - revert paper's change
++         Runnable task = queued;
++         queued = null;
++         if (task != null) {
++            // Tuinity end - revert paper's change
++            task.run();
++         }
++      }
++      // Paper end
++   };
++   // CraftBukkit end
++
++   final CallbackExecutor chunkLoadConversionCallbackExecutor = new CallbackExecutor(); // Paper
++
 +   public final int getEffectiveViewDistance() {
 +      // TODO this needs to be checked on update
 +      // Mojang currently sets it to +1 of the configured view distance. So subtract one to get the one we really want.
@@ -15,6 +77,75 @@
     public ChunkManager(ServerWorld p_i232602_1_, SaveFormat.LevelSave p_i232602_2_, DataFixer p_i232602_3_, TemplateManager p_i232602_4_, Executor p_i232602_5_, ThreadTaskExecutor<Runnable> p_i232602_6_, IChunkLightProvider p_i232602_7_, ChunkGenerator p_i232602_8_, IChunkStatusListener p_i232602_9_, Supplier<DimensionSavedDataManager> p_i232602_10_, int p_i232602_11_, boolean p_i232602_12_) {
        super(new File(p_i232602_2_.func_237291_a_(p_i232602_1_.func_234923_W_()), "region"), p_i232602_3_, p_i232602_12_);
        this.field_219269_w = p_i232602_4_;
+@@ -177,12 +_,26 @@
+ 
+    @Nullable
+    protected ChunkHolder func_219220_a(long p_219220_1_) {
+-      return this.field_219251_e.get(p_219220_1_);
+-   }
++      return this.updatingChunks.getUpdating(p_219220_1_); // Tuinity - Don't copy
++   }
++
++   public Long2ObjectLinkedOpenHashMap<ChunkHolder> getVisibleChunks() {
++      // Tuinity start - Don't copy (except in rare cases)
++      synchronized (this.updatingChunks) {
++         return this.updatingChunks.getVisibleMap().clone();
++      }
++      // Tuinity end - Don't copy (except in rare cases)
++   }
++   // Paper end
+ 
+    @Nullable
+-   protected ChunkHolder func_219219_b(long p_219219_1_) {
+-      return this.field_219252_f.get(p_219219_1_);
++   public ChunkHolder func_219219_b(long p_219219_1_) {
++      // Tuinity start - Don't copy
++      if (Thread.currentThread() == this.field_219255_i.field_217407_c) {
++         return this.updatingChunks.getVisible(p_219219_1_);
++      }
++      return this.updatingChunks.getVisibleAsync(p_219219_1_);
++      // Tuinity end - Don't copy
+    }
+ 
+    protected IntSupplier func_219191_c(long p_219191_1_) {
+@@ -299,7 +_,7 @@
+                p_219213_4_ = new ChunkHolder(new ChunkPos(p_219213_1_), p_219213_3_, this.field_219256_j, this.field_219263_q, this);
+             }
+ 
+-            this.field_219251_e.put(p_219213_1_, p_219213_4_);
++            this.updatingChunks.queueUpdate(p_219213_1_, p_219213_4_); // Tuinity - Don't copy
+             this.field_219262_p = true;
+          }
+ 
+@@ -318,8 +_,9 @@
+    }
+ 
+    protected void func_219177_a(boolean p_219177_1_) {
++      Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunks = this.getVisibleChunks(); // Paper remove clone of visible Chunks unless saving off main thread (watchdog kill)
+       if (p_219177_1_) {
+-         List<ChunkHolder> list = this.field_219252_f.values().stream().filter(ChunkHolder::func_219289_k).peek(ChunkHolder::func_219303_l).collect(Collectors.toList());
++         List<ChunkHolder> list = visibleChunks.values().stream().filter(ChunkHolder::func_219289_k).peek(ChunkHolder::func_219303_l).collect(Collectors.toList());
+          MutableBoolean mutableboolean = new MutableBoolean();
+ 
+          do {
+@@ -345,7 +_,7 @@
+          this.func_227079_i_();
+          field_219250_d.info("ThreadedAnvilChunkStorage ({}): All chunks are saved", (Object)this.field_219270_x.getName());
+       } else {
+-         this.field_219252_f.values().stream().filter(ChunkHolder::func_219289_k).forEach((p_222965_1_) -> {
++         visibleChunks.values().stream().filter(ChunkHolder::func_219289_k).forEach((p_222965_1_) -> {
+             IChunk ichunk = p_222965_1_.func_219302_f().getNow((IChunk)null);
+             if (ichunk instanceof ChunkPrimerWrapper || ichunk instanceof Chunk) {
+                this.func_219229_a(ichunk);
+@@ -374,7 +_,7 @@
+ 
+       for(int i = 0; longiterator.hasNext() && (p_223155_1_.getAsBoolean() || i < 200 || this.field_219261_o.size() > 2000); longiterator.remove()) {
+          long j = longiterator.nextLong();
+-         ChunkHolder chunkholder = this.field_219251_e.remove(j);
++         ChunkHolder chunkholder = this.updatingChunks.queueRemove(j); // Tuinity - Don't copy
+          if (chunkholder != null) {
+             this.field_219253_g.put(j, chunkholder);
+             this.field_219262_p = true;
 @@ -400,6 +_,7 @@
              if (this.field_219253_g.remove(p_219212_1_, p_219212_3_) && p_219185_5_ != null) {
                 if (p_219185_5_ instanceof Chunk) {
@@ -23,6 +154,24 @@
                 }
  
                 this.func_219229_a(p_219185_5_);
+@@ -423,10 +_,16 @@
+    }
+ 
+    protected boolean func_219245_b() {
++      com.tuinity.tuinity.util.TickThread.softEnsureTickThread("Cannot update visibleChunks off of the main thread"); // Tuinity
+       if (!this.field_219262_p) {
+          return false;
+       } else {
+-         this.field_219252_f = this.field_219251_e.clone();
++         // Tuinity start - Don't copy
++         synchronized (this.updatingChunks) {
++            this.updatingChunks.performUpdates();
++         }
++         // Tuinity end - Don't copy
++
+          this.field_219262_p = false;
+          return true;
+       }
 @@ -601,6 +_,7 @@
                 if (list != null) {
                    list.forEach(chunk::func_76622_b);
@@ -39,6 +188,15 @@
              this.func_219100_a(chunkpos, compoundnbt);
              this.func_241088_a_(chunkpos, chunkstatus.func_202129_d());
              return true;
+@@ -718,7 +_,7 @@
+          this.field_219247_A = i;
+          this.field_219267_u.func_219354_b(this.field_219247_A);
+ 
+-         for(ChunkHolder chunkholder : this.field_219251_e.values()) {
++         for(ChunkHolder chunkholder : this.updatingChunks.getUpdatingValues()) {
+             ChunkPos chunkpos = chunkholder.func_219277_h();
+             IPacket<?>[] ipacket = new IPacket[2];
+             this.func_219097_a(chunkpos, false).forEach((p_219224_4_) -> {
 @@ -734,6 +_,7 @@
  
     protected void func_219199_a(ServerPlayerEntity p_219199_1_, ChunkPos p_219199_2_, IPacket<?>[] p_219199_3_, boolean p_219199_4_, boolean p_219199_5_) {
@@ -47,6 +205,31 @@
           if (p_219199_5_ && !p_219199_4_) {
              ChunkHolder chunkholder = this.func_219219_b(p_219199_2_.func_201841_a());
              if (chunkholder != null) {
+@@ -754,7 +_,7 @@
+    }
+ 
+    public int func_219194_d() {
+-      return this.field_219252_f.size();
++      return this.updatingChunks.getVisibleMap().size(); // Tuinity - Don't copy
+    }
+ 
+    protected ChunkManager.ProxyTicketManager func_219246_e() {
+@@ -762,13 +_,13 @@
+    }
+ 
+    protected Iterable<ChunkHolder> func_223491_f() {
+-      return Iterables.unmodifiableIterable(this.field_219252_f.values());
++      return Iterables.unmodifiableIterable(this.getVisibleChunks().values()); // Paper
+    }
+ 
+    void func_225406_a(Writer p_225406_1_) throws IOException {
+       CSVWriter csvwriter = CSVWriter.func_225428_a().func_225423_a("x").func_225423_a("z").func_225423_a("level").func_225423_a("in_memory").func_225423_a("status").func_225423_a("full_status").func_225423_a("accessible_ready").func_225423_a("ticking_ready").func_225423_a("entity_ticking_ready").func_225423_a("ticket").func_225423_a("spawning").func_225423_a("entity_count").func_225423_a("block_entity_count").func_225422_a(p_225406_1_);
+ 
+-      for(Entry<ChunkHolder> entry : this.field_219252_f.long2ObjectEntrySet()) {
++      for(Entry<ChunkHolder> entry : this.getVisibleChunks().long2ObjectEntrySet()) { // Paper
+          ChunkPos chunkpos = new ChunkPos(entry.getLongKey());
+          ChunkHolder chunkholder = entry.getValue();
+          Optional<IChunk> optional = Optional.ofNullable(chunkholder.func_219287_e());
 @@ -942,9 +_,10 @@
     }
  

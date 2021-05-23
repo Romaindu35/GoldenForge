@@ -1,5 +1,12 @@
 --- a/net/minecraft/world/server/ServerWorld.java
 +++ b/net/minecraft/world/server/ServerWorld.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.server;
+ 
++import com.destroystokyo.paper.server.ticklist.PaperTickList;
+ import com.google.common.annotations.VisibleForTesting;
+ import com.google.common.collect.Iterables;
+ import com.google.common.collect.Lists;
 @@ -143,7 +_,7 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -9,14 +16,58 @@
     public static final BlockPos field_241108_a_ = new BlockPos(100, 50, 0);
     private static final Logger field_147491_a = LogManager.getLogger();
     private final Int2ObjectMap<Entity> field_217498_x = new Int2ObjectLinkedOpenHashMap<>();
-@@ -173,6 +_,7 @@
+@@ -158,12 +_,8 @@
+    private boolean field_73068_P;
+    private int field_80004_Q;
+    private final Teleporter field_85177_Q;
+-   private final ServerTickList<Block> field_94579_S = new ServerTickList<>(this, (p_205341_0_) -> {
+-      return p_205341_0_ == null || p_205341_0_.func_176223_P().func_196958_f();
+-   }, Registry.field_212618_g::func_177774_c, this::func_205338_b);
+-   private final ServerTickList<Fluid> field_205342_P = new ServerTickList<>(this, (p_205774_0_) -> {
+-      return p_205774_0_ == null || p_205774_0_ == Fluids.field_204541_a;
+-   }, Registry.field_212619_h::func_177774_c, this::func_205339_a);
++   private final ServerTickList<Block> field_94579_S;
++   private final ServerTickList<Fluid> field_205342_P;
+    private final Set<PathNavigator> field_217495_I = Sets.newHashSet();
+    protected final RaidManager field_217494_c;
+    private final ObjectLinkedOpenHashSet<BlockEventData> field_147490_S = new ObjectLinkedOpenHashSet<>();
+@@ -173,11 +_,36 @@
     private final DragonFightManager field_241105_O_;
     private final StructureManager field_241106_P_;
     private final boolean field_241107_Q_;
 +   private net.minecraftforge.common.util.WorldCapabilityData capabilityData;
++
++   // GoldenForge - Paper - rewrite ticklistserver
++   public void onChunkSetTicking(int chunkX, int chunkZ) {
++      if (com.destroystokyo.paper.PaperConfig.useOptimizedTickList) {
++         ((com.destroystokyo.paper.server.ticklist.PaperTickList) this.field_94579_S).onChunkSetTicking(chunkX, chunkZ);
++         ((com.destroystokyo.paper.server.ticklist.PaperTickList) this.field_205342_P).onChunkSetTicking(chunkX, chunkZ);
++      }
++   }
++   // GoldenForge end
  
     public ServerWorld(MinecraftServer p_i241885_1_, Executor p_i241885_2_, SaveFormat.LevelSave p_i241885_3_, IServerWorldInfo p_i241885_4_, RegistryKey<World> p_i241885_5_, DimensionType p_i241885_6_, IChunkStatusListener p_i241885_7_, ChunkGenerator p_i241885_8_, boolean p_i241885_9_, long p_i241885_10_, List<ISpecialSpawner> p_i241885_12_, boolean p_i241885_13_) {
        super(p_i241885_4_, p_i241885_5_, p_i241885_6_, p_i241885_1_::func_213185_aS, false, p_i241885_9_, p_i241885_10_);
+       this.field_241107_Q_ = p_i241885_13_;
+       this.field_73061_a = p_i241885_1_;
++      if (com.destroystokyo.paper.PaperConfig.useOptimizedTickList) {
++         this.field_94579_S = new PaperTickList<>(this, (p_205341_0_) -> {
++            return p_205341_0_ == null || p_205341_0_.func_176223_P().func_196958_f();
++         }, Registry.field_212618_g::func_177774_c, this::func_205338_b);
++         this.field_205342_P = new PaperTickList<>(this, (p_205774_0_) -> {
++            return p_205774_0_ == null || p_205774_0_ == Fluids.field_204541_a;
++         }, Registry.field_212619_h::func_177774_c, this::func_205339_a);
++      } else {
++         this.field_94579_S = new ServerTickList<>(this, (p_205341_0_) -> {
++            return p_205341_0_ == null || p_205341_0_.func_176223_P().func_196958_f();
++         }, Registry.field_212618_g::func_177774_c, this::func_205338_b);
++         this.field_205342_P = new ServerTickList<>(this, (p_205774_0_) -> {
++            return p_205774_0_ == null || p_205774_0_ == Fluids.field_204541_a;
++         }, Registry.field_212619_h::func_177774_c, this::func_205339_a);
++      }
+       this.field_241104_N_ = p_i241885_12_;
+       this.field_241103_E_ = p_i241885_4_;
+       this.field_241102_C_ = new ServerChunkProvider(this, p_i241885_3_, p_i241885_1_.func_195563_aC(), p_i241885_1_.func_240792_aT_(), p_i241885_2_, p_i241885_8_, p_i241885_1_.func_184103_al().func_72395_o(), p_i241885_1_.func_230540_aS_(), p_i241885_7_, () -> {
 @@ -200,7 +_,7 @@
        } else {
           this.field_241105_O_ = null;
@@ -96,6 +147,15 @@
              }
  
              iprofiler.func_76319_b();
+@@ -418,6 +_,8 @@
+       if (this.field_241107_Q_) {
+          long i = this.field_72986_A.func_82573_f() + 1L;
+          this.field_241103_E_.func_82572_b(i);
++         this.field_94579_S.nextTick(); // Paper
++         this.field_205342_P.nextTick(); // Paper
+          this.field_241103_E_.func_215763_z().func_216331_a(this.field_73061_a, i);
+          if (this.field_72986_A.func_82574_x().func_223586_b(GameRules.field_223607_j)) {
+             this.func_241114_a_(this.field_72986_A.func_76073_f() + 1L);
 @@ -475,6 +_,7 @@
           BlockPos blockpos2 = this.func_205770_a(Heightmap.Type.MOTION_BLOCKING, this.func_217383_a(i, 0, j, 15));
           BlockPos blockpos3 = blockpos2.func_177977_b();

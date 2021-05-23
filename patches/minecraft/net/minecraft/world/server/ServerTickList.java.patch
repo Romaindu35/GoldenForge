@@ -1,0 +1,94 @@
+--- a/net/minecraft/world/server/ServerTickList.java
++++ b/net/minecraft/world/server/ServerTickList.java
+@@ -45,6 +_,10 @@
+       this.field_205378_h = p_i231625_4_;
+    }
+ 
++   // Paper start
++   public void nextTick() {}
++   // Paper end
++
+    public void func_205365_a() {
+       int i = this.field_205375_e.size();
+       if (i != this.field_205374_d.size()) {
+@@ -98,10 +_,19 @@
+    }
+ 
+    public boolean func_205361_b(BlockPos p_205361_1_, T p_205361_2_) {
++      return this.isPendingTickThisTick(p_205361_1_, p_205361_2_);
++   }
++
++   public boolean isPendingTickThisTick(BlockPos p_205361_1_, T p_205361_2_) {
++      // Paper end
+       return this.field_205377_g.contains(new NextTickListEntry(p_205361_1_, p_205361_2_));
+    }
+ 
+    public List<NextTickListEntry<T>> func_223188_a(ChunkPos p_223188_1_, boolean p_223188_2_, boolean p_223188_3_) {
++      return this.getEntriesInChunk(p_223188_1_, p_223188_2_, p_223188_3_);
++   }
++
++   public List<NextTickListEntry<T>> getEntriesInChunk(ChunkPos p_223188_1_, boolean p_223188_2_, boolean p_223188_3_) {
+       int i = (p_223188_1_.field_77276_a << 4) - 2;
+       int j = i + 16 + 2;
+       int k = (p_223188_1_.field_77275_b << 4) - 2;
+@@ -110,6 +_,10 @@
+    }
+ 
+    public List<NextTickListEntry<T>> func_205366_a(MutableBoundingBox p_205366_1_, boolean p_205366_2_, boolean p_205366_3_) {
++      return this.getEntriesInBoundingBox(p_205366_1_, p_205366_2_, p_205366_3_);
++   }
++
++   public List<NextTickListEntry<T>> getEntriesInBoundingBox(MutableBoundingBox p_205366_1_, boolean p_205366_2_, boolean p_205366_3_) {
+       List<NextTickListEntry<T>> list = this.func_223187_a((List<NextTickListEntry<T>>)null, this.field_205375_e, p_205366_1_, p_205366_2_);
+       if (p_205366_2_ && list != null) {
+          this.field_205374_d.removeAll(list);
+@@ -158,11 +_,15 @@
+    }
+ 
+    public ListNBT func_219503_a(ChunkPos p_219503_1_) {
++      return this.serialize(p_219503_1_);
++   }
++
++   public ListNBT serialize(ChunkPos p_219503_1_) {
+       List<NextTickListEntry<T>> list = this.func_223188_a(p_219503_1_, false, true);
+       return func_219502_a(this.field_205372_b, list, this.field_205376_f.func_82737_E());
+    }
+ 
+-   private static <T> ListNBT func_219502_a(Function<T, ResourceLocation> p_219502_0_, Iterable<NextTickListEntry<T>> p_219502_1_, long p_219502_2_) {
++   public static <T> ListNBT func_219502_a(Function<T, ResourceLocation> p_219502_0_, Iterable<NextTickListEntry<T>> p_219502_1_, long p_219502_2_) {
+       ListNBT listnbt = new ListNBT();
+ 
+       for(NextTickListEntry<T> nextticklistentry : p_219502_1_) {
+@@ -180,10 +_,20 @@
+    }
+ 
+    public boolean func_205359_a(BlockPos p_205359_1_, T p_205359_2_) {
++      return this.isScheduledForTick(p_205359_1_, p_205359_2_);
++   }
++
++   public boolean isScheduledForTick(BlockPos p_205359_1_, T p_205359_2_) {
++      // Paper end
+       return this.field_205374_d.contains(new NextTickListEntry(p_205359_1_, p_205359_2_));
+    }
+ 
+    public void func_205362_a(BlockPos p_205362_1_, T p_205362_2_, int p_205362_3_, TickPriority p_205362_4_) {
++      this.schedule(p_205362_1_, p_205362_2_, p_205362_3_, p_205362_4_);
++
++   }
++
++   public void schedule(BlockPos p_205362_1_, T p_205362_2_, int p_205362_3_, TickPriority p_205362_4_) {
+       if (!this.field_205371_a.test(p_205362_2_)) {
+          this.func_219504_a(new NextTickListEntry<>(p_205362_1_, p_205362_2_, (long)p_205362_3_ + this.field_205376_f.func_82737_E(), p_205362_4_));
+       }
+@@ -199,6 +_,11 @@
+    }
+ 
+    public int func_225420_a() {
++      return this.getTotalScheduledEntries();
++   }
++
++   public int getTotalScheduledEntries() {
+       return this.field_205374_d.size();
++
+    }
+ }

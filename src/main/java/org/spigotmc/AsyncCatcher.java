@@ -12,7 +12,8 @@ public class AsyncCatcher
     {
         if ( enabled && Thread.currentThread() != MinecraftServer.getServer().serverThread )
         {
-            throw new IllegalStateException( "Asynchronous " + reason + "!" );
+            if (!Thread.currentThread().getName().equals("C2ME scheduler"))
+                throw new IllegalStateException( "Asynchronous " + reason + "!" );
         }
     }
 }
