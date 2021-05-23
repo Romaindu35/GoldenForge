@@ -20,7 +20,7 @@
  import net.minecraft.crash.CrashReport;
  import net.minecraft.entity.Entity;
  import net.minecraft.entity.EntityClassification;
-@@ -143,7 +_,7 @@
+@@ -143,10 +_,11 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -29,6 +29,10 @@
     public static final BlockPos field_241108_a_ = new BlockPos(100, 50, 0);
     private static final Logger field_147491_a = LogManager.getLogger();
     private final Int2ObjectMap<Entity> field_217498_x = new Int2ObjectLinkedOpenHashMap<>();
++   final com.tuinity.tuinity.util.maplist.IteratorSafeOrderedReferenceSet<Entity> entitiesForIteration = new com.tuinity.tuinity.util.maplist.IteratorSafeOrderedReferenceSet<>(2048, 0.5f, 2048, 0.2, true); // Tuinity - make removing entities while ticking safe
+    private final Map<UUID, Entity> field_175741_N = Maps.newHashMap();
+    private final Queue<Entity> field_217499_z = Queues.newArrayDeque();
+    private final List<ServerPlayerEntity> field_217491_A = Lists.newArrayList();
 @@ -158,12 +_,8 @@
     private boolean field_73068_P;
     private int field_80004_Q;
@@ -134,32 +138,185 @@
        if (flag3) {
           this.func_82742_i();
        }
-@@ -349,6 +_,7 @@
+@@ -349,66 +_,129 @@
           }
  
           this.field_217492_a = true;
+-         ObjectIterator<Entry<Entity>> objectiterator = this.field_217498_x.int2ObjectEntrySet().iterator();
+-
+-         label164:
+-         while(true) {
+-            Entity entity1;
+-            while(true) {
+-               if (!objectiterator.hasNext()) {
+-                  this.field_217492_a = false;
+-
+-                  Entity entity;
+-                  while((entity = this.field_217499_z.poll()) != null) {
+-                     this.func_217465_m(entity);
+-                  }
+-
+-                  this.func_217391_K();
+-                  break label164;
+-               }
+-
+-               Entry<Entity> entry = objectiterator.next();
+-               entity1 = entry.getValue();
+-               Entity entity2 = entity1.func_184187_bx();
+-               if (!this.field_73061_a.func_230537_U_() && (entity1 instanceof AnimalEntity || entity1 instanceof WaterMobEntity)) {
+-                  entity1.func_70106_y();
+-               }
+-
+-               if (!this.field_73061_a.func_230538_V_() && entity1 instanceof INPC) {
+-                  entity1.func_70106_y();
+-               }
+-
+-               iprofiler.func_76320_a("checkDespawn");
+-               if (!entity1.field_70128_L) {
+-                  entity1.func_70623_bb();
+-               }
+-
+-               iprofiler.func_76319_b();
+-               if (entity2 == null) {
+-                  break;
+-               }
+-
+-               if (entity2.field_70128_L || !entity2.func_184196_w(entity1)) {
+-                  entity1.func_184210_p();
+-                  break;
+-               }
++         com.tuinity.tuinity.util.maplist.IteratorSafeOrderedReferenceSet.Iterator<Entity> objectiterator = this.entitiesForIteration.iterator(); // Tuinity
 +         org.spigotmc.ActivationRange.activateEntities(this); // Spigot
-          ObjectIterator<Entry<Entity>> objectiterator = this.field_217498_x.int2ObjectEntrySet().iterator();
- 
-          label164:
-@@ -395,7 +_,7 @@
++
++
++         while (objectiterator.hasNext()) {
++            Entity entity = (Entity) objectiterator.next(); // Tuinity
++            Entity entity1 = entity.func_184187_bx();
++
++                /* CraftBukkit start - We prevent spawning in general, so this butchering is not needed
++                if (!this.server.getSpawnAnimals() && (entity instanceof EntityAnimal || entity instanceof EntityWaterAnimal)) {
++                    entity.die();
++                }
++
++                if (!this.server.getSpawnNPCs() && entity instanceof NPC) {
++                    entity.die();
++                }
++                // CraftBukkit end */
++
++            iprofiler.func_76320_a("checkDespawn");
++            if (!entity.field_70128_L) {
++               entity.func_70623_bb();
++//               // Tuinity start - optimise notify()
++//               if (entity.inChunk && entity.valid) {
++//                  if (this.getChunkSource().isEntityTickingChunk(entity)) {
++//                     this.updateNavigatorsInRegion(entity);
++//                  }
++//               } else {
++//                  this.removeNavigatorsFromData(entity);
++//               }
++//               // Tuinity end - optimise notify()
++            }
++
++            iprofiler.func_76319_b();
++            if (entity1 != null) {
++               if (!entity1.field_70128_L && entity1.func_184196_w(entity)) {
++                  continue;
++               }
++
++               entity.func_184210_p();
              }
  
              iprofiler.func_76320_a("tick");
 -            if (!entity1.field_70128_L && !(entity1 instanceof EnderDragonPartEntity)) {
-+            if (!entity1.field_70128_L && !(entity1 instanceof net.minecraftforge.entity.PartEntity)) {
-                this.func_217390_a(this::func_217479_a, entity1);
-             }
- 
-@@ -404,7 +_,7 @@
-             if (entity1.field_70128_L) {
-                this.func_217454_n(entity1);
-                objectiterator.remove();
--               this.func_217484_g(entity1);
-+               this.removeEntityComplete(entity1, entity1 instanceof ServerPlayerEntity); //Forge: Keep cap data until revive. Every other entity removes directly.
+-               this.func_217390_a(this::func_217479_a, entity1);
++            if (!entity.field_70128_L && !(entity.isMultipartEntity())) {
++               this.func_217390_a(this::func_217479_a, entity);
              }
  
              iprofiler.func_76319_b();
+             iprofiler.func_76320_a("remove");
+-            if (entity1.field_70128_L) {
+-               this.func_217454_n(entity1);
+-               objectiterator.remove();
+-               this.func_217484_g(entity1);
++            if (entity.field_70128_L) {
++               this.func_217454_n(entity);
++               this.field_217498_x.remove(entity.func_145782_y()); // Tuinity
++               this.removeEntityComplete(entity, entity instanceof ServerPlayerEntity);
+             }
++//            } else if (entity.inChunk && entity.valid) { // Tuinity start - optimise notify()
++//               if (this.getChunkProvider().isInEntityTickingChunk(entity)) {
++//                  this.updateNavigatorsInRegion(entity);
++//               }
++//            } else {
++//               this.removeNavigatorsFromData(entity);
++//            }
++//            // Tuinity end - optimise notify()
+ 
+             iprofiler.func_76319_b();
+          }
++
++//         label164:
++//         while(true) {
++//            Entity entity1;
++//            while(true) {
++//               if (!objectiterator.hasNext()) {
++//                  this.tickingEntities = false;
++//
++//                  Entity entity;
++//                  while((entity = this.toAddAfterTick.poll()) != null) {
++//                     this.add(entity);
++//                  }
++//
++//                  this.tickBlockEntities();
++//                  break label164;
++//               }
++//
++//               Entry<Entity> entry = objectiterator.next();
++//               entity1 = entry.getValue();
++//               Entity entity2 = entity1.getVehicle();
++//               if (!this.server.isSpawningAnimals() && (entity1 instanceof AnimalEntity || entity1 instanceof WaterMobEntity)) {
++//                  entity1.remove();
++//               }
++//
++//               if (!this.server.areNpcsEnabled() && entity1 instanceof INPC) {
++//                  entity1.remove();
++//               }
++//
++//               iprofiler.push("checkDespawn");
++//               if (!entity1.removed) {
++//                  entity1.checkDespawn();
++//               }
++//
++//               iprofiler.pop();
++//               if (entity2 == null) {
++//                  break;
++//               }
++//
++//               if (entity2.removed || !entity2.hasPassenger(entity1)) {
++//                  entity1.stopRiding();
++//                  break;
++//               }
++//            }
++//
++//            iprofiler.push("tick");
++//            if (!entity1.removed && !(entity1 instanceof net.minecraftforge.entity.PartEntity)) {
++//               this.guardEntityTick(this::tickNonPassenger, entity1);
++//            }
++//
++//            iprofiler.pop();
++//            iprofiler.push("remove");
++//            if (entity1.removed) {
++//               this.removeFromChunk(entity1);
++//               objectiterator.remove();
++//               this.removeEntityComplete(entity1, entity1 instanceof ServerPlayerEntity); //Forge: Keep cap data until revive. Every other entity removes directly.
++//            }
++//
++//            iprofiler.pop();
++//         }
+       }
+ 
+       iprofiler.func_76319_b();
 @@ -418,6 +_,8 @@
        if (this.field_241107_Q_) {
           long i = this.field_72986_A.func_82573_f() + 1L;
@@ -410,7 +567,16 @@
           this.func_217465_m(p_217440_1_);
           return true;
        }
-@@ -879,12 +_,17 @@
+@@ -867,7 +_,7 @@
+       for(int j = 0; j < i; ++j) {
+          for(Entity entity : aclassinheritancemultimap[j]) {
+             if (!(entity instanceof ServerPlayerEntity)) {
+-               if (this.field_217492_a) {
++               if (false && this.field_217492_a) { // Tuinity
+                   throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException("Removing entity while ticking!"));
+                }
+ 
+@@ -879,12 +_,19 @@
  
     }
  
@@ -422,6 +588,8 @@
 +      removeEntityComplete(p_217484_1_, false);
 +   }
 +   public void removeEntityComplete(Entity p_217484_1_, boolean keepData) {
++      org.spigotmc.AsyncCatcher.catchOp("entity unregister"); // Spigot
++      this.entitiesForIteration.remove(p_217484_1_); // Tuinity
 +      if (p_217484_1_.isMultipartEntity()) {
 +         for(net.minecraftforge.entity.PartEntity<?> enderdragonpartentity : p_217484_1_.getParts()) {
 +            enderdragonpartentity.remove(keepData);
@@ -431,7 +599,7 @@
  
        this.field_175741_N.remove(p_217484_1_.func_110124_au());
        this.func_72863_F().func_217226_b(p_217484_1_);
-@@ -898,6 +_,8 @@
+@@ -898,16 +_,29 @@
           this.field_217495_I.remove(((MobEntity)p_217484_1_).func_70661_as());
        }
  
@@ -440,17 +608,30 @@
     }
  
     private void func_217465_m(Entity p_217465_1_) {
-@@ -905,8 +_,8 @@
+-      if (this.field_217492_a) {
++      org.spigotmc.AsyncCatcher.catchOp("entity register"); // Spigot
++      // Paper start - don't double enqueue entity registration
++      //noinspection ObjectEquality
++      if (this.field_217498_x.get(p_217465_1_.func_145782_y()) == p_217465_1_) {
++         field_147491_a.error(p_217465_1_ + " was already registered!");
++         new Throwable().printStackTrace();
++         return;
++      }
++      // Paper end
++      if (false && this.field_217492_a) { // Tuinity
           this.field_217499_z.add(p_217465_1_);
        } else {
           this.field_217498_x.put(p_217465_1_.func_145782_y(), p_217465_1_);
 -         if (p_217465_1_ instanceof EnderDragonEntity) {
 -            for(EnderDragonPartEntity enderdragonpartentity : ((EnderDragonEntity)p_217465_1_).func_213404_dT()) {
++         this.entitiesForIteration.add(p_217465_1_); // Tuinity
 +         if (p_217465_1_.isMultipartEntity()) {
 +            for(net.minecraftforge.entity.PartEntity<?> enderdragonpartentity : p_217465_1_.getParts()) {
                 this.field_217498_x.put(enderdragonpartentity.func_145782_y(), enderdragonpartentity);
++               this.entitiesForIteration.add(enderdragonpartentity); // Tuinity
              }
           }
+ 
 @@ -918,15 +_,19 @@
           }
        }
@@ -459,10 +640,11 @@
     }
  
     public void func_217467_h(Entity p_217467_1_) {
+-      if (this.field_217492_a) {
 +      removeEntity(p_217467_1_, false);
 +   }
 +   public void removeEntity(Entity p_217467_1_, boolean keepData) {
-       if (this.field_217492_a) {
++      if (false && this.field_217492_a) {
           throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException("Removing entity while ticking!"));
        } else {
           this.func_217454_n(p_217467_1_);

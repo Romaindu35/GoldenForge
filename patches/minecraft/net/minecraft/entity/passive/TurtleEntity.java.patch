@@ -1,0 +1,11 @@
+--- a/net/minecraft/entity/passive/TurtleEntity.java
++++ b/net/minecraft/entity/passive/TurtleEntity.java
+@@ -90,7 +_,7 @@
+    }
+ 
+    private void func_203019_h(BlockPos p_203019_1_) {
+-      this.field_70180_af.func_187227_b(field_203025_bC, p_203019_1_);
++      this.field_70180_af.func_187227_b(field_203025_bC, p_203019_1_.func_185334_h()); // Paper - called with mutablepos...
+    }
+ 
+    private BlockPos func_203013_dB() {

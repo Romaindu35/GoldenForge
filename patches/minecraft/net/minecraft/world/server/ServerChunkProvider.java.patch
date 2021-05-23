@@ -96,6 +96,29 @@
     public ServerChunkProvider(ServerWorld p_i232603_1_, SaveFormat.LevelSave p_i232603_2_, DataFixer p_i232603_3_, TemplateManager p_i232603_4_, Executor p_i232603_5_, ChunkGenerator p_i232603_6_, int p_i232603_7_, boolean p_i232603_8_, IChunkStatusListener p_i232603_9_, Supplier<DimensionSavedDataManager> p_i232603_10_) {
        this.field_73251_h = p_i232603_1_;
        this.field_217243_i = new ServerChunkProvider.ChunkExecutor(p_i232603_1_);
+@@ -279,12 +_,19 @@
+    }
+ 
+    public boolean func_217204_a(Entity p_217204_1_) {
+-      long i = ChunkPos.func_77272_a(MathHelper.func_76128_c(p_217204_1_.func_226277_ct_()) >> 4, MathHelper.func_76128_c(p_217204_1_.func_226281_cx_()) >> 4);
+-      return this.func_222872_a(i, ChunkHolder::func_219297_b);
++      // Paper start - optimize is ticking ready type functions
++      // entity ticking
++      ChunkHolder playerChunk = this.func_217213_a(MCUtil.getCoordinateKey(p_217204_1_));
++      return playerChunk != null && playerChunk.isEntityTickingReady();
++      // Paper end - optimize is ticking ready type functions
+    }
+ 
+    public boolean func_222865_a(ChunkPos p_222865_1_) {
+-      return this.func_222872_a(p_222865_1_.func_201841_a(), ChunkHolder::func_219297_b);
++      // Paper start - optimize is ticking ready type functions
++      // is ticking ready
++      ChunkHolder playerChunk = this.func_217213_a(MCUtil.getCoordinateKey(p_222865_1_));
++      return playerChunk != null && playerChunk.isTickingReady();
++      // Paper end - optimize is ticking ready type functions
+    }
+ 
+    public boolean func_222866_a(BlockPos p_222866_1_) {
 @@ -334,6 +_,7 @@
        boolean flag1 = this.field_73251_h.func_82736_K().func_223586_b(GameRules.field_223601_d);
        if (!flag) {

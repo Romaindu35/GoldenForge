@@ -1,0 +1,35 @@
+--- a/net/minecraft/util/BitArray.java
++++ b/net/minecraft/util/BitArray.java
+@@ -99,4 +_,32 @@
+       }
+ 
+    }
++
++   // Paper start
++   public final void forEach(DataBitConsumer consumer) {
++      int i = 0;
++      long[] along = this.field_188145_a;
++      int j = along.length;
++
++      for (int k = 0; k < j; ++k) {
++         long l = along[k];
++
++         for (int i1 = 0; i1 < this.field_232982_f_; ++i1) {
++            consumer.accept(i, (int) (l & this.field_188147_c));
++            l >>= this.field_188146_b;
++            ++i;
++            if (i >= this.field_188148_d) {
++               return;
++            }
++         }
++      }
++   }
++
++   @FunctionalInterface
++   public static interface DataBitConsumer {
++
++      void accept(int location, int data);
++
++   }
++   // Paper end
+ }
