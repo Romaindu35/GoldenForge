@@ -23,14 +23,60 @@
     public boolean field_70128_L;
     public float field_70141_P;
     public float field_70140_Q;
-@@ -195,6 +_,7 @@
+@@ -155,8 +_,8 @@
+    public float field_70144_Y;
+    protected final Random field_70146_Z = new Random();
+    public int field_70173_aa;
+-   private int field_190534_ay = -this.func_190531_bD();
+-   protected boolean field_70171_ac;
++   public int field_190534_ay = -this.func_190531_bD();
++   public boolean field_70171_ac;
+    protected Object2DoubleMap<ITag<Fluid>> field_233554_M_ = new Object2DoubleArrayMap<>(2);
+    protected boolean field_205013_W;
+    @Nullable
+@@ -179,8 +_,8 @@
+    private Vector3d field_242272_av;
+    public boolean field_70158_ak;
+    public boolean field_70160_al;
+-   private int field_242273_aw;
+-   protected boolean field_71087_bX;
++   public int field_242273_aw;
++   public boolean field_71087_bX;
+    protected int field_82153_h;
+    protected BlockPos field_242271_ac;
+    private boolean field_83001_bt;
+@@ -194,7 +_,17 @@
+    private EntitySize field_213325_aI;
     private float field_213326_aJ;
  
++   // GoldenForge start - activation/tracking range
++   public final org.spigotmc.ActivationRange.ActivationType activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(this);
++   final org.spigotmc.TrackingRange.TrackingRangeType trackingRangeType = org.spigotmc.TrackingRange.getTrackingRangeType(this);
++   public final boolean defaultActivationState;
++   public long activatedTick = Integer.MIN_VALUE;
++   public void inactiveTick() { }
++   public boolean isTemporarilyActive = false;
++   // GoldenForge end
++
     public Entity(EntityType<?> p_i48580_1_, World p_i48580_2_) {
 +      super(Entity.class);
        this.field_200606_g = p_i48580_1_;
        this.field_70170_p = p_i48580_2_;
        this.field_213325_aI = p_i48580_1_.func_220334_j();
+@@ -202,6 +_,13 @@
+       this.field_233558_ap_ = BlockPos.field_177992_a;
+       this.field_242272_av = Vector3d.field_186680_a;
+       this.func_70107_b(0.0D, 0.0D, 0.0D);
++      // Spigot start
++      if (field_70170_p != null) {
++         this.defaultActivationState = org.spigotmc.ActivationRange.initializeEntityActivationState(this, field_70170_p.spigotConfig);
++      } else {
++         this.defaultActivationState = false;
++      }
++      // Spigot end
+       this.field_70180_af = new EntityDataManager(this);
+       this.field_70180_af.func_187214_a(field_184240_ax, (byte)0);
+       this.field_70180_af.func_187214_a(field_184241_ay, this.func_205010_bg());
 @@ -211,7 +_,11 @@
        this.field_70180_af.func_187214_a(field_189655_aD, false);
        this.field_70180_af.func_187214_a(field_213330_X, Pose.STANDING);

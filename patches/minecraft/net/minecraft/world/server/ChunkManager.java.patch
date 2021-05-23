@@ -1,5 +1,20 @@
 --- a/net/minecraft/world/server/ChunkManager.java
 +++ b/net/minecraft/world/server/ChunkManager.java
+@@ -121,6 +_,14 @@
+    private final Queue<Runnable> field_223181_A = Queues.newConcurrentLinkedQueue();
+    private int field_219247_A;
+ 
++   // GoldenForge start
++   public final int getEffectiveViewDistance() {
++      // TODO this needs to be checked on update
++      // Mojang currently sets it to +1 of the configured view distance. So subtract one to get the one we really want.
++      return this.field_219247_A - 1;
++   }
++   // GoldenForge end
++
+    public ChunkManager(ServerWorld p_i232602_1_, SaveFormat.LevelSave p_i232602_2_, DataFixer p_i232602_3_, TemplateManager p_i232602_4_, Executor p_i232602_5_, ThreadTaskExecutor<Runnable> p_i232602_6_, IChunkLightProvider p_i232602_7_, ChunkGenerator p_i232602_8_, IChunkStatusListener p_i232602_9_, Supplier<DimensionSavedDataManager> p_i232602_10_, int p_i232602_11_, boolean p_i232602_12_) {
+       super(new File(p_i232602_2_.func_237291_a_(p_i232602_1_.func_234923_W_()), "region"), p_i232602_3_, p_i232602_12_);
+       this.field_219269_w = p_i232602_4_;
 @@ -400,6 +_,7 @@
              if (this.field_219253_g.remove(p_219212_1_, p_219212_3_) && p_219185_5_ != null) {
                 if (p_219185_5_ instanceof Chunk) {
@@ -32,7 +47,7 @@
           if (p_219199_5_ && !p_219199_4_) {
              ChunkHolder chunkholder = this.func_219219_b(p_219199_2_.func_201841_a());
              if (chunkholder != null) {
-@@ -942,7 +_,7 @@
+@@ -942,9 +_,10 @@
     }
  
     protected void func_219210_a(Entity p_219210_1_) {
@@ -40,4 +55,15 @@
 +      if (!(p_219210_1_ instanceof net.minecraftforge.entity.PartEntity)) {
           EntityType<?> entitytype = p_219210_1_.func_200600_R();
           int i = entitytype.func_233602_m_() * 16;
++         i = org.spigotmc.TrackingRange.getEntityTrackingRange(p_219210_1_, i); // Spigot
           int j = entitytype.func_220332_l();
+          if (this.field_219272_z.containsKey(p_219210_1_.func_145782_y())) {
+             throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException("Entity is already tracked!"));
+@@ -1167,6 +_,7 @@
+ 
+          for(Entity entity : collection) {
+             int j = entity.func_200600_R().func_233602_m_() * 16;
++            j = org.spigotmc.TrackingRange.getEntityTrackingRange(entity, j); // Paper
+             if (j > i) {
+                i = j;
+             }

@@ -9,14 +9,76 @@
     private static final Logger field_150817_t = LogManager.getLogger();
     @Nullable
     public static final ChunkSection field_186036_a = null;
-@@ -92,6 +_,7 @@
+@@ -84,17 +_,67 @@
+    private Supplier<ChunkHolder.LocationType> field_217329_u;
+    @Nullable
+    private Consumer<Chunk> field_217330_v;
+-   private final ChunkPos field_212816_F;
++   private final ChunkPos field_212816_F; public final long coordinateKey; public final int locX; public final int locZ; // Paper - cache coordinate key
+    private volatile boolean field_217331_x;
+ 
++   // GoldenForge - paper entity list
++   public final com.destroystokyo.paper.util.maplist.EntityList entities = new com.destroystokyo.paper.util.maplist.EntityList();
++   // GoldenForge end
++
++   // GoldenForge - callback
++   public void loadCallback() {
++//      // Paper start - neighbour cache
++//      int chunkX = this.loc.x;
++//      int chunkZ = this.loc.z;
++//      ChunkProviderServer chunkProvider = ((WorldServer)this.world).getChunkProvider();
++//      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
++//         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
++//            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
++//            if (neighbour != null) {
++//               neighbour.setNeighbourLoaded(-dx, -dz, this);
++//               // should be in cached already
++//               this.setNeighbourLoaded(dx, dz, neighbour);
++//            }
++//         }
++//      }
++//      this.setNeighbourLoaded(0, 0, this);
++//      this.loadedTicketLevel = true;
++//      // Paper end - neighbour cache
++      ((ServerWorld)this.field_76637_e).func_72863_F().addLoadedChunk(this); // Paper
++      //((WorldServer)this.world).getChunkProvider().playerChunkMap.playerChunkManager.onChunkLoad(this.loc.x, this.loc.z); // Tuinity - rewrite player chunk management
++   }
++
++   public void unloadCallback() {
++
++      ((ServerWorld)this.field_76637_e).func_72863_F().removeLoadedChunk(this); // Paper
++//      // Paper start - neighbour cache
++//      int chunkX = this.loc.x;
++//      int chunkZ = this.loc.z;
++//      ChunkProviderServer chunkProvider = ((WorldServer)this.world).getChunkProvider();
++//      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
++//         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
++//            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
++//            if (neighbour != null) {
++//               neighbour.setNeighbourUnloaded(-dx, -dz);
++//            }
++//         }
++//      }
++//      this.loadedTicketLevel = false;
++//      this.resetNeighbours();
++//      // Paper end
++   }
++   // GoldenForge end
++
+    public Chunk(World p_i225780_1_, ChunkPos p_i225780_2_, BiomeContainer p_i225780_3_) {
+       this(p_i225780_1_, p_i225780_2_, p_i225780_3_, UpgradeData.field_196994_a, EmptyTickList.func_205388_a(), EmptyTickList.func_205388_a(), 0L, (ChunkSection[])null, (Consumer<Chunk>)null);
     }
  
     public Chunk(World p_i225781_1_, ChunkPos p_i225781_2_, BiomeContainer p_i225781_3_, UpgradeData p_i225781_4_, ITickList<Block> p_i225781_5_, ITickList<Fluid> p_i225781_6_, long p_i225781_7_, @Nullable ChunkSection[] p_i225781_9_, @Nullable Consumer<Chunk> p_i225781_10_) {
 +      super(Chunk.class);
        this.field_76645_j = new ClassInheritanceMultiMap[16];
        this.field_76637_e = p_i225781_1_;
-       this.field_212816_F = p_i225781_2_;
+-      this.field_212816_F = p_i225781_2_;
++      this.locX = p_i225781_2_.field_77276_a; this.locZ = p_i225781_2_.field_77275_b; // Paper - reduce need for field look ups
++      this.field_212816_F = p_i225781_2_; this.coordinateKey = ChunkPos.func_77272_a(locX, locZ); // Paper - cache long key
+       this.field_196967_n = p_i225781_4_;
+ 
+       for(Heightmap.Type heightmap$type : Heightmap.Type.values()) {
 @@ -119,7 +_,7 @@
              field_150817_t.warn("Could not set level chunk sections, array length is {} instead of {}", p_i225781_9_.length, this.field_76652_q.length);
           }
@@ -60,7 +122,7 @@
                    this.field_76637_e.func_175690_a(p_177436_1_, tileentity1);
                 } else {
                    tileentity1.func_145836_u();
-@@ -321,11 +_,13 @@
+@@ -321,11 +_,15 @@
           k = this.field_76645_j.length - 1;
        }
  
@@ -69,8 +131,10 @@
        p_76612_1_.field_70176_ah = this.field_212816_F.field_77276_a;
        p_76612_1_.field_70162_ai = k;
        p_76612_1_.field_70164_aj = this.field_212816_F.field_77275_b;
++      this.entities.add(p_76612_1_); // GoldenForge
        this.field_76645_j[k].add(p_76612_1_);
 +      this.func_76630_e(); // Forge - ensure chunks are marked to save after an entity add
++      this.entities.remove(p_76612_1_); // GoldenForge
     }
  
     public void func_201607_a(Heightmap.Type p_201607_1_, long[] p_201607_2_) {
@@ -213,28 +277,18 @@
           } else {
              tileentity = null;
              field_150817_t.warn("Tried to load a DUMMY block entity @ {} but found not block entity block {} at location", p_212815_1_, blockstate);
-@@ -794,5 +_,31 @@
+@@ -794,5 +_,21 @@
        IMMEDIATE,
        QUEUED,
        CHECK;
 +   }
 +
-+   /**
-+    * <strong>FOR INTERNAL USE ONLY</strong>
-+    * <p>
-+    * Only public for use in {@link AnvilChunkLoader}.
-+    */
 +   @java.lang.Deprecated
 +   @javax.annotation.Nullable
 +   public final CompoundNBT writeCapsToNBT() {
 +      return this.serializeCaps();
 +   }
 +
-+   /**
-+    * <strong>FOR INTERNAL USE ONLY</strong>
-+    * <p>
-+    * Only public for use in {@link AnvilChunkLoader}.
-+    */
 +   @java.lang.Deprecated
 +   public final void readCapsFromNBT(CompoundNBT tag) {
 +      this.deserializeCaps(tag);

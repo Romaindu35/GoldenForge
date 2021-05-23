@@ -1,13 +1,46 @@
 --- a/net/minecraft/entity/item/ItemEntity.java
 +++ b/net/minecraft/entity/item/ItemEntity.java
-@@ -38,6 +_,10 @@
+@@ -16,6 +_,7 @@
+ import net.minecraft.network.datasync.DataSerializers;
+ import net.minecraft.network.datasync.EntityDataManager;
+ import net.minecraft.network.play.server.SSpawnObjectPacket;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.stats.Stats;
+ import net.minecraft.tags.FluidTags;
+ import net.minecraft.util.DamageSource;
+@@ -38,6 +_,35 @@
     private UUID field_145801_f;
     private UUID field_145802_g;
     public final float field_70290_d;
++   private int lastTick = MinecraftServer.currentTick - 1; // CraftBukkit
 +   /**
 +    * The maximum age of this EntityItem.  The item is expired once this is reached.
 +    */
 +   public int lifespan = 6000;
++
++   // Spigot start - copied from above
++   @Override
++   public void inactiveTick() {
++      // CraftBukkit start - Use wall time for pickup and despawn timers
++      int elapsedTicks = MinecraftServer.currentTick - this.lastTick;
++      if (this.field_145804_b != 32767) this.field_145804_b -= elapsedTicks;
++      this.field_145804_b = Math.max(0, this.field_145804_b); // Paper - don't go below 0
++      if (this.field_70292_b != -32768) this.field_70292_b += elapsedTicks;
++      this.lastTick = MinecraftServer.currentTick;
++      // CraftBukkit end
++
++      if (!this.field_70170_p.field_72995_K && this.field_70292_b >= this.getDespawnRate()) { // Spigot // Paper
++         //TODO: fire forge event
++//         // CraftBukkit start - fire ItemDespawnEvent
++//         if (org.bukkit.craftbukkit.event.CraftEventFactory.callItemDespawnEvent(this).isCancelled()) {
++//            this.age = 0;
++//            return;
++//         }
++//         // CraftBukkit end
++         this.func_70106_y();
++      }
++   }
++   // Spigot end
  
     public ItemEntity(EntityType<? extends ItemEntity> p_i50217_1_, World p_i50217_2_) {
        super(p_i50217_1_, p_i50217_2_);
@@ -116,12 +149,20 @@
        if (!this.field_70170_p.field_72995_K && entity instanceof ItemEntity) {
           ((ItemEntity)entity).func_85054_d();
        }
-@@ -396,7 +_,7 @@
+@@ -396,8 +_,14 @@
  
     public void func_174870_v() {
        this.func_174871_r();
 -      this.field_70292_b = 5999;
+-   }
 +      this.field_70292_b = func_92059_d().getEntityLifespan(field_70170_p) - 1;
-    }
++   }
++
++   // Paper start
++   public int getDespawnRate(){
++      return  field_70170_p.spigotConfig.itemDespawnRate;
++   }
++   // Paper end
  
     @OnlyIn(Dist.CLIENT)
+    public float func_234272_a_(float p_234272_1_) {

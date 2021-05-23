@@ -1,0 +1,21 @@
+--- a/net/minecraft/entity/AreaEffectCloudEntity.java
++++ b/net/minecraft/entity/AreaEffectCloudEntity.java
+@@ -146,6 +_,18 @@
+       this.field_184505_h = p_184486_1_;
+    }
+ 
++   // Spigot start - copied from below
++   @Override
++   public void inactiveTick() {
++      super.inactiveTick();
++
++      if (this.field_70173_aa >= this.field_184506_as + this.field_184505_h) {
++         this.func_70106_y();
++         return;
++      }
++   }
++   // Spigot end
++
+    public void func_70071_h_() {
+       super.func_70071_h_();
+       boolean flag = this.func_184497_n();
