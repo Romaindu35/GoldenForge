@@ -80,6 +80,21 @@
     public abstract static class AbstractBlockState extends StateHolder<Block, BlockState> {
        private final int field_215708_d;
        private final boolean field_215709_e;
+@@ -381,7 +_,14 @@
+          this.field_235712_p_ = abstractblock$properties.field_235819_u_;
+       }
+ 
++      // Paper start
++      protected boolean isTicking;
++      protected FluidState fluid;
++      // Paper end
++
+       public void func_215692_c() {
++         this.fluid = this.func_177230_c().func_204507_t(this.func_230340_p_());
++         this.isTicking = this.func_177230_c().func_149653_t(this.func_230340_p_());
+          if (!this.func_177230_c().func_208619_r()) {
+             this.field_215707_c = new AbstractBlock.AbstractBlockState.Cache(this.func_230340_p_());
+          }
 @@ -424,18 +_,24 @@
           return this.field_215709_e;
        }
@@ -106,6 +121,20 @@
        public BlockState func_185907_a(Rotation p_185907_1_) {
           return this.func_177230_c().func_185499_a(this.func_230340_p_(), p_185907_1_);
        }
+@@ -678,11 +_,11 @@
+       }
+ 
+       public FluidState func_204520_s() {
+-         return this.func_177230_c().func_204507_t(this.func_230340_p_());
++         return fluid;
+       }
+ 
+       public boolean func_204519_t() {
+-         return this.func_177230_c().func_149653_t(this.func_230340_p_());
++         return isTicking;
+       }
+ 
+       @OnlyIn(Dist.CLIENT)
 @@ -802,8 +_,11 @@
        private ResourceLocation field_222381_j;
        private boolean field_226895_m_ = true;

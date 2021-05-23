@@ -398,6 +398,27 @@
                    blockstate.func_215697_a(this, blockpos, p_175666_2_, p_175666_1_, false);
                 }
              }
+@@ -1003,9 +_,18 @@
+    public abstract ITagCollectionSupplier func_205772_D();
+ 
+    public BlockPos func_217383_a(int p_217383_1_, int p_217383_2_, int p_217383_3_, int p_217383_4_) {
++      BlockPos.Mutable ret = new BlockPos.Mutable();
++      this.getRandomBlockPosition(p_217383_1_, p_217383_2_, p_217383_3_, p_217383_4_, ret);
++      return ret.func_185334_h();
++   }
++
++   public final BlockPos.Mutable getRandomBlockPosition(int i, int j, int k, int l, BlockPos.Mutable out) {
++      // Paper end
+       this.field_73005_l = this.field_73005_l * 3 + 1013904223;
+-      int i = this.field_73005_l >> 2;
+-      return new BlockPos(p_217383_1_ + (i & 15), p_217383_2_ + (i >> 16 & p_217383_4_), p_217383_3_ + (i >> 8 & 15));
++      int i1 = this.field_73005_l >> 2;
++
++      out.func_181079_c(i + (i1 & 15), j + (i1 >> 16 & l), k + (i1 >> 8 & 15)); // Paper - change to setValues call
++      return out; // Paper
+    }
+ 
+    public boolean func_217402_u() {
 @@ -1022,6 +_,18 @@
  
     public BiomeManager func_225523_d_() {

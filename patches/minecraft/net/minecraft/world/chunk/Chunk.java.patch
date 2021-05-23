@@ -9,7 +9,7 @@
     private static final Logger field_150817_t = LogManager.getLogger();
     @Nullable
     public static final ChunkSection field_186036_a = null;
-@@ -84,17 +_,67 @@
+@@ -84,17 +_,79 @@
     private Supplier<ChunkHolder.LocationType> field_217329_u;
     @Nullable
     private Consumer<Chunk> field_217330_v;
@@ -19,6 +19,18 @@
  
 +   // GoldenForge - paper entity list
 +   public final com.destroystokyo.paper.util.maplist.EntityList entities = new com.destroystokyo.paper.util.maplist.EntityList();
++   // GoldenForge end
++
++   // GoldenForge - optimise ticking
++   private int lightningTick;
++   // shouldDoLightning compiles down to 29 bytes, which with the default of 35 byte inlining should guarantee an inline
++   public final boolean shouldDoLightning(java.util.Random random) {
++      if (this.lightningTick-- <= 0) {
++         this.lightningTick = random.nextInt(100000) << 1;
++         return true;
++      }
++      return false;
++   }
 +   // GoldenForge end
 +
 +   // GoldenForge - callback

@@ -1,5 +1,16 @@
 --- a/net/minecraft/util/palette/PalettedContainer.java
 +++ b/net/minecraft/util/palette/PalettedContainer.java
+@@ -29,8 +_,8 @@
+    private final Function<CompoundNBT, T> field_205524_e;
+    private final Function<T, CompoundNBT> field_205525_f;
+    private final T field_205526_g;
+-   protected BitArray field_186021_b;
+-   private IPalette<T> field_186022_c;
++   protected BitArray field_186021_b;  public final BitArray getDataBits() { return this.field_186021_b; } // Paper - OBFHELPER
++   private IPalette<T> field_186022_c; private IPalette<T> getDataPalette() { return this.field_186022_c; } // Paper - OBFHELPER
+    private int field_186024_e;
+    private final ReentrantLock field_210461_j = new ReentrantLock();
+ 
 @@ -66,8 +_,11 @@
     }
  
@@ -41,3 +52,18 @@
     }
  
     public void func_186009_b(PacketBuffer p_186009_1_) {
+@@ -232,6 +_,14 @@
+          p_225497_1_.accept(this.field_186022_c.func_186039_a(p_225499_2_.getIntKey()), p_225499_2_.getIntValue());
+       });
+    }
++
++   // Paper start
++   public void forEachLocation(PalettedContainer.ICountConsumer<T> datapaletteblock_a) {
++      this.getDataBits().forEach((int location, int data) -> {
++         datapaletteblock_a.accept(this.getDataPalette().func_186039_a(data), location);
++      });
++   }
++   // Paper end
+ 
+    @FunctionalInterface
+    public interface ICountConsumer<T> {

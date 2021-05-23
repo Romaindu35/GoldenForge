@@ -96,6 +96,14 @@
     public ServerChunkProvider(ServerWorld p_i232603_1_, SaveFormat.LevelSave p_i232603_2_, DataFixer p_i232603_3_, TemplateManager p_i232603_4_, Executor p_i232603_5_, ChunkGenerator p_i232603_6_, int p_i232603_7_, boolean p_i232603_8_, IChunkStatusListener p_i232603_9_, Supplier<DimensionSavedDataManager> p_i232603_10_) {
        this.field_73251_h = p_i232603_1_;
        this.field_217243_i = new ServerChunkProvider.ChunkExecutor(p_i232603_1_);
+@@ -334,6 +_,7 @@
+       boolean flag1 = this.field_73251_h.func_82736_K().func_223586_b(GameRules.field_223601_d);
+       if (!flag) {
+          this.field_73251_h.func_217381_Z().func_76320_a("pollingChunks");
++         this.field_73251_h.resetIceAndSnowTick(); // Airplane - reset ice & snow tick random
+          int k = this.field_73251_h.func_82736_K().func_223592_c(GameRules.field_223610_m);
+          boolean flag2 = iworldinfo.func_82573_f() % 400L == 0L;
+          this.field_73251_h.func_217381_Z().func_76320_a("naturalSpawnCount");
 @@ -353,7 +_,7 @@
                 if (optional1.isPresent()) {
                    Chunk chunk = optional1.get();

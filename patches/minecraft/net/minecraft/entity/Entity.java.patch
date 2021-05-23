@@ -23,9 +23,12 @@
     public boolean field_70128_L;
     public float field_70141_P;
     public float field_70140_Q;
-@@ -155,8 +_,8 @@
+@@ -153,10 +_,10 @@
+    public float field_70138_W;
+    public boolean field_70145_X;
     public float field_70144_Y;
-    protected final Random field_70146_Z = new Random();
+-   protected final Random field_70146_Z = new Random();
++   protected final Random field_70146_Z = SHARED_RANDOM; // Paper
     public int field_70173_aa;
 -   private int field_190534_ay = -this.func_190531_bD();
 -   protected boolean field_70171_ac;
@@ -45,7 +48,7 @@
     protected int field_82153_h;
     protected BlockPos field_242271_ac;
     private boolean field_83001_bt;
-@@ -194,7 +_,17 @@
+@@ -194,7 +_,32 @@
     private EntitySize field_213325_aI;
     private float field_213326_aJ;
  
@@ -56,6 +59,21 @@
 +   public long activatedTick = Integer.MIN_VALUE;
 +   public void inactiveTick() { }
 +   public boolean isTemporarilyActive = false;
++   // GoldenForge end
++
++   // GoldenForge start - use shared_random
++   public static Random SHARED_RANDOM = new Random() {
++      private boolean locked = false;
++      @Override
++      public synchronized void setSeed(long seed) {
++         if (locked) {
++            LogManager.getLogger().error("Ignoring setSeed on Entity.SHARED_RANDOM", new Throwable());
++         } else {
++            super.setSeed(seed);
++            locked = true;
++         }
++      }
++   };
 +   // GoldenForge end
 +
     public Entity(EntityType<?> p_i48580_1_, World p_i48580_2_) {
