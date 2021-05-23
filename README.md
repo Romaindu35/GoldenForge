@@ -5,7 +5,7 @@
 <h3>The most powerfull forge server software (not yet) which aims for high capacity and performance on 1.16.5 modded server.</h3>
 </div>
 
-## This branch is to make the paper patches and [C^2M-Engine](https://github.com/YatopiaMC/C2ME-forge/) work together.
+## Currently working to make the paper patches and [C^2M-Engine](https://github.com/YatopiaMC/C2ME-forge/) work together.
 
 ## Download
 You can try the last stable release in [the release tab](https://github.com/GoldenForge/GoldenForge/releases). 
