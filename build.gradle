@@ -201,8 +201,7 @@ project(':forge') {
     }
 
     /*Util.getVersion(GIT_INFO, MC_VERSION) */
-    int jenkin_build_number = JenkinsNumber()
-    version = '1.16.5-36.1.4'
+    version = '1.16.5-36.1.23'
     println('Forge Version: ' + version)
 
     patcher {
@@ -674,7 +673,7 @@ project(':forge') {
                 logo: '/big_logo.png',
                 minecraft: MC_VERSION,
                 welcome: "Welcome to the simple ${project.name.capitalize()} installer.",
-                mirrorList: "https://modcraftmc.fr/mirrors.json",
+                mirrorList: "http://185.157.247.64/mirrors.json",
                 data: [
                     MAPPINGS: [
                         client: "[${MCP_ARTIFACT.group}:${MCP_ARTIFACT.name}:${MCP_ARTIFACT.version}:mappings@txt]",

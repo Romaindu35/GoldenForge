@@ -1,151 +1,26 @@
 --- a/net/minecraft/entity/player/ServerPlayerEntity.java
 +++ b/net/minecraft/entity/player/ServerPlayerEntity.java
-@@ -1,15 +_,11 @@
- package net.minecraft.entity.player;
- 
-+import com.destroystokyo.paper.util.MCUtil;
- import com.google.common.collect.Lists;
- import com.mojang.authlib.GameProfile;
- import com.mojang.datafixers.util.Either;
--import java.util.Collection;
--import java.util.Iterator;
--import java.util.List;
--import java.util.Optional;
--import java.util.OptionalInt;
--import java.util.Random;
--import java.util.UUID;
-+
-+import java.util.*;
- import javax.annotation.Nullable;
- import net.minecraft.advancements.CriteriaTriggers;
- import net.minecraft.advancements.PlayerAdvancements;
-@@ -22,10 +_,7 @@
- import net.minecraft.crash.CrashReport;
- import net.minecraft.crash.CrashReportCategory;
- import net.minecraft.crash.ReportedException;
--import net.minecraft.entity.Entity;
--import net.minecraft.entity.IAngerable;
--import net.minecraft.entity.LivingEntity;
--import net.minecraft.entity.MobEntity;
-+import net.minecraft.entity.*;
- import net.minecraft.entity.item.ItemEntity;
- import net.minecraft.entity.monster.MonsterEntity;
- import net.minecraft.entity.passive.horse.AbstractHorseEntity;
-@@ -47,6 +_,7 @@
- import net.minecraft.nbt.CompoundNBT;
- import net.minecraft.nbt.NBTDynamicOps;
- import net.minecraft.network.IPacket;
-+import net.minecraft.network.NetworkManager;
- import net.minecraft.network.play.ServerPlayNetHandler;
- import net.minecraft.network.play.client.CClientSettingsPacket;
- import net.minecraft.network.play.server.SAnimateHandPacket;
-@@ -126,6 +_,7 @@
- import net.minecraft.world.GameType;
- import net.minecraft.world.World;
- import net.minecraft.world.biome.BiomeManager;
-+import net.minecraft.world.chunk.Chunk;
- import net.minecraft.world.server.ServerWorld;
- import net.minecraft.world.storage.IWorldInfo;
- import org.apache.logging.log4j.LogManager;
-@@ -133,10 +_,12 @@
- 
- public class ServerPlayerEntity extends PlayerEntity implements IContainerListener {
-    private static final Logger field_147102_bM = LogManager.getLogger();
-+   public long lastSave = MinecraftServer.currentTick; // Paper
-    public ServerPlayNetHandler field_71135_a;
-+   public NetworkManager networkManager; // Paper
-    public final MinecraftServer field_71133_b;
-    public final PlayerInteractionManager field_71134_c;
--   private final List<Integer> field_71130_g = Lists.newLinkedList();
-+   private final Deque<Integer> field_71130_g = new ArrayDeque<>(); // Paper
-    private final PlayerAdvancements field_192042_bX;
-    private final ServerStatisticsManager field_147103_bO;
-    private float field_130068_bO = Float.MIN_VALUE;
-@@ -175,6 +_,34 @@
+@@ -175,6 +_,10 @@
     public int field_71138_i;
     public boolean field_71136_j;
  
-+   public boolean isRealPlayer; // Paper
-+   public ServerWorld getWorldServer() {
-+      return (ServerWorld) this.field_70170_p;
-+   }
-+   public long lastHighPriorityChecked; // Paper
-+   public long loginTime; // Paper
-+   private int containerUpdateDelay; // Paper
-+   public void forceCheckHighPriority() {
-+      lastHighPriorityChecked = -1;
-+      getWorldServer().func_72863_F().field_217237_a.checkHighPriorityChunks(this);
-+   }
-+
-+   // Paper start
-+   public static final int ENUMCREATURETYPE_TOTAL_ENUMS = EntityClassification.values().length;
-+   public final int[] mobCounts = new int[ENUMCREATURETYPE_TOTAL_ENUMS]; // Paper
-+   public final com.destroystokyo.paper.util.PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleMobDistanceMap = new com.destroystokyo.paper.util.PooledHashSets.PooledObjectLinkedOpenHashSet<>(this);;
 +   public boolean affectsSpawning = true;
-+   public double lastEntitySpawnRadiusSquared; // Paper - optimise isOutsideRange, this field is in blocks
-+   public boolean needsChunkCenterUpdate; // Paper - no-tick view distance
-+   public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleHashSet = new com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<>(this); // Paper
-+
-+   public ChunkPos getChunkInFront(double inFront) {
-+      double rads = Math.toRadians(MCUtil.normalizeYaw(this.field_70177_z+90)); // MC rotates yaw 90 for some odd reason
-+      final double x = func_226277_ct_() + (inFront * 16) * Math.cos(rads);
-+      final double z = func_226281_cx_() + (inFront * 16) * Math.sin(rads);
-+      return new ChunkPos(MathHelper.func_76128_c(x) >> 4, MathHelper.func_76128_c(z) >> 4);
-+   }
++   public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleHashSet; // Paper
++   public final com.destroystokyo.paper.util.PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleMobDistanceMap;
 +
     public ServerPlayerEntity(MinecraftServer p_i45285_1_, ServerWorld p_i45285_2_, GameProfile p_i45285_3_, PlayerInteractionManager p_i45285_4_) {
        super(p_i45285_2_, p_i45285_2_.func_241135_u_(), p_i45285_2_.func_242107_v(), p_i45285_3_);
        p_i45285_4_.field_73090_b = this;
-@@ -357,7 +_,12 @@
-          --this.field_70172_ad;
-       }
+@@ -185,6 +_,9 @@
+       this.field_70138_W = 1.0F;
+       this.func_205734_a(p_i45285_2_);
+       this.field_244528_co = p_i45285_1_.func_244435_a(this);
++
++      this.cachedSingleHashSet = new com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<>(this); // Paper
++      this.cachedSingleMobDistanceMap = new com.destroystokyo.paper.util.PooledHashSets.PooledObjectLinkedOpenHashSet<>(this); // Paper
+    }
  
--      this.field_71070_bA.func_75142_b();
-+      // Paper start - Configurable container update tick rate
-+      if (--containerUpdateDelay <= 0) {
-+         this.field_71070_bA.func_75142_b();
-+         containerUpdateDelay = field_70170_p.paperConfig.containerUpdateTickRate;
-+      }
-+      // Paper end
-       if (!this.field_70170_p.field_72995_K && !this.field_71070_bA.func_75145_c(this)) {
-          this.func_71053_j();
-          this.field_71070_bA = this.field_71069_bz;
-@@ -366,13 +_,19 @@
-       while(!this.field_71130_g.isEmpty()) {
-          int i = Math.min(this.field_71130_g.size(), Integer.MAX_VALUE);
-          int[] aint = new int[i];
--         Iterator<Integer> iterator = this.field_71130_g.iterator();
-+         //Iterator<Integer> iterator = this.entitiesToRemove.iterator();
-          int j = 0;
- 
--         while(iterator.hasNext() && j < i) {
--            aint[j++] = iterator.next();
--            iterator.remove();
-+//         while(iterator.hasNext() && j < i) {
-+//            aint[j++] = iterator.next();
-+//            iterator.remove();
-+//         }
-+         // Paper start
-+         Integer integer;
-+         while (j < i && (integer = this.field_71130_g.poll()) != null) {
-+            aint[j++] = integer.intValue();
-          }
-+         // Paper end
- 
-          this.field_71135_a.func_147359_a(new SDestroyEntitiesPacket(aint));
-       }
-@@ -400,9 +_,10 @@
- 
-    public void func_71127_g() {
-       try {
--         if (!this.func_175149_v() || this.field_70170_p.func_175667_e(this.func_233580_cy_())) {
-+         if (!this.func_175149_v() || this.field_70170_p.func_175667_e(this.func_233580_cy_())) { // Paper - don't tick dead players that are not in the world currently (pending respawn)
-             super.func_70071_h_();
-          }
-+         if (func_70089_S() && field_71135_a != null) ((ServerWorld)field_70170_p).func_72863_F().field_217237_a.checkHighPriorityChunks(this); // Paper
- 
-          for(int i = 0; i < this.field_71071_by.func_70302_i_(); ++i) {
-             ItemStack itemstack = this.field_71071_by.func_70301_a(i);
+    private void func_205734_a(ServerWorld p_205734_1_) {
 @@ -475,6 +_,7 @@
     }
  
@@ -154,7 +29,7 @@
        boolean flag = this.field_70170_p.func_82736_K().func_223586_b(GameRules.field_223609_l);
        if (flag) {
           ITextComponent itextcomponent = this.func_110142_aN().func_151521_b();
-@@ -618,14 +_,16 @@
+@@ -618,13 +_,14 @@
     }
  
     @Nullable
@@ -170,10 +45,8 @@
 -         this.func_71121_q().func_217434_e(this);
 +         this.func_71121_q().removePlayer(this, true); //Forge: The player entity is cloned so keep the data until after cloning calls copyFrom
           if (!this.field_71136_j) {
-+            if (field_70170_p.paperConfig.disableEndCredits) this.field_192040_cp = true; // Paper - Toggle to always disable end credits
              this.field_71136_j = true;
              this.field_71135_a.func_147359_a(new SChangeGameStatePacket(SChangeGameStatePacket.field_241768_e_, this.field_192040_cp ? 0.0F : 1.0F));
-             this.field_192040_cp = true;
 @@ -638,14 +_,15 @@
           this.field_71135_a.func_147359_a(new SServerDifficultyPacket(iworldinfo.func_176130_y(), iworldinfo.func_176123_z()));
           PlayerList playerlist = this.field_71133_b.func_184103_al();
@@ -268,22 +141,7 @@
        this.field_71070_bA = this.field_71069_bz;
     }
  
-@@ -1080,11 +_,27 @@
-       this.field_71149_ch = -1.0F;
-       this.field_71146_ci = -1;
-       this.field_192041_cq.func_193824_a(p_193104_1_.field_192041_cq);
--      this.field_71130_g.addAll(p_193104_1_.field_71130_g);
-+      //this.entitiesToRemove.addAll(p_193104_1_.entitiesToRemove);
-+      // this.recipeBook.a((RecipeBook) entityplayer.recipeBook); // CraftBukkit
-+      // Paper start - Optimize remove queue - vanilla copies player objects, but CB doesn't. This method currently only
-+      // Applies to the same player, so we need to not duplicate our removal queue. The rest of this method does "resetting"
-+      // type logic so it does need to be called, maybe? This is silly.
-+      // this.removeQueue.addAll(entityplayer.removeQueue);
-+      if (this.field_71130_g != p_193104_1_.field_71130_g) {
-+         this.field_71130_g.addAll(p_193104_1_.field_71130_g);
-+      }
-+      // Paper end
-       this.field_192040_cp = p_193104_1_.field_192040_cp;
+@@ -1085,6 +_,13 @@
        this.field_193110_cw = p_193104_1_.field_193110_cw;
        this.func_192029_h(p_193104_1_.func_192023_dk());
        this.func_192031_i(p_193104_1_.func_192025_dl());
@@ -313,6 +171,19 @@
     }
  
     public ChatVisibility func_147096_v() {
+@@ -1276,7 +_,11 @@
+ 
+    @Nullable
+    public ITextComponent func_175396_E() {
+-      return null;
++      if (!this.hasTabListName) {
++         this.tabListDisplayName = net.minecraftforge.event.ForgeEventFactory.getPlayerTabListDisplayName(this);
++         this.hasTabListName = true;
++      }
++      return this.tabListDisplayName;
+    }
+ 
+    public void func_184609_a(Hand p_184609_1_) {
 @@ -1301,14 +_,14 @@
        this.func_184210_p();
        if (p_200619_1_ == this.field_70170_p) {
@@ -356,10 +227,11 @@
           this.field_70170_p.func_217376_c(itementity);
           ItemStack itemstack = itementity.func_92059_d();
           if (p_146097_3_) {
-@@ -1403,6 +_,15 @@
+@@ -1402,6 +_,29 @@
+          }
  
           return itementity;
-       }
++      }
 +   }
 +
 +   private String language = "en_us";
@@ -369,6 +241,19 @@
 +    */
 +   public String getLanguage() {
 +      return this.language;
++   }
++
++   // We need this as tablistDisplayname may be null even if the the event was fired.
++   private boolean hasTabListName = false;
++   private ITextComponent tabListDisplayName = null;
++   /**
++    * Force the name displayed in the tab list to refresh, by firing {@link net.minecraftforge.event.entity.player.PlayerEvent.TabListNameFormat}.
++    */
++   public void refreshTabListName() {
++      ITextComponent oldName = this.tabListDisplayName;
++      this.tabListDisplayName = net.minecraftforge.event.ForgeEventFactory.getPlayerTabListDisplayName(this);
++      if (!java.util.Objects.equals(oldName, this.tabListDisplayName)) {
++         this.func_184102_h().func_184103_al().func_148540_a(new net.minecraft.network.play.server.SPlayerListItemPacket(net.minecraft.network.play.server.SPlayerListItemPacket.Action.UPDATE_DISPLAY_NAME, this));
+       }
     }
  
-    @Nullable

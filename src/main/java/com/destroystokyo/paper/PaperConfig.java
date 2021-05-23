@@ -1,6 +1,5 @@
 package com.destroystokyo.paper;
 
-import com.destroystokyo.paper.io.chunk.ChunkTaskManager;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
@@ -308,61 +307,6 @@ public class PaperConfig {
         if (config.contains("settings.use-optimized-ticklist")) { // don't add default, hopefully temporary config
             useOptimizedTickList = config.getBoolean("settings.use-optimized-ticklist");
         }
-    }
-
-    public static boolean asyncChunks = false;
-    private static void asyncChunks() {
-        ConfigurationSection section;
-        if (version < 15) {
-            section = config.createSection("settings.async-chunks");
-            section.set("threads", -1);
-        } else {
-            section = config.getConfigurationSection("settings.async-chunks");
-            if (section == null) {
-                section = config.createSection("settings.async-chunks");
-            }
-        }
-        // Clean up old configs
-        if (section.contains("load-threads")) {
-            if (!section.contains("threads")) {
-                section.set("threads", section.get("load-threads"));
-            }
-            section.set("load-threads", null);
-        }
-        section.set("generation", null);
-        section.set("enabled", null);
-        section.set("thread-per-world-generation", null);
-
-        int threads = getInt("settings.async-chunks.threads", -1);
-        int cpus = Runtime.getRuntime().availableProcessors();
-        if (threads <= 0) {
-            threads = (int) Math.min(Integer.getInteger("paper.maxChunkThreads", 8), Math.max(1, cpus - 1));
-        }
-        if (cpus == 1 && !Boolean.getBoolean("Paper.allowAsyncChunksSingleCore")) {
-            asyncChunks = false;
-        } else {
-            asyncChunks = true;
-        }
-
-        // Let Shared Host set some limits
-        String sharedHostThreads = System.getenv("PAPER_ASYNC_CHUNKS_SHARED_HOST_THREADS");
-        if (sharedHostThreads != null) {
-            try {
-                threads = Math.max(1, Math.min(threads, Integer.parseInt(sharedHostThreads)));
-            } catch (NumberFormatException ignored) {}
-        }
-
-        if (!asyncChunks) {
-            log("Async Chunks: Disabled - Chunks will be managed synchronously, and will cause tremendous lag.");
-        } else {
-            ChunkTaskManager.initGlobalLoadThreads(threads);
-            log("Async Chunks: Enabled - Chunks will be loaded much faster, without lag.");
-        }
-    }
-
-    public static int midTickChunkTasks = 1000;
-    private static void midTickChunkTasks() {
-        midTickChunkTasks = getInt("settings.chunk-tasks-per-tick", midTickChunkTasks);
     }
 
     public static boolean allowBlockPermanentBreakingExploits = false;

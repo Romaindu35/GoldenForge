@@ -174,36 +174,6 @@ public class MCUtil {
         };
     }
 
-    public static BukkitTask scheduleTask(int ticks, Runnable runnable, String taskName) {
-        return MinecraftServer.getServer().getScheduler().scheduleInternalTask(runnable, ticks, taskName);
-    }
-
-    private static Queue<Runnable> getProcessQueue() {
-        return MinecraftServer.getServer().processQueue;
-    }
-
-    public static <T> T ensureMain(String reason, Supplier<T> run) {
-        if (AsyncCatcher.enabled && Thread.currentThread() != MinecraftServer.getServer().serverThread) {
-            if (reason != null) {
-                new IllegalStateException("Asynchronous " + reason + "! Blocking thread until it returns ").printStackTrace();
-            }
-            Waitable<T> wait = new Waitable<T>() {
-                @Override
-                protected T evaluate() {
-                    return run.get();
-                }
-            };
-            getProcessQueue().add(wait);
-            try {
-                return wait.get();
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
-            }
-            return null;
-        }
-        return run.get();
-    }
-
     // assumes the sets have the same comparator, and if this comparator is null then assume T is Comparable
     public static <T> void mergeSortedSets(final java.util.function.Consumer<T> consumer, final java.util.Comparator<? super T> comparator, final java.util.SortedSet<T>...sets) {
         final ObjectRBTreeSet<T> all = new ObjectRBTreeSet<>(comparator);

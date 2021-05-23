@@ -1,7 +1,6 @@
 package org.spigotmc;
 
 import com.destroystokyo.paper.PaperConfig;
-import com.destroystokyo.paper.io.chunk.ChunkTaskManager;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
@@ -121,7 +120,6 @@ public class WatchdogThread extends Thread
                 // Paper end - Different message for short timeout
                 log.log( Level.FATAL, "------------------------------" );
                 log.log( Level.FATAL, "Server thread dump (Look for plugins here before reporting to Paper!):" ); // Paper
-                ChunkTaskManager.dumpAllChunkLoadInfo(); // Paper
                 dumpThread( ManagementFactory.getThreadMXBean().getThreadInfo( server.serverThread.getId(), Integer.MAX_VALUE ), log );
                 log.log( Level.FATAL, "------------------------------" );
                 //
@@ -147,12 +145,12 @@ public class WatchdogThread extends Thread
                 {
                     AsyncCatcher.enabled = false; // Disable async catcher incase it interferes with us
                     AsyncCatcher.shuttingDown = true;
-                    server.forceTicks = true;
+                    //server.forceTicks = true;
                     if (restart) {
                         //RestartCommand.addShutdownHook( SpigotConfig.restartScript );
                     }
                     // try one last chance to safe shutdown on main incase it 'comes back'
-                    server.safeShutdown(false, restart);
+                    //server.safeShutdown(false, restart);
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {

@@ -28,7 +28,7 @@ public class TicksPerSecondCommand {
         for ( int i = 0; i < tps.length; i++) {
             tpsAvg[i] = format( tps[i] );
         }
-        sender.sendSuccess(new StringTextComponent(TextFormatting.GOLD + "TPS from last 1m, 5m, 15m: " + StringUtils.join(tpsAvg, ", ")), false);
+        sender.sendSuccess(new StringTextComponent(TextFormatting.GOLD + "TPS from last 5s, 1m, 5m, 15m: " + StringUtils.join(tpsAvg, ", ")), false);
         // Paper end
 
         return 1;

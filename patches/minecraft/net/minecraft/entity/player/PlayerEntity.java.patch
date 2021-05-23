@@ -198,11 +198,9 @@
        if (p_71059_1_.func_70075_an()) {
           if (!p_71059_1_.func_85031_j(this)) {
              float f = (float)this.func_233637_b_(Attributes.field_233823_f_);
-@@ -1037,9 +_,12 @@
-                }
+@@ -1038,8 +_,10 @@
  
                 boolean flag2 = flag && this.field_70143_R > 0.0F && !this.field_70122_E && !this.func_70617_f_() && !this.func_70090_H() && !this.func_70644_a(Effects.field_76440_q) && !this.func_184218_aH() && p_71059_1_ instanceof LivingEntity;
-+               flag2 = flag2 && !field_70170_p.paperConfig.disablePlayerCrits; // Paper
                 flag2 = flag2 && !this.func_70051_ag();
 +               net.minecraftforge.event.entity.player.CriticalHitEvent hitResult = net.minecraftforge.common.ForgeHooks.getCriticalHit(this, p_71059_1_, flag2, flag2 ? 1.5F : 1.0F);
 +               flag2 = hitResult != null;
@@ -212,19 +210,6 @@
                 }
  
                 f = f + f1;
-@@ -1074,7 +_,11 @@
-                      }
- 
-                      this.func_213317_d(this.func_213322_ci().func_216372_d(0.6D, 1.0D, 0.6D));
--                     this.func_70031_b(false);
-+                     // Paper start - Configuration option to disable automatic sprint interruption
-+                     if (!field_70170_p.paperConfig.disableSprintInterruptionOnAttack) {
-+                        this.func_70031_b(false);
-+                     }
-+                     // Paper end
-                   }
- 
-                   if (flag3) {
 @@ -1122,13 +_,15 @@
                    EnchantmentHelper.func_151385_b(this, p_71059_1_);
                    ItemStack itemstack1 = this.func_184614_ca();
@@ -243,15 +228,6 @@
                          this.func_184611_a(Hand.MAIN_HAND, ItemStack.field_190927_a);
                       }
                    }
-@@ -1146,7 +_,7 @@
-                      }
-                   }
- 
--                  this.func_71020_j(0.1F);
-+                  this.func_71020_j(field_70170_p.spigotConfig.combatExhaustion);
-                } else {
-                   this.field_70170_p.func_184148_a((PlayerEntity)null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187724_dU, this.func_184176_by(), 1.0F, 1.0F);
-                   if (flag4) {
 @@ -1170,7 +_,7 @@
        }
  
@@ -292,58 +268,6 @@
        } else if (!p_242374_3_) {
           return Optional.empty();
        } else {
-@@ -1297,9 +_,9 @@
-       super.func_70664_aZ();
-       this.func_195066_a(Stats.field_75953_u);
-       if (this.func_70051_ag()) {
--         this.func_71020_j(0.2F);
-+         this.func_71020_j(field_70170_p.spigotConfig.jumpSprintExhaustion);
-       } else {
--         this.func_71020_j(0.05F);
-+         this.func_71020_j(field_70170_p.spigotConfig.jumpWalkExhaustion);
-       }
- 
-    }
-@@ -1357,19 +_,19 @@
-             int i = Math.round(MathHelper.func_76133_a(p_71000_1_ * p_71000_1_ + p_71000_3_ * p_71000_3_ + p_71000_5_ * p_71000_5_) * 100.0F);
-             if (i > 0) {
-                this.func_195067_a(Stats.field_75946_m, i);
--               this.func_71020_j(0.01F * (float)i * 0.01F);
-+               this.func_71020_j(field_70170_p.spigotConfig.swimMultiplier * (float)i * 0.01F);
-             }
-          } else if (this.func_208600_a(FluidTags.field_206959_a)) {
-             int j = Math.round(MathHelper.func_76133_a(p_71000_1_ * p_71000_1_ + p_71000_3_ * p_71000_3_ + p_71000_5_ * p_71000_5_) * 100.0F);
-             if (j > 0) {
-                this.func_195067_a(Stats.field_211756_w, j);
--               this.func_71020_j(0.01F * (float)j * 0.01F);
-+               this.func_71020_j(field_70170_p.spigotConfig.swimMultiplier * (float)j * 0.01F);
-             }
-          } else if (this.func_70090_H()) {
-             int k = Math.round(MathHelper.func_76133_a(p_71000_1_ * p_71000_1_ + p_71000_5_ * p_71000_5_) * 100.0F);
-             if (k > 0) {
-                this.func_195067_a(Stats.field_211755_s, k);
--               this.func_71020_j(0.01F * (float)k * 0.01F);
-+               this.func_71020_j(field_70170_p.spigotConfig.swimMultiplier * (float)k * 0.01F);
-             }
-          } else if (this.func_70617_f_()) {
-             if (p_71000_3_ > 0.0D) {
-@@ -1380,13 +_,13 @@
-             if (l > 0) {
-                if (this.func_70051_ag()) {
-                   this.func_195067_a(Stats.field_188102_l, l);
--                  this.func_71020_j(0.1F * (float)l * 0.01F);
-+                  this.func_71020_j(field_70170_p.spigotConfig.sprintMultiplier * (float)l * 0.01F);
-                } else if (this.func_213453_ef()) {
-                   this.func_195067_a(Stats.field_188101_k, l);
--                  this.func_71020_j(0.0F * (float)l * 0.01F);
-+                  this.func_71020_j(field_70170_p.spigotConfig.otherMultiplier * (float)l * 0.01F);
-                } else {
-                   this.func_195067_a(Stats.field_188100_j, l);
--                  this.func_71020_j(0.0F * (float)l * 0.01F);
-+                  this.func_71020_j(field_70170_p.spigotConfig.otherMultiplier * (float)l * 0.01F);
-                }
-             }
-          } else if (this.func_184613_cA()) {
 @@ -1425,6 +_,7 @@
  
     public boolean func_225503_b_(float p_225503_1_, float p_225503_2_) {

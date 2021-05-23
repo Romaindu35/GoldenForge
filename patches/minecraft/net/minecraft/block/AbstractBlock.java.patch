@@ -80,46 +80,7 @@
     public abstract static class AbstractBlockState extends StateHolder<Block, BlockState> {
        private final int field_215708_d;
        private final boolean field_215709_e;
-@@ -363,6 +_,11 @@
-       @Nullable
-       protected AbstractBlock.AbstractBlockState.Cache field_215707_c;
- 
-+      // Paper start
-+      protected boolean isTicking;
-+      protected FluidState fluid;
-+      // Paper end
-+
-       protected AbstractBlockState(Block p_i231870_1_, ImmutableMap<Property<?>, Comparable<?>> p_i231870_2_, MapCodec<BlockState> p_i231870_3_) {
-          super(p_i231870_1_, p_i231870_2_, p_i231870_3_);
-          AbstractBlock.Properties abstractblock$properties = p_i231870_1_.field_235684_aB_;
-@@ -382,6 +_,8 @@
-       }
- 
-       public void func_215692_c() {
-+         fluid = this.func_177230_c().func_204507_t(this.func_230340_p_());
-+         isTicking = this.func_177230_c().func_149653_t(this.func_230340_p_());
-          if (!this.func_177230_c().func_208619_r()) {
-             this.field_215707_c = new AbstractBlock.AbstractBlockState.Cache(this.func_230340_p_());
-          }
-@@ -392,6 +_,12 @@
-          return this.field_235892_c_;
-       }
- 
-+      // Paper start
-+      public final boolean isDestroyable() {
-+         return func_177230_c().isDestroyable();
-+      }
-+      // Paper end
-+
-       public Material func_185904_a() {
-          return this.field_235703_g_;
-       }
-@@ -420,22 +_,28 @@
-          return this.field_215707_c == null || this.field_215707_c.field_222503_g;
-       }
- 
--      public boolean func_215691_g() {
-+      public final boolean func_215691_g() { // Paper
+@@ -424,18 +_,24 @@
           return this.field_215709_e;
        }
  
@@ -145,32 +106,6 @@
        public BlockState func_185907_a(Rotation p_185907_1_) {
           return this.func_177230_c().func_185499_a(this.func_230340_p_(), p_185907_1_);
        }
-@@ -503,7 +_,7 @@
-          }
-       }
- 
--      public boolean func_200132_m() {
-+      public final boolean func_200132_m() { //Paper
-          return this.field_235707_k_;
-       }
- 
-@@ -677,12 +_,12 @@
-          return this.func_177230_c().func_235332_a_(p_203425_1_);
-       }
- 
--      public FluidState func_204520_s() {
--         return this.func_177230_c().func_204507_t(this.func_230340_p_());
-+      public final FluidState func_204520_s() {
-+         return fluid;
-       }
- 
--      public boolean func_204519_t() {
--         return this.func_177230_c().func_149653_t(this.func_230340_p_());
-+      public final boolean func_204519_t() {
-+         return isTicking;
-       }
- 
-       @OnlyIn(Dist.CLIENT)
 @@ -802,8 +_,11 @@
        private ResourceLocation field_222381_j;
        private boolean field_226895_m_ = true;

@@ -159,8 +159,8 @@ public class ForgeMod implements WorldPersistenceHooks.WorldPersistenceHook
 
         MinecraftForge.EVENT_BUS.addListener(VillagerTradingManager::loadTrades);
         MinecraftForge.EVENT_BUS.register(MinecraftForge.INTERNAL_HANDLER);
-        MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(ForgeEventHandler.class);
+        MinecraftForge.EVENT_BUS.register(this);
         BiomeDictionary.init();
     }
 

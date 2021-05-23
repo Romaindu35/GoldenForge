@@ -8,14 +8,6 @@
  import java.util.UUID;
  import java.util.function.Function;
  import java.util.stream.Stream;
-@@ -124,6 +_,7 @@
- import net.minecraft.tags.BlockTags;
- import net.minecraft.tags.ITag;
- import net.minecraft.util.Direction;
-+import net.minecraft.util.RegistryKey;
- import net.minecraft.util.ResourceLocation;
- import net.minecraft.util.Util;
- import net.minecraft.util.datafix.TypeReferences;
 @@ -143,7 +_,7 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -59,32 +51,21 @@
     }
  
     @Nullable
-@@ -300,11 +_,16 @@
-       return this.func_220342_a(p_220331_1_, p_220331_2_ == null ? null : p_220331_2_.func_77978_p(), p_220331_2_ != null && p_220331_2_.func_82837_s() ? p_220331_2_.func_200301_q() : null, p_220331_3_, p_220331_4_, p_220331_5_, p_220331_6_, p_220331_7_);
-    }
- 
--   @Nullable
+@@ -304,6 +_,7 @@
     public T func_220342_a(ServerWorld p_220342_1_, @Nullable CompoundNBT p_220342_2_, @Nullable ITextComponent p_220342_3_, @Nullable PlayerEntity p_220342_4_, BlockPos p_220342_5_, SpawnReason p_220342_6_, boolean p_220342_7_, boolean p_220342_8_) {
-+      return spawn(p_220342_1_, p_220342_2_, p_220342_3_, p_220342_4_, p_220342_5_, p_220342_6_, p_220342_7_, p_220342_8_, SpawnReason.SPAWN_EGG);
-+   }
-+
-+      @Nullable
-+   public T spawn(ServerWorld p_220342_1_, @Nullable CompoundNBT p_220342_2_, @Nullable ITextComponent p_220342_3_, @Nullable PlayerEntity p_220342_4_, BlockPos p_220342_5_, SpawnReason p_220342_6_, boolean p_220342_7_, boolean p_220342_8_, SpawnReason reason) {
        T t = this.func_220349_b(p_220342_1_, p_220342_2_, p_220342_3_, p_220342_4_, p_220342_5_, p_220342_6_, p_220342_7_, p_220342_8_);
        if (t != null) {
--         p_220342_1_.func_242417_l(t);
 +         if (t instanceof net.minecraft.entity.MobEntity && net.minecraftforge.event.ForgeEventFactory.doSpecialSpawn((net.minecraft.entity.MobEntity) t, p_220342_1_, p_220342_5_.func_177958_n(), p_220342_5_.func_177956_o(), p_220342_5_.func_177952_p(), null, p_220342_6_)) return null;
-+         p_220342_1_.addFreshEntityWithPassengers(t, reason);
+          p_220342_1_.func_242417_l(t);
        }
  
-       return t;
 @@ -504,14 +_,23 @@
     }
  
     public int func_233602_m_() {
 +      return trackingRangeSupplier.applyAsInt(this);
 +   }
-+   public int defaultTrackingRangeSupplier() {
++   private int defaultTrackingRangeSupplier() {
        return this.field_233594_bl_;
     }
  

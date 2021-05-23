@@ -1,14 +1,5 @@
 --- a/net/minecraft/entity/item/minecart/ContainerMinecartEntity.java
 +++ b/net/minecraft/entity/item/minecart/ContainerMinecartEntity.java
-@@ -30,7 +_,7 @@
- 
- public abstract class ContainerMinecartEntity extends AbstractMinecartEntity implements IInventory, INamedContainerProvider {
-    private NonNullList<ItemStack> field_94113_a = NonNullList.func_191197_a(36, ItemStack.field_190927_a);
--   private boolean field_94112_b = true;
-+   private boolean field_94112_b = false;
-    @Nullable
-    private ResourceLocation field_184290_c;
-    private long field_184291_d;
 @@ -118,17 +_,18 @@
     }
  

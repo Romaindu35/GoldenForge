@@ -1,88 +1,12 @@
 --- a/net/minecraft/world/lighting/SkyLightEngine.java
 +++ b/net/minecraft/world/lighting/SkyLightEngine.java
-@@ -1,6 +_,7 @@
- package net.minecraft.world.lighting;
- 
- import net.minecraft.block.BlockState;
-+import net.minecraft.block.Blocks;
- import net.minecraft.util.Direction;
- import net.minecraft.util.math.BlockPos;
- import net.minecraft.util.math.SectionPos;
-@@ -16,6 +_,7 @@
- public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap, SkyLightStorage> {
-    private static final Direction[] field_215633_d = Direction.values();
-    private static final Direction[] field_215634_e = new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
-+   private final MutableInt mutableint = new MutableInt(); // Paper
- 
-    public SkyLightEngine(IChunkLightProvider p_i51289_1_) {
-       super(p_i51289_1_, LightType.SKY, new SkyLightStorage(p_i51289_1_));
-@@ -36,9 +_,10 @@
-          if (p_215480_5_ >= 15) {
-             return p_215480_5_;
-          } else {
--            MutableInt mutableint = new MutableInt();
--            BlockState blockstate = this.func_227468_a_(p_215480_3_, mutableint);
--            if (mutableint.getValue() >= 15) {
-+            //MutableInt mutableint = new MutableInt();
-+            BlockState blockstate = this.getBlockOptimized(p_215480_3_, mutableint);
-+            int blockedLight = mutableint.getValue();
-+            if (blockedLight >= 15) {
-                return 15;
-             } else {
-                int i = BlockPos.func_218290_b(p_215480_1_);
-@@ -58,7 +_,7 @@
-                   direction = Direction.func_218383_a(k1, l1, i2);
-                }
- 
--               BlockState blockstate1 = this.func_227468_a_(p_215480_1_, (MutableInt)null);
-+               BlockState blockstate1 = p_215480_1_ == Long.MAX_VALUE ? Blocks.field_150350_a.func_176223_P() : this.getBlockOptimized(p_215480_1_); // Paper
-                if (direction != null) {
-                   VoxelShape voxelshape = this.func_223405_a(blockstate1, p_215480_1_, direction);
-                   VoxelShape voxelshape1 = this.func_223405_a(blockstate, p_215480_3_, direction.func_176734_d());
-@@ -84,7 +_,7 @@
-                }
- 
-                boolean flag1 = p_215480_1_ == Long.MAX_VALUE || flag && j > i1;
--               return flag1 && p_215480_5_ == 0 && mutableint.getValue() == 0 ? 0 : p_215480_5_ + Math.max(1, mutableint.getValue());
-+               return flag1 && p_215480_5_ == 0 && blockedLight == 0 ? 0 : p_215480_5_ + Math.max(1, blockedLight);
-             }
-          }
-       }
-@@ -156,7 +_,7 @@
-       }
- 
-       long j1 = SectionPos.func_218162_e(p_215477_1_);
--      NibbleArray nibblearray = this.field_215627_c.func_215520_a(j1, true);
-+      NibbleArray nibblearray = this.field_215627_c.field_215539_f.getUpdatingOptimized(j1);
- 
-       for(Direction direction : field_215633_d) {
-          long k = BlockPos.func_218289_a(p_215477_1_, direction);
-@@ -165,7 +_,7 @@
-          if (j1 == l) {
-             nibblearray1 = nibblearray;
-          } else {
--            nibblearray1 = this.field_215627_c.func_215520_a(l, true);
-+            nibblearray1 = this.field_215627_c.field_215539_f.getUpdatingOptimized(l);
-          }
- 
-          if (nibblearray1 != null) {
-@@ -184,7 +_,7 @@
-                l = SectionPos.func_218172_a(l, Direction.UP);
-             }
- 
--            NibbleArray nibblearray2 = this.field_215627_c.func_215520_a(l, true);
-+            NibbleArray nibblearray2 = this.field_215627_c.field_215539_f.getUpdatingOptimized(l);
-             if (k != p_215477_3_) {
-                int i1;
-                if (nibblearray2 != null) {
-@@ -227,5 +_,10 @@
-    @OnlyIn(Dist.CLIENT)
+@@ -228,4 +_,9 @@
     public String func_215614_b(long p_215614_1_) {
        return super.func_215614_b(p_215614_1_) + (this.field_215627_c.func_215549_m(p_215614_1_) ? "*" : "");
-+   }
+    }
 +
 +   @Override
 +   public int queuedUpdateSize() {
 +      return 0;
-    }
++   }
  }

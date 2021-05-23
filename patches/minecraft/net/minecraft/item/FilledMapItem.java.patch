@@ -17,14 +17,3 @@
        MapData mapdata = func_219994_a(p_195950_0_, p_195950_1_);
        if (mapdata == null && p_195950_1_ instanceof ServerWorld) {
           mapdata = func_195951_a(p_195950_0_, p_195950_1_, p_195950_1_.func_72912_H().func_76079_c(), p_195950_1_.func_72912_H().func_76074_e(), 3, false, false, p_195950_1_.func_234923_W_());
-@@ -107,8 +_,8 @@
-                      int k2 = (j / i + k1 - 64) * i;
-                      int l2 = (k / i + l1 - 64) * i;
-                      Multiset<MaterialColor> multiset = LinkedHashMultiset.create();
--                     Chunk chunk = p_77872_1_.func_175726_f(new BlockPos(k2, 0, l2));
--                     if (!chunk.func_76621_g()) {
-+                     Chunk chunk = p_77872_1_.getChunkIfLoaded(new BlockPos(k2, 0, l2)); // Paper - Maps shouldn't load chunks
-+                     if (chunk != null && !chunk.func_76621_g()) {
-                         ChunkPos chunkpos = chunk.func_76632_l();
-                         int i3 = k2 & 15;
-                         int j3 = l2 & 15;

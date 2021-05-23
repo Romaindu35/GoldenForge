@@ -1,53 +1,13 @@
 --- a/net/minecraft/entity/item/ItemEntity.java
 +++ b/net/minecraft/entity/item/ItemEntity.java
-@@ -1,5 +_,7 @@
- package net.minecraft.entity.item;
- 
-+import java.util.Iterator;
-+import java.util.List;
- import java.util.Objects;
- import java.util.UUID;
- import javax.annotation.Nullable;
-@@ -16,6 +_,7 @@
- import net.minecraft.network.datasync.DataSerializers;
- import net.minecraft.network.datasync.EntityDataManager;
- import net.minecraft.network.play.server.SSpawnObjectPacket;
-+import net.minecraft.server.MinecraftServer;
- import net.minecraft.stats.Stats;
- import net.minecraft.tags.FluidTags;
- import net.minecraft.util.DamageSource;
-@@ -38,6 +_,34 @@
+@@ -38,6 +_,10 @@
     private UUID field_145801_f;
     private UUID field_145802_g;
     public final float field_70290_d;
-+   private int lastTick = MinecraftServer.currentTick - 1; // CraftBukkit
 +   /**
 +    * The maximum age of this EntityItem.  The item is expired once this is reached.
 +    */
 +   public int lifespan = 6000;
-+
-+   // Spigot start - copied from above
-+   @Override
-+   public void inactiveTick() {
-+      // CraftBukkit start - Use wall time for pickup and despawn timers
-+      int elapsedTicks = MinecraftServer.currentTick - this.lastTick;
-+      if (this.field_145804_b != 32767) this.field_145804_b -= elapsedTicks;
-+      this.field_145804_b = Math.max(0, this.field_145804_b); // Paper - don't go below 0
-+      if (this.field_70292_b != -32768) this.field_70292_b += elapsedTicks;
-+      this.lastTick = MinecraftServer.currentTick;
-+      // CraftBukkit end
-+
-+      if (!this.field_70170_p.field_72995_K && this.field_70292_b >= this.getDespawnRate()) { // Spigot // Paper
-+         this.func_70106_y();
-+      }
-+   }
-+   // Spigot end
-+
-+   // Paper start
-+   public int getDespawnRate(){
-+      return field_70170_p.spigotConfig.itemDespawnRate;
-+   }
-+   // Paper end
  
     public ItemEntity(EntityType<? extends ItemEntity> p_i50217_1_, World p_i50217_2_) {
        super(p_i50217_1_, p_i50217_2_);
@@ -59,7 +19,7 @@
     }
  
     @OnlyIn(Dist.CLIENT)
-@@ -74,13 +_,21 @@
+@@ -74,6 +_,7 @@
     }
  
     public void func_70071_h_() {
@@ -67,23 +27,6 @@
        if (this.func_92059_d().func_190926_b()) {
           this.func_70106_y();
        } else {
-          super.func_70071_h_();
--         if (this.field_145804_b > 0 && this.field_145804_b != 32767) {
--            --this.field_145804_b;
--         }
-+         // CraftBukkit start - Use wall time for pickup and despawn timers
-+         int elapsedTicks = MinecraftServer.currentTick - this.lastTick;
-+         if (this.field_145804_b != 32767) this.field_145804_b -= elapsedTicks;
-+         this.field_145804_b = Math.max(0, this.field_145804_b); // Paper - don't go below 0
-+         if (this.field_70292_b != -32768) this.field_70292_b += elapsedTicks;
-+         this.lastTick = MinecraftServer.currentTick;
-+         // CraftBukkit end
-+//         if (this.pickupDelay > 0 && this.pickupDelay != 32767) {
-+//            --this.pickupDelay;
-+//         }
- 
-          this.field_70169_q = this.func_226277_ct_();
-          this.field_70167_r = this.func_226278_cu_();
 @@ -108,7 +_,7 @@
              this.func_213315_a(MoverType.SELF, this.func_213322_ci());
              float f1 = 0.98F;
@@ -108,38 +51,6 @@
 +         if (item.func_190926_b()) {
              this.func_70106_y();
           }
- 
-@@ -163,17 +_,26 @@
- 
-    private void func_85054_d() {
-       if (this.func_213857_z()) {
--         for(ItemEntity itementity : this.field_70170_p.func_175647_a(ItemEntity.class, this.func_174813_aQ().func_72314_b(0.5D, 0.0D, 0.5D), (p_213859_1_) -> {
-+
-+         // Spigot start
-+         double radius = field_70170_p.spigotConfig.itemMerge;
-+         List<ItemEntity> list = this.field_70170_p.func_175647_a(ItemEntity.class, this.func_174813_aQ().func_72314_b(radius, radius, radius), (p_213859_1_) -> {
-+            // Spigot end
-             return p_213859_1_ != this && p_213859_1_.func_213857_z();
--         })) {
--            if (itementity.func_213857_z()) {
--               this.func_226530_a_(itementity);
-+         });
-+
-+         Iterator iterator = list.iterator();
-+
-+         while (iterator.hasNext()) {
-+            ItemEntity entityitem = (ItemEntity) iterator.next();
-+
-+            if (entityitem.func_213857_z()) {
-+               this.func_226530_a_(entityitem);
-                if (this.field_70128_L) {
-                   break;
-                }
-             }
-          }
--
-       }
-    }
  
 @@ -202,6 +_,8 @@
           return false;

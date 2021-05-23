@@ -10,9 +10,9 @@ public class GoldenForge {
 
     private static String name = "GoldenForge";
 
-    public static GoldenScheduler getScheduler() {
-        return MinecraftServer.getServer().getScheduler();
-    }
+//    public static GoldenScheduler getScheduler() {
+//        return MinecraftServer.getServer().getScheduler();
+//    }
 
     public static String getName() {
         return name;
@@ -24,6 +24,12 @@ public class GoldenForge {
 
     public static final boolean isEnabled() {
         return true;
+    }
+
+    public static boolean isStopping() {
+        //return MinecraftServer.getServer().hasStopped();
+        return false;
+        //TODO:
     }
 
     public static boolean isPrimaryThread() {

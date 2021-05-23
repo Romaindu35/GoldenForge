@@ -1,40 +1,5 @@
 --- a/net/minecraft/server/gui/MinecraftServerGui.java
 +++ b/net/minecraft/server/gui/MinecraftServerGui.java
-@@ -27,8 +_,12 @@
- import javax.swing.text.AttributeSet;
- import javax.swing.text.BadLocationException;
- import javax.swing.text.Document;
-+
-+import net.minecraft.server.MinecraftServer;
- import net.minecraft.server.dedicated.DedicatedServer;
- import net.minecraft.util.DefaultUncaughtExceptionHandler;
-+import net.minecraft.util.Util;
-+import net.minecraft.util.text.StringTextComponent;
- import org.apache.logging.log4j.LogManager;
- import org.apache.logging.log4j.Logger;
- 
-@@ -57,7 +_,7 @@
-          public void windowClosing(WindowEvent p_windowClosing_1_) {
-             if (!minecraftservergui.field_219052_f.getAndSet(true)) {
-                jframe.setTitle("Minecraft server - shutting down!");
--               p_219048_0_.func_71263_m(true);
-+               p_219048_0_.safeShutdown(true);
-                minecraftservergui.func_219046_f();
-             }
- 
-@@ -88,9 +_,9 @@
- 
-    private JComponent func_120019_b() {
-       JPanel jpanel = new JPanel(new BorderLayout());
--      StatsComponent statscomponent = new StatsComponent(this.field_120021_b);
--      this.field_219051_e.add(statscomponent::func_219053_a);
--      jpanel.add(statscomponent, "North");
-+      com.destroystokyo.paper.gui.GuiStatsComponent guistatscomponent = new com.destroystokyo.paper.gui.GuiStatsComponent(this.field_120021_b); // Paper
-+      this.field_219051_e.add(guistatscomponent::a);
-+      jpanel.add(guistatscomponent, "North");
-       jpanel.add(this.func_120020_c(), "Center");
-       jpanel.setBorder(new TitledBorder(new EtchedBorder(), "Stats"));
-       return jpanel;
 @@ -137,8 +_,10 @@
        return jpanel;
     }

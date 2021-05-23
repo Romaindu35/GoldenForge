@@ -1,22 +1,6 @@
 --- a/net/minecraft/entity/boss/WitherEntity.java
 +++ b/net/minecraft/entity/boss/WitherEntity.java
-@@ -34,6 +_,7 @@
- import net.minecraft.network.datasync.DataParameter;
- import net.minecraft.network.datasync.DataSerializers;
- import net.minecraft.network.datasync.EntityDataManager;
-+import net.minecraft.network.play.server.SPlaySoundEventPacket;
- import net.minecraft.particles.ParticleTypes;
- import net.minecraft.potion.EffectInstance;
- import net.minecraft.potion.Effects;
-@@ -51,6 +_,7 @@
- import net.minecraft.world.GameRules;
- import net.minecraft.world.World;
- import net.minecraft.world.server.ServerBossInfo;
-+import net.minecraft.world.server.ServerWorld;
- import net.minecraftforge.api.distmarker.Dist;
- import net.minecraftforge.api.distmarker.OnlyIn;
- 
-@@ -213,10 +_,29 @@
+@@ -213,7 +_,7 @@
        if (this.func_82212_n() > 0) {
           int j1 = this.func_82212_n() - 1;
           if (j1 <= 0) {
@@ -24,30 +8,7 @@
 +            Explosion.Mode explosion$mode = net.minecraftforge.event.ForgeEventFactory.getMobGriefingEvent(this.field_70170_p, this) ? Explosion.Mode.DESTROY : Explosion.Mode.NONE;
              this.field_70170_p.func_217398_a(this, this.func_226277_ct_(), this.func_226280_cw_(), this.func_226281_cx_(), 7.0F, false, explosion$mode);
              if (!this.func_174814_R()) {
--               this.field_70170_p.func_175669_a(1023, this.func_233580_cy_(), 0);
-+               //this.level.globalLevelEvent(1023, this.blockPosition(), 0);
-+               // CraftBukkit start - Use relative location for far away sounds
-+               // this.world.b(1023, new BlockPosition(this), 0);
-+               int viewDistance = ((ServerWorld) this.field_70170_p).func_73046_m().func_184103_al().func_72395_o() * 16; // Paper - updated to use worlds actual view distance incase we have to uncomment this due to removal of player view distance API
-+               for (ServerPlayerEntity player : ((ServerWorld)this.field_70170_p).func_217369_A()) {
-+                  // final int viewDistance = player.getViewDistance(); // TODO apply view distance api patch
-+                  double deltaX = this.func_226277_ct_() - player.func_226277_ct_();
-+                  double deltaZ = this.func_226281_cx_() - player.func_226281_cx_();
-+                  double distanceSquared = deltaX * deltaX + deltaZ * deltaZ;
-+                  if ( field_70170_p.spigotConfig.witherSpawnSoundRadius > 0 && distanceSquared > field_70170_p.spigotConfig.witherSpawnSoundRadius * field_70170_p.spigotConfig.witherSpawnSoundRadius ) continue; // Spigot
-+                  if (distanceSquared > viewDistance * viewDistance) {
-+                     double deltaLength = Math.sqrt(distanceSquared);
-+                     double relativeX = player.func_226277_ct_() + (deltaX / deltaLength) * viewDistance;
-+                     double relativeZ = player.func_226281_cx_() + (deltaZ / deltaLength) * viewDistance;
-+                     player.field_71135_a.func_147359_a(new SPlaySoundEventPacket(1023, new BlockPos((int) relativeX, (int) this.func_226278_cu_(), (int) relativeZ), 0, true));
-+                  } else {
-+                     player.field_71135_a.func_147359_a(new SPlaySoundEventPacket(1023, this.func_233580_cy_(), 0, true));
-+                  }
-+               }
-+               // CraftBukkit end
-             }
-          }
- 
+                this.field_70170_p.func_175669_a(1023, this.func_233580_cy_(), 0);
 @@ -290,7 +_,7 @@
  
           if (this.field_82222_j > 0) {

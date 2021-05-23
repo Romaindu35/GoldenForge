@@ -1,14 +1,5 @@
 --- a/net/minecraft/world/chunk/ChunkStatus.java
 +++ b/net/minecraft/world/chunk/ChunkStatus.java
-@@ -11,6 +_,8 @@
- import java.util.concurrent.CompletableFuture;
- import java.util.function.Function;
- import javax.annotation.Nullable;
-+
-+import net.minecraft.util.RegistryKey;
- import net.minecraft.util.ResourceLocation;
- import net.minecraft.util.Util;
- import net.minecraft.util.registry.Registry;
 @@ -23,7 +_,7 @@
  import net.minecraft.world.server.ServerWorld;
  import net.minecraft.world.server.ServerWorldLightManager;
@@ -18,22 +9,3 @@
     private static final EnumSet<Heightmap.Type> field_222618_n = EnumSet.of(Heightmap.Type.OCEAN_FLOOR_WG, Heightmap.Type.WORLD_SURFACE_WG);
     private static final EnumSet<Heightmap.Type> field_222619_o = EnumSet.of(Heightmap.Type.OCEAN_FLOOR, Heightmap.Type.WORLD_SURFACE, Heightmap.Type.MOTION_BLOCKING, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES);
     private static final ChunkStatus.ILoadingWorker field_223211_p = (p_222588_0_, p_222588_1_, p_222588_2_, p_222588_3_, p_222588_4_, p_222588_5_) -> {
-@@ -209,6 +_,18 @@
-    public ChunkStatus.Type func_202129_d() {
-       return this.field_202134_n;
-    }
-+
-+   // Paper start
-+   public static ChunkStatus getStatus(String name) {
-+      try {
-+         // We need this otherwise we return EMPTY for invalid names
-+         ResourceLocation key = new ResourceLocation(name);
-+         return Registry.field_218360_A.func_241873_b(key).orElse(null);
-+      } catch (Exception ex) {
-+         return null; // invalid name
-+      }
-+   }
-+   // Paper end
- 
-    public static ChunkStatus func_222591_a(String p_222591_0_) {
-       return Registry.field_218360_A.func_82594_a(ResourceLocation.func_208304_a(p_222591_0_));

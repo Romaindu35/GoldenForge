@@ -1,40 +1,9 @@
 --- a/net/minecraft/pathfinding/WalkNodeProcessor.java
 +++ b/net/minecraft/pathfinding/WalkNodeProcessor.java
-@@ -437,7 +_,13 @@
-             for(int j1 = -1; j1 <= 1; ++j1) {
-                if (l != 0 || j1 != 0) {
-                   p_237232_1_.func_181079_c(i + l, j + i1, k + j1);
--                  BlockState blockstate = p_237232_0_.func_180495_p(p_237232_1_);
-+//                  BlockState blockstate = p_237232_0_.getBlockState(p_237232_1_);
-+                  // Paper start
-+                  BlockState blockstate = p_237232_0_.getTypeIfLoaded(p_237232_1_);
-+                  if (blockstate == null) {
-+                     p_237232_2_ = PathNodeType.BLOCKED;
-+                  } else {
-+                     // Paper end
-                   if (blockstate.func_203425_a(Blocks.field_150434_aF)) {
-                      return PathNodeType.DANGER_CACTUS;
-                   }
-@@ -450,9 +_,10 @@
-                      return PathNodeType.DANGER_FIRE;
-                   }
- 
--                  if (p_237232_0_.func_204610_c(p_237232_1_).func_206884_a(FluidTags.field_206959_a)) {
-+                  if (blockstate.func_204520_s().func_206884_a(FluidTags.field_206959_a)) { // Paper - remove another getType call
-                      return PathNodeType.WATER_BORDER;
-                   }
-+                  } // Paper
-                }
-             }
-          }
-@@ -462,10 +_,14 @@
-    }
+@@ -463,9 +_,11 @@
  
     protected static PathNodeType func_237238_b_(IBlockReader p_237238_0_, BlockPos p_237238_1_) {
--      BlockState blockstate = p_237238_0_.func_180495_p(p_237238_1_);
-+      //BlockState blockstate = p_237238_0_.getBlockState(p_237238_1_);
-+      BlockState blockstate = p_237238_0_.func_180495_p(p_237238_1_); // Paper
-+      if (blockstate == null) return PathNodeType.BLOCKED; // Paper
+       BlockState blockstate = p_237238_0_.func_180495_p(p_237238_1_);
 +      PathNodeType type = blockstate.getAiPathNodeType(p_237238_0_, p_237238_1_);
 +      if (type != null) return type;
        Block block = blockstate.func_177230_c();
@@ -44,12 +13,3 @@
           return PathNodeType.OPEN;
        } else if (!blockstate.func_235714_a_(BlockTags.field_212185_E) && !blockstate.func_203425_a(Blocks.field_196651_dG)) {
           if (blockstate.func_203425_a(Blocks.field_150434_aF)) {
-@@ -477,7 +_,7 @@
-          } else if (blockstate.func_203425_a(Blocks.field_150375_by)) {
-             return PathNodeType.COCOA;
-          } else {
--            FluidState fluidstate = p_237238_0_.func_204610_c(p_237238_1_);
-+            FluidState fluidstate = blockstate.func_204520_s(); // Paper - remove another get type call
-             if (fluidstate.func_206884_a(FluidTags.field_206959_a)) {
-                return PathNodeType.WATER;
-             } else if (fluidstate.func_206884_a(FluidTags.field_206960_b)) {

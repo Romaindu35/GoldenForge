@@ -1,11 +1,7 @@
 --- a/net/minecraft/world/server/Ticket.java
 +++ b/net/minecraft/world/server/Ticket.java
-@@ -7,11 +_,19 @@
-    private final int field_219481_b;
-    private final T field_219482_c;
+@@ -9,9 +_,14 @@
     private long field_219483_d;
-+   public int priority = 0; // Paper
-+   public long delayUnloadBy; // Paper
  
     protected Ticket(TicketType<T> p_i226095_1_, int p_i226095_2_, T p_i226095_3_) {
 +      this(p_i226095_1_, p_i226095_2_, p_i226095_3_, false);
@@ -16,7 +12,6 @@
        this.field_219481_b = p_i226095_2_;
        this.field_219482_c = p_i226095_3_;
 +      this.forceTicks = forceTicks;
-+      this.delayUnloadBy = p_i226095_1_.field_223186_k; // Paper
     }
  
     public int compareTo(Ticket<?> p_compareTo_1_) {
@@ -40,12 +35,9 @@
     }
  
     public TicketType<T> func_219479_a() {
-@@ -56,7 +_,14 @@
-    }
- 
+@@ -58,5 +_,12 @@
     protected boolean func_223182_a(long p_223182_1_) {
--      long i = this.field_219480_a.func_223184_b();
-+      long i = delayUnloadBy;
+       long i = this.field_219480_a.func_223184_b();
        return i != 0L && p_223182_1_ - this.field_219483_d > i;
 +   }
 +

@@ -1,33 +1,5 @@
 --- a/net/minecraft/entity/projectile/AbstractArrowEntity.java
 +++ b/net/minecraft/entity/projectile/AbstractArrowEntity.java
-@@ -50,7 +_,7 @@
-    private static final DataParameter<Byte> field_213876_as = EntityDataManager.func_187226_a(AbstractArrowEntity.class, DataSerializers.field_187191_a);
-    @Nullable
-    private BlockState field_195056_av;
--   protected boolean field_70254_i;
-+   public boolean field_70254_i;
-    protected int field_184552_b;
-    public AbstractArrowEntity.PickupStatus field_70251_a = AbstractArrowEntity.PickupStatus.DISALLOWED;
-    public int field_70249_b;
-@@ -61,6 +_,18 @@
-    private IntOpenHashSet field_213878_az;
-    private List<Entity> field_213875_aA;
- 
-+   // Spigot Start
-+   @Override
-+   public void inactiveTick()
-+   {
-+      if ( this.field_70254_i )
-+      {
-+         this.field_70252_j += 1;
-+      }
-+      super.inactiveTick();
-+   }
-+   // Spigot End
-+
-    protected AbstractArrowEntity(EntityType<? extends AbstractArrowEntity> p_i48546_1_, World p_i48546_2_) {
-       super(p_i48546_1_, p_i48546_2_);
-    }
 @@ -130,7 +_,7 @@
  
        BlockPos blockpos = this.func_233580_cy_();
@@ -46,12 +18,3 @@
                 this.func_70227_a(raytraceresult);
                 this.field_70160_al = true;
              }
-@@ -262,7 +_,7 @@
- 
-    protected void func_225516_i_() {
-       ++this.field_70252_j;
--      if (this.field_70252_j >= 1200) {
-+      if (this.field_70252_j >= (field_70251_a == PickupStatus.CREATIVE_ONLY ? field_70170_p.paperConfig.creativeArrowDespawnRate : (field_70251_a == PickupStatus.DISALLOWED ? field_70170_p.paperConfig.nonPlayerArrowDespawnRate : ((this instanceof TridentEntity) ? field_70170_p.spigotConfig.tridentDespawnRate : field_70170_p.spigotConfig.arrowDespawnRate)))) { // Spigot // Paper - TODO: Extract this to init?
-          this.func_70106_y();
-       }
- 

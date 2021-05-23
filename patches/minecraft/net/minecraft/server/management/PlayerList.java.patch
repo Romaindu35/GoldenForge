@@ -1,130 +1,14 @@
 --- a/net/minecraft/server/management/PlayerList.java
 +++ b/net/minecraft/server/management/PlayerList.java
-@@ -1,5 +_,6 @@
- package net.minecraft.server.management;
- 
-+import com.destroystokyo.paper.util.MCUtil;
- import com.google.common.collect.Lists;
- import com.google.common.collect.Maps;
- import com.google.common.collect.Sets;
-@@ -28,26 +_,7 @@
- import net.minecraft.network.NetworkManager;
- import net.minecraft.network.PacketBuffer;
- import net.minecraft.network.play.ServerPlayNetHandler;
--import net.minecraft.network.play.server.SChangeGameStatePacket;
--import net.minecraft.network.play.server.SChatPacket;
--import net.minecraft.network.play.server.SCustomPayloadPlayPacket;
--import net.minecraft.network.play.server.SEntityStatusPacket;
--import net.minecraft.network.play.server.SHeldItemChangePacket;
--import net.minecraft.network.play.server.SJoinGamePacket;
--import net.minecraft.network.play.server.SPlayEntityEffectPacket;
--import net.minecraft.network.play.server.SPlaySoundEffectPacket;
--import net.minecraft.network.play.server.SPlayerAbilitiesPacket;
--import net.minecraft.network.play.server.SPlayerListItemPacket;
--import net.minecraft.network.play.server.SRespawnPacket;
--import net.minecraft.network.play.server.SServerDifficultyPacket;
--import net.minecraft.network.play.server.SSetExperiencePacket;
--import net.minecraft.network.play.server.STagsListPacket;
--import net.minecraft.network.play.server.STeamsPacket;
--import net.minecraft.network.play.server.SUpdateRecipesPacket;
--import net.minecraft.network.play.server.SUpdateTimePacket;
--import net.minecraft.network.play.server.SUpdateViewDistancePacket;
--import net.minecraft.network.play.server.SWorldBorderPacket;
--import net.minecraft.network.play.server.SWorldSpawnChangedPacket;
-+import net.minecraft.network.play.server.*;
- import net.minecraft.potion.EffectInstance;
- import net.minecraft.scoreboard.ScoreObjective;
- import net.minecraft.scoreboard.ScorePlayerTeam;
-@@ -62,14 +_,11 @@
- import net.minecraft.util.SoundEvents;
- import net.minecraft.util.Util;
- import net.minecraft.util.math.BlockPos;
-+import net.minecraft.util.math.ChunkPos;
- import net.minecraft.util.math.MathHelper;
- import net.minecraft.util.math.vector.Vector3d;
- import net.minecraft.util.registry.DynamicRegistries;
--import net.minecraft.util.text.ChatType;
--import net.minecraft.util.text.IFormattableTextComponent;
--import net.minecraft.util.text.ITextComponent;
--import net.minecraft.util.text.TextFormatting;
--import net.minecraft.util.text.TranslationTextComponent;
-+import net.minecraft.util.text.*;
- import net.minecraft.world.DimensionType;
- import net.minecraft.world.GameRules;
- import net.minecraft.world.GameType;
-@@ -77,7 +_,10 @@
- import net.minecraft.world.biome.BiomeManager;
- import net.minecraft.world.border.IBorderListener;
- import net.minecraft.world.border.WorldBorder;
-+import net.minecraft.world.server.ChunkHolder;
-+import net.minecraft.world.server.ChunkManager;
- import net.minecraft.world.server.ServerWorld;
-+import net.minecraft.world.server.TicketType;
- import net.minecraft.world.storage.FolderName;
- import net.minecraft.world.storage.IWorldInfo;
- import net.minecraft.world.storage.PlayerData;
-@@ -85,6 +_,7 @@
- import net.minecraftforge.api.distmarker.OnlyIn;
- import org.apache.logging.log4j.LogManager;
- import org.apache.logging.log4j.Logger;
-+import org.spigotmc.SpigotConfig;
- 
- public abstract class PlayerList {
-    public static final File field_152613_a = new File("banned-players.json");
-@@ -94,7 +_,7 @@
-    private static final Logger field_148546_d = LogManager.getLogger();
-    private static final SimpleDateFormat field_72403_e = new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z");
-    private final MinecraftServer field_72400_f;
--   private final List<ServerPlayerEntity> field_72404_b = Lists.newArrayList();
-+   public final List<ServerPlayerEntity> field_72404_b = new java.util.concurrent.CopyOnWriteArrayList();// CraftBukkit - ArrayList -> CopyOnWriteArrayList: Iterator safety
-    private final Map<UUID, ServerPlayerEntity> field_177454_f = Maps.newHashMap();
-    private final BanList field_72401_g = new BanList(field_152613_a);
-    private final IPBanList field_72413_h = new IPBanList(field_152614_b);
-@@ -110,6 +_,10 @@
+@@ -110,6 +_,7 @@
     private GameType field_72410_m;
     private boolean field_72407_n;
     private int field_72408_o;
 +   private final List<ServerPlayerEntity> playersView = java.util.Collections.unmodifiableList(field_72404_b);
-+
-+   private final Map<UUID, ServerPlayerEntity> pendingPlayers = Maps.newHashMap(); // Paper
-+
  
     public PlayerList(MinecraftServer p_i231425_1_, DynamicRegistries.Impl p_i231425_2_, PlayerData p_i231425_3_, int p_i231425_4_) {
        this.field_72400_f = p_i231425_1_;
-@@ -118,7 +_,27 @@
-       this.field_72412_k = p_i231425_3_;
-    }
- 
-+   public ServerPlayerEntity getActivePlayer(UUID uuid) {
-+      ServerPlayerEntity player = this.field_177454_f.get(uuid);
-+      return player != null ? player : pendingPlayers.get(uuid);
-+   }
-+
-+   void disconnectPendingPlayer(ServerPlayerEntity entityplayer) {
-+      TranslationTextComponent msg = new TranslationTextComponent("multiplayer.disconnect.duplicate_login", new Object[0]);
-+      entityplayer.networkManager.func_201058_a(new SDisconnectPacket(msg), (future) -> {
-+         entityplayer.networkManager.func_150718_a(msg);
-+         entityplayer.networkManager = null;
-+      });
-+   }
-+
-    public void func_72355_a(NetworkManager p_72355_1_, ServerPlayerEntity p_72355_2_) {
-+      ServerPlayerEntity prev = pendingPlayers.put(p_72355_2_.func_110124_au(), p_72355_2_);// Paper
-+      if (prev != null) {
-+         disconnectPendingPlayer(prev);
-+      }
-+      p_72355_2_.networkManager = p_72355_1_; // Paper
-+      p_72355_2_.loginTime = System.currentTimeMillis(); // Paper
-+
-       GameProfile gameprofile = p_72355_2_.func_146103_bH();
-       PlayerProfileCache playerprofilecache = this.field_72400_f.func_152358_ax();
-       GameProfile gameprofile1 = playerprofilecache.func_152652_a(gameprofile.getId());
-@@ -142,35 +_,139 @@
-          s1 = p_72355_1_.func_74430_c().toString();
-       }
- 
--      field_148546_d.info("{}[{}] logged in with entity id {} at ({}, {}, {})", p_72355_2_.func_200200_C_().getString(), s1, p_72355_2_.func_145782_y(), p_72355_2_.func_226277_ct_(), p_72355_2_.func_226278_cu_(), p_72355_2_.func_226281_cx_());
-+      //LOGGER.info("{}[{}] logged in with entity id {} at ({}, {}, {})", p_72355_2_.getName().getString(), s1, p_72355_2_.getId(), p_72355_2_.getX(), p_72355_2_.getY(), p_72355_2_.getZ());
+@@ -146,6 +_,7 @@
        IWorldInfo iworldinfo = serverworld1.func_72912_H();
        this.func_72381_a(p_72355_2_, (ServerPlayerEntity)null, serverworld1);
        ServerPlayNetHandler serverplaynethandler = new ServerPlayNetHandler(this.field_72400_f, p_72355_1_, p_72355_2_);
@@ -132,11 +16,7 @@
        GameRules gamerules = serverworld1.func_82736_K();
        boolean flag = gamerules.func_223586_b(GameRules.field_226683_z_);
        boolean flag1 = gamerules.func_223586_b(GameRules.field_223612_o);
--      serverplaynethandler.func_147359_a(new SJoinGamePacket(p_72355_2_.func_145782_y(), p_72355_2_.field_71134_c.func_73081_b(), p_72355_2_.field_71134_c.func_241815_c_(), BiomeManager.func_235200_a_(serverworld1.func_72905_C()), iworldinfo.func_76093_s(), this.field_72400_f.func_240770_D_(), this.field_232639_s_, serverworld1.func_230315_m_(), serverworld1.func_234923_W_(), this.func_72352_l(), this.field_72402_d, flag1, !flag, serverworld1.func_234925_Z_(), serverworld1.func_241109_A_()));
-+      serverplaynethandler.func_147359_a(new SJoinGamePacket(p_72355_2_.func_145782_y(), p_72355_2_.field_71134_c.func_73081_b(), p_72355_2_.field_71134_c.func_241815_c_(), BiomeManager.func_235200_a_(serverworld1.func_72905_C()), iworldinfo.func_76093_s(), this.field_72400_f.func_240770_D_(), this.field_232639_s_, serverworld1.func_230315_m_(), serverworld1.func_234923_W_(), this.func_72352_l(), serverworld1.func_72863_F().field_217237_a.getLoadViewDistance(), flag1, !flag, serverworld1.func_234925_Z_(), serverworld1.func_241109_A_()));
-       serverplaynethandler.func_147359_a(new SCustomPayloadPlayPacket(SCustomPayloadPlayPacket.field_209911_b, (new PacketBuffer(Unpooled.buffer())).func_180714_a(this.func_72365_p().getServerModName())));
-       serverplaynethandler.func_147359_a(new SServerDifficultyPacket(iworldinfo.func_176130_y(), iworldinfo.func_176123_z()));
-       serverplaynethandler.func_147359_a(new SPlayerAbilitiesPacket(p_72355_2_.field_71075_bZ));
+@@ -156,6 +_,7 @@
        serverplaynethandler.func_147359_a(new SHeldItemChangePacket(p_72355_2_.field_71071_by.field_70461_c));
        serverplaynethandler.func_147359_a(new SUpdateRecipesPacket(this.field_72400_f.func_199529_aN().func_199510_b()));
        serverplaynethandler.func_147359_a(new STagsListPacket(this.field_72400_f.func_244266_aF()));
@@ -144,118 +24,7 @@
        this.func_187243_f(p_72355_2_);
        p_72355_2_.func_147099_x().func_150877_d();
        p_72355_2_.func_192037_E().func_192826_c(p_72355_2_);
-       this.func_96456_a(serverworld1.func_96441_U(), p_72355_2_);
-       this.field_72400_f.func_147132_au();
-+
-+      // Paper start - async load spawn in chunk
-+      ServerWorld finalWorldserver = serverworld1;
-+      int chunkX = locToBlock(p_72355_2_.func_226277_ct_()) >> 4;
-+      int chunkZ = locToBlock(p_72355_2_.func_226281_cx_()) >> 4;
-+      final ChunkPos pos = new ChunkPos(chunkX, chunkZ);
-+      ChunkManager playerChunkMap = serverworld1.func_72863_F().field_217237_a;
-+      playerChunkMap.field_219267_u.registerTicking(TicketType.LOGIN, pos, 31, pos.func_201841_a());
-+      serverworld1.func_72863_F().markAreaHighPriority(pos, 28, 3);
-+      serverworld1.func_72863_F().getChunkAtAsynchronously(chunkX, chunkZ, true, false).thenApply(chunk -> {
-+         ChunkHolder updatingChunk = playerChunkMap.func_219220_a(pos.func_201841_a());
-+         if (updatingChunk != null) {
-+            return updatingChunk.func_219297_b();
-+         } else {
-+            return java.util.concurrent.CompletableFuture.completedFuture(chunk);
-+         }
-+      }).thenAccept(chunk -> {
-+         serverplaynethandler.playerJoinReady = () -> {
-+            postChunkLoadJoin(
-+                    p_72355_2_, finalWorldserver, p_72355_1_, serverplaynethandler,
-+                    compoundnbt, p_72355_1_.func_74430_c().toString(), s
-+            );
-+         };
-+      });
-+
-+
-+
-+//      IFormattableTextComponent iformattabletextcomponent;
-+//      if (p_72355_2_.getGameProfile().getName().equalsIgnoreCase(s)) {
-+//         iformattabletextcomponent = new TranslationTextComponent("multiplayer.player.joined", p_72355_2_.getDisplayName());
-+//      } else {
-+//         iformattabletextcomponent = new TranslationTextComponent("multiplayer.player.joined.renamed", p_72355_2_.getDisplayName(), s);
-+//      }
-+//
-+//      this.broadcastMessage(iformattabletextcomponent.withStyle(TextFormatting.YELLOW), ChatType.SYSTEM, Util.NIL_UUID);
-+//      serverplaynethandler.teleport(p_72355_2_.getX(), p_72355_2_.getY(), p_72355_2_.getZ(), p_72355_2_.yRot, p_72355_2_.xRot);
-+//      this.addPlayer(p_72355_2_);
-+//      this.playersByUUID.put(p_72355_2_.getUUID(), p_72355_2_);
-+//      this.broadcastAll(new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, p_72355_2_));
-+//
-+//      for(int i = 0; i < this.players.size(); ++i) {
-+//         p_72355_2_.connection.send(new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, this.players.get(i)));
-+//      }
-+//
-+//      serverworld1.addNewPlayer(p_72355_2_);
-+//      this.server.getCustomBossEvents().onPlayerConnect(p_72355_2_);
-+//      this.sendLevelInfo(p_72355_2_, serverworld1);
-+//      if (!this.server.getResourcePack().isEmpty()) {
-+//         p_72355_2_.sendTexturePack(this.server.getResourcePack(), this.server.getResourcePackHash());
-+//      }
-+//
-+//      for(EffectInstance effectinstance : p_72355_2_.getActiveEffects()) {
-+//         serverplaynethandler.send(new SPlayEntityEffectPacket(p_72355_2_.getId(), effectinstance));
-+//      }
-+//
-+//      if (compoundnbt != null && compoundnbt.contains("RootVehicle", 10)) {
-+//         CompoundNBT compoundnbt1 = compoundnbt.getCompound("RootVehicle");
-+//         Entity entity1 = EntityType.loadEntityRecursive(compoundnbt1.getCompound("Entity"), serverworld1, (p_217885_1_) -> {
-+//            return !serverworld1.addWithUUID(p_217885_1_) ? null : p_217885_1_;
-+//         });
-+//         if (entity1 != null) {
-+//            UUID uuid;
-+//            if (compoundnbt1.hasUUID("Attach")) {
-+//               uuid = compoundnbt1.getUUID("Attach");
-+//            } else {
-+//               uuid = null;
-+//            }
-+//
-+//            if (entity1.getUUID().equals(uuid)) {
-+//               p_72355_2_.startRiding(entity1, true);
-+//            } else {
-+//               for(Entity entity : entity1.getIndirectPassengers()) {
-+//                  if (entity.getUUID().equals(uuid)) {
-+//                     p_72355_2_.startRiding(entity, true);
-+//                     break;
-+//                  }
-+//               }
-+//            }
-+//
-+//            if (!p_72355_2_.isPassenger()) {
-+//               LOGGER.warn("Couldn't reattach entity to player");
-+//               serverworld1.despawn(entity1);
-+//
-+//               for(Entity entity2 : entity1.getIndirectPassengers()) {
-+//                  serverworld1.despawn(entity2);
-+//               }
-+//            }
-+//         }
-+//      }
-+//
-+//      p_72355_2_.initMenu();
-+//      net.minecraftforge.fml.hooks.BasicEventHooks.firePlayerLoggedIn( p_72355_2_ );
-+   }
-+
-+   private void postChunkLoadJoin(ServerPlayerEntity p_72355_2_, ServerWorld serverworld1, NetworkManager networkmanager, ServerPlayNetHandler serverplaynethandler, CompoundNBT compoundnbt, String adress, String name) {
-+      pendingPlayers.remove(p_72355_2_.func_110124_au(), p_72355_2_);
-+      if (!networkmanager.func_150724_d()) {
-+         return;
-+      }
-+      //entityplayer.didPlayerJoinEvent = true;
-+      // Paper end
-+
-       IFormattableTextComponent iformattabletextcomponent;
--      if (p_72355_2_.func_146103_bH().getName().equalsIgnoreCase(s)) {
-+      if (p_72355_2_.func_146103_bH().getName().equalsIgnoreCase(name)) {
-          iformattabletextcomponent = new TranslationTextComponent("multiplayer.player.joined", p_72355_2_.func_145748_c_());
-       } else {
--         iformattabletextcomponent = new TranslationTextComponent("multiplayer.player.joined.renamed", p_72355_2_.func_145748_c_(), s);
-+         iformattabletextcomponent = new TranslationTextComponent("multiplayer.player.joined.renamed", p_72355_2_.func_145748_c_(), name);
-       }
+@@ -170,7 +_,7 @@
  
        this.func_232641_a_(iformattabletextcomponent.func_240699_a_(TextFormatting.YELLOW), ChatType.SYSTEM, Util.field_240973_b_);
        serverplaynethandler.func_147364_a(p_72355_2_.func_226277_ct_(), p_72355_2_.func_226278_cu_(), p_72355_2_.func_226281_cx_(), p_72355_2_.field_70177_z, p_72355_2_.field_70125_A);
@@ -264,17 +33,11 @@
        this.field_177454_f.put(p_72355_2_.func_110124_au(), p_72355_2_);
        this.func_148540_a(new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, p_72355_2_));
  
-@@ -225,6 +_,13 @@
+@@ -225,6 +_,7 @@
        }
  
        p_72355_2_.func_71116_b();
-+      field_148546_d.info("{}[{}] logged in with entity id {} at ({}, {}, {})", p_72355_2_.func_200200_C_().getString(), adress, p_72355_2_.func_145782_y(), p_72355_2_.func_226277_ct_(), p_72355_2_.func_226278_cu_(), p_72355_2_.func_226281_cx_());
 +      net.minecraftforge.fml.hooks.BasicEventHooks.firePlayerLoggedIn( p_72355_2_ );
-+
-+   }
-+
-+      public static int locToBlock(double loc) {
-+      return MCUtil.floor(loc);
     }
  
     protected void func_96456_a(ServerScoreboard p_96456_1_, ServerPlayerEntity p_96456_2_) {
@@ -311,72 +74,7 @@
        this.field_72400_f.func_201300_aS().func_201382_b(p_72367_1_);
        UUID uuid = p_72367_1_.func_110124_au();
        ServerPlayerEntity serverplayerentity = this.field_177454_f.get(uuid);
-@@ -340,6 +_,14 @@
-          this.field_192055_p.remove(uuid);
-       }
- 
-+      // Paper start
-+      serverplayerentity = pendingPlayers.get(uuid);
-+      if (serverplayerentity == p_72367_1_) {
-+         pendingPlayers.remove(uuid);
-+      }
-+      p_72367_1_.networkManager = null;
-+      // Paper end
-+
-       this.func_148540_a(new SPlayerListItemPacket(SPlayerListItemPacket.Action.REMOVE_PLAYER, p_72367_1_));
-    }
- 
-@@ -354,7 +_,7 @@
- 
-          return iformattabletextcomponent1;
-       } else if (!this.func_152607_e(p_206258_2_)) {
--         return new TranslationTextComponent("multiplayer.disconnect.not_whitelisted");
-+         return new TranslationTextComponent(SpigotConfig.whitelistMessage); // Spigot
-       } else if (this.field_72413_h.func_152708_a(p_206258_1_)) {
-          IPBanEntry ipbanentry = this.field_72413_h.func_152709_b(p_206258_1_);
-          IFormattableTextComponent iformattabletextcomponent = new TranslationTextComponent("multiplayer.disconnect.banned_ip.reason", ipbanentry.func_73686_f());
-@@ -364,7 +_,7 @@
- 
-          return iformattabletextcomponent;
-       } else {
--         return this.field_72404_b.size() >= this.field_72405_c && !this.func_183023_f(p_206258_2_) ? new TranslationTextComponent("multiplayer.disconnect.server_full") : null;
-+         return this.field_72404_b.size() >= this.field_72405_c && !this.func_183023_f(p_206258_2_) ? new TranslationTextComponent(SpigotConfig.serverFullMessage) : null;
-       }
-    }
- 
-@@ -372,13 +_,22 @@
-       UUID uuid = PlayerEntity.func_146094_a(p_148545_1_);
-       List<ServerPlayerEntity> list = Lists.newArrayList();
- 
-+      ServerPlayerEntity serverplayerentity;
-       for(int i = 0; i < this.field_72404_b.size(); ++i) {
--         ServerPlayerEntity serverplayerentity = this.field_72404_b.get(i);
-+         serverplayerentity = this.field_72404_b.get(i);
-          if (serverplayerentity.func_110124_au().equals(uuid)) {
-             list.add(serverplayerentity);
-          }
-       }
- 
-+      // Paper start - check pending players too
-+      serverplayerentity = pendingPlayers.get(uuid);
-+      if (serverplayerentity != null) {
-+         this.pendingPlayers.remove(uuid);
-+         disconnectPendingPlayer(serverplayerentity);
-+      }
-+      // Paper end
-+
-       ServerPlayerEntity serverplayerentity2 = this.field_177454_f.get(p_148545_1_.getId());
-       if (serverplayerentity2 != null && !list.contains(serverplayerentity2)) {
-          list.add(serverplayerentity2);
-@@ -396,12 +_,15 @@
-          playerinteractionmanager = new PlayerInteractionManager(serverworld);
-       }
- 
--      return new ServerPlayerEntity(this.field_72400_f, serverworld, p_148545_1_, playerinteractionmanager);
-+      ServerPlayerEntity player = new ServerPlayerEntity(this.field_72400_f, serverworld, p_148545_1_, playerinteractionmanager);
-+      player.isRealPlayer = true;
-+
-+      return player;
+@@ -400,8 +_,8 @@
     }
  
     public ServerPlayerEntity func_232644_a_(ServerPlayerEntity p_232644_1_, boolean p_232644_2_) {
@@ -395,16 +93,6 @@
        serverplayerentity.func_145769_d(p_232644_1_.func_145782_y());
        serverplayerentity.func_184819_a(p_232644_1_.func_184591_cq());
  
-@@ -452,6 +_,9 @@
-          serverplayerentity.field_71135_a.func_147359_a(new SChangeGameStatePacket(SChangeGameStatePacket.field_241764_a_, 0.0F));
-       }
- 
-+      serverworld1.func_72863_F().registerTickingTicket(TicketType.field_223185_g, new ChunkPos(serverplayerentity.field_70176_ah, serverplayerentity.field_70164_aj), 1, serverplayerentity.func_145782_y()); // Paper
-+      serverplayerentity.forceCheckHighPriority(); // Player
-+
-       while(!serverworld1.func_226669_j_(serverplayerentity) && serverplayerentity.func_226278_cu_() < 256.0D) {
-          serverplayerentity.func_70107_b(serverplayerentity.func_226277_ct_(), serverplayerentity.func_226278_cu_() + 1.0D, serverplayerentity.func_226281_cx_());
-       }
 @@ -465,10 +_,11 @@
        this.func_72354_b(serverplayerentity, serverworld1);
        this.func_187243_f(serverplayerentity);
@@ -418,36 +106,7 @@
        if (flag2) {
           serverplayerentity.field_71135_a.func_147359_a(new SPlaySoundEffectPacket(SoundEvents.field_232818_ms_, SoundCategory.BLOCKS, (double)blockpos.func_177958_n(), (double)blockpos.func_177956_o(), (double)blockpos.func_177952_p(), 1.0F, 1.0F));
        }
-@@ -623,9 +_,25 @@
-    }
- 
-    public void func_72389_g() {
--      for(int i = 0; i < this.field_72404_b.size(); ++i) {
--         this.func_72391_b(this.field_72404_b.get(i));
--      }
-+      saveAll(null);
-+   }
-+
-+   public void saveAll(Integer interval) {
-+      MCUtil.ensureMain("Save Players" , () -> { // Paper - Ensure main
-+         int numSaved = 0;
-+         long now = MinecraftServer.currentTick;
-+         for (int i = 0; i < this.field_72404_b.size(); ++i) {
-+            ServerPlayerEntity entityplayer = this.field_72404_b.get(i);
-+            if (interval == null || now - entityplayer.lastSave >= interval) {
-+               this.func_72391_b(entityplayer);
-+               if (interval != null && ++numSaved <= com.destroystokyo.paper.PaperConfig.maxPlayerAutoSavePerTick) { break; }
-+            }
-+            // Paper end
-+         }
-+         return null; }); // Paper - ensure main
-+//      for(int i = 0; i < this.players.size(); ++i) {
-+//         this.save(this.players.get(i));
-+//      }
- 
-    }
- 
-@@ -769,13 +_,15 @@
+@@ -769,6 +_,8 @@
           this.field_192055_p.put(uuid, playeradvancements);
        }
  
@@ -456,14 +115,6 @@
        playeradvancements.func_192739_a(p_192054_1_);
        return playeradvancements;
     }
- 
-    public void func_217884_a(int p_217884_1_) {
-       this.field_72402_d = p_217884_1_;
--      this.func_148540_a(new SUpdateViewDistancePacket(p_217884_1_));
-+      //this.broadcastAll(new SUpdateViewDistancePacket(p_217884_1_));
- 
-       for(ServerWorld serverworld : this.field_72400_f.func_212370_w()) {
-          if (serverworld != null) {
 @@ -786,7 +_,7 @@
     }
  

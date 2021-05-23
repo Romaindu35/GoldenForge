@@ -87,7 +87,7 @@ public class Metrics {
                         enabled,
                         this::appendPlatformData,
                         this::appendServiceData,
-                        submitDataTask -> GoldenForge.getScheduler().runTask(submitDataTask),
+                        Runnable::run,
                         GoldenForge::isEnabled,
                         (message, error) -> GoldenForge.LOGGER.log(org.apache.logging.log4j.Level.WARN, message, error),
                         (message) -> GoldenForge.LOGGER.log(Level.INFO, message),

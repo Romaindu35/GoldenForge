@@ -1,32 +1,5 @@
 --- a/net/minecraft/world/gen/WorldGenRegion.java
 +++ b/net/minecraft/world/gen/WorldGenRegion.java
-@@ -106,6 +_,26 @@
-       return this.func_217348_a(p_212866_1_, p_212866_2_, ChunkStatus.field_223226_a_);
-    }
- 
-+   // Paper start - if loaded util
-+   @Nullable
-+   @Override
-+   public IChunk getChunkIfLoadedImmediately(int x, int z) {
-+      return this.func_217353_a(x, z, ChunkStatus.field_222617_m, false);
-+   }
-+
-+   @Override
-+   public BlockState getTypeIfLoaded(BlockPos blockposition) {
-+      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
-+      return chunk == null ? null : chunk.func_180495_p(blockposition);
-+   }
-+
-+   @Override
-+   public FluidState getFluidIfLoaded(BlockPos blockposition) {
-+      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
-+      return chunk == null ? null : chunk.func_204610_c(blockposition);
-+   }
-+   // Paper end
-+
-    @Nullable
-    public IChunk func_217353_a(int p_217353_1_, int p_217353_2_, ChunkStatus p_217353_3_, boolean p_217353_4_) {
-       IChunk ichunk;
 @@ -173,11 +_,11 @@
  
     public boolean func_241212_a_(BlockPos p_241212_1_, boolean p_241212_2_, @Nullable Entity p_241212_3_, int p_241212_4_) {
@@ -84,13 +57,4 @@
 +      } else if (blockstate != null && blockstate.hasTileEntity()) {
           ichunk.func_177425_e(p_241211_1_);
        }
- 
-@@ -274,7 +_,7 @@
-    }
- 
-    @Deprecated
--   public ServerWorld func_201672_e() {
-+   public ServerWorld getLevel() {
-       return this.field_201689_f;
-    }
  

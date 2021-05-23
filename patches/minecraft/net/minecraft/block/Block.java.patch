@@ -13,28 +13,6 @@
     private static final LoadingCache<VoxelShape, Boolean> field_223006_b = CacheBuilder.newBuilder().maximumSize(512L).weakKeys().build(new CacheLoader<VoxelShape, Boolean>() {
        public Boolean load(VoxelShape p_load_1_) {
           return !VoxelShapes.func_197879_c(VoxelShapes.func_197868_b(), p_load_1_, IBooleanFunction.field_223236_g_);
-@@ -64,6 +_,21 @@
-    });
-    protected final StateContainer<Block, BlockState> field_176227_L;
-    private BlockState field_196275_y;
-+   // Paper start
-+   public final boolean isDestroyable() {
-+      return com.destroystokyo.paper.PaperConfig.allowBlockPermanentBreakingExploits ||
-+              this != Blocks.field_150357_h &&
-+                      this != Blocks.field_150378_br &&
-+                      this != Blocks.field_150384_bq &&
-+                      this != Blocks.field_185775_db &&
-+                      this != Blocks.field_150483_bI &&
-+                      this != Blocks.field_185776_dc &&
-+                      this != Blocks.field_185777_dd &&
-+                      this != Blocks.field_180401_cv &&
-+                      this != Blocks.field_185779_df &&
-+                      this != Blocks.field_226904_lY_;
-+   }
-+   // Paper end
-    @Nullable
-    private String field_149770_b;
-    @Nullable
 @@ -151,6 +_,8 @@
        super(p_i48440_1_);
        StateContainer.Builder<Block, BlockState> builder = new StateContainer.Builder<>(this);
@@ -103,29 +81,15 @@
     }
  
     public boolean func_208619_r() {
-@@ -399,8 +_,20 @@
+@@ -399,7 +_,7 @@
     }
  
     public String toString() {
 -      return "Block{" + Registry.field_212618_g.func_177774_c(this) + "}";
--   }
 +      return "Block{" + getRegistryName() + "}";
-+   }
-+
-+   // Spigot start
-+   public static float range(float min, float value, float max) {
-+      if (value < min) {
-+         return min;
-+      }
-+      if (value > max) {
-+         return max;
-+      }
-+      return value;
-+   }
-+   // Spigot end
+    }
  
     @OnlyIn(Dist.CLIENT)
-    public void func_190948_a(ItemStack p_190948_1_, @Nullable IBlockReader p_190948_2_, List<ITextComponent> p_190948_3_, ITooltipFlag p_190948_4_) {
 @@ -409,6 +_,78 @@
     protected Block func_230328_p_() {
        return this;

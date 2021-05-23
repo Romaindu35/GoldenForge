@@ -1,35 +1,5 @@
 --- a/net/minecraft/world/chunk/ChunkPrimer.java
 +++ b/net/minecraft/world/chunk/ChunkPrimer.java
-@@ -87,6 +_,29 @@
- 
-    }
- 
-+   // Paper start - If loaded util
-+   @Override
-+   public FluidState getFluidIfLoaded(BlockPos blockposition) {
-+      return this.func_204610_c(blockposition);
-+   }
-+
-+   @Override
-+   public BlockState getTypeIfLoaded(BlockPos blockposition) {
-+      return this.func_180495_p(blockposition);
-+   }
-+   // Paper end
-+
-+   // Paper start
-+   public BlockState getBlockState(final int x, final int y, final int z) {
-+      if (y < 0 || y >= 256) {
-+         return Blocks.field_201940_ji.func_176223_P();
-+      } else {
-+         ChunkSection chunksection = this.func_76587_i()[y >> 4];
-+         return chunksection == Chunk.field_186036_a || chunksection.func_76663_a() ? Blocks.field_150350_a.func_176223_P() : chunksection.func_177485_a(x & 15, y & 15, z & 15);
-+      }
-+   }
-+   // Paper end
-+
-    public BlockState func_180495_p(BlockPos p_180495_1_) {
-       int i = p_180495_1_.func_177956_o();
-       if (World.func_217405_b(i)) {
 @@ -138,13 +_,13 @@
           if (this.field_201661_i[j >> 4] == Chunk.field_186036_a && p_177436_2_.func_203425_a(Blocks.field_150350_a)) {
              return p_177436_2_;

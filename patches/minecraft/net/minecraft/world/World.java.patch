@@ -1,249 +1,37 @@
 --- a/net/minecraft/world/World.java
 +++ b/net/minecraft/world/World.java
-@@ -1,16 +_,8 @@
- package net.minecraft.world;
- 
-+import com.destroystokyo.paper.util.MCUtil;
- import com.google.common.collect.Lists;
- import com.mojang.serialization.Codec;
--import java.io.IOException;
--import java.util.Collection;
--import java.util.Iterator;
--import java.util.List;
--import java.util.Random;
--import java.util.function.Consumer;
--import java.util.function.Predicate;
--import java.util.function.Supplier;
--import javax.annotation.Nullable;
- import net.minecraft.block.AbstractFireBlock;
- import net.minecraft.block.Block;
- import net.minecraft.block.BlockState;
-@@ -34,13 +_,7 @@
- import net.minecraft.tags.ITagCollectionSupplier;
- import net.minecraft.tileentity.ITickableTileEntity;
- import net.minecraft.tileentity.TileEntity;
--import net.minecraft.tileentity.TileEntityType;
--import net.minecraft.util.DamageSource;
--import net.minecraft.util.Direction;
--import net.minecraft.util.RegistryKey;
--import net.minecraft.util.ResourceLocation;
--import net.minecraft.util.SoundCategory;
--import net.minecraft.util.SoundEvent;
-+import net.minecraft.util.*;
- import net.minecraft.util.math.AxisAlignedBB;
- import net.minecraft.util.math.BlockPos;
- import net.minecraft.util.math.MathHelper;
-@@ -55,6 +_,7 @@
- import net.minecraft.world.gen.Heightmap;
- import net.minecraft.world.lighting.WorldLightManager;
- import net.minecraft.world.server.ChunkHolder;
-+import net.minecraft.world.server.ServerWorld;
- import net.minecraft.world.storage.ISpawnWorldInfo;
- import net.minecraft.world.storage.IWorldInfo;
- import net.minecraft.world.storage.MapData;
-@@ -62,8 +_,16 @@
- import net.minecraftforge.api.distmarker.OnlyIn;
+@@ -63,7 +_,7 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
--
+ 
 -public abstract class World implements IWorld, AutoCloseable {
-+import org.goldenforge.BukkitConfig;
-+
-+import javax.annotation.Nullable;
-+import java.io.IOException;
-+import java.util.*;
-+import java.util.function.Consumer;
-+import java.util.function.Predicate;
-+import java.util.function.Supplier;
-+
 +public abstract class World extends net.minecraftforge.common.capabilities.CapabilityProvider<World> implements IWorld, AutoCloseable, net.minecraftforge.common.extensions.IForgeWorld {
     protected static final Logger field_195596_d = LogManager.getLogger();
     public static final Codec<RegistryKey<World>> field_234917_f_ = ResourceLocation.field_240908_a_.xmap(RegistryKey.func_240902_a_(Registry.field_239699_ae_), RegistryKey::func_240901_a_);
     public static final RegistryKey<World> field_234918_g_ = RegistryKey.func_240903_a_(Registry.field_239699_ae_, new ResourceLocation("overworld"));
-@@ -73,8 +_,8 @@
+@@ -73,7 +_,7 @@
     public final List<TileEntity> field_147482_g = Lists.newArrayList();
     public final List<TileEntity> field_175730_i = Lists.newArrayList();
     protected final List<TileEntity> field_147484_a = Lists.newArrayList();
 -   protected final List<TileEntity> field_147483_b = Lists.newArrayList();
--   private final Thread field_217407_c;
 +   protected final java.util.Set<TileEntity> field_147483_b = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); // Forge: faster "contains" makes removal much more efficient
-+   public final Thread field_217407_c;
+    private final Thread field_217407_c;
     private final boolean field_234916_c_;
     private int field_73008_k;
-    protected int field_73005_l = (new Random()).nextInt();
-@@ -92,8 +_,85 @@
+@@ -92,8 +_,12 @@
     private final WorldBorder field_175728_M;
     private final BiomeManager field_226689_w_;
     private final RegistryKey<World> field_73011_w;
 +   public boolean restoringBlockSnapshots = false;
 +   public boolean captureBlockSnapshots = false;
 +   public java.util.ArrayList<net.minecraftforge.common.util.BlockSnapshot> capturedBlockSnapshots = new java.util.ArrayList<>();
-+
-+   //GoldenForge start
-+   public static final boolean DEBUG_ENTITIES = Boolean.getBoolean("debug.entities"); // Paper
-+   public final Map<Explosion.CacheKey, Float> explosionDensityCache = new HashMap<>(); // Paper - Optimize explosions
-+   public final org.spigotmc.SpigotWorldConfig spigotConfig; // Spigot
-+   public final com.destroystokyo.paper.PaperWorldConfig paperConfig; // Paper
-+   public boolean keepSpawnInMemory = true;
-+
-+   public int wakeupInactiveRemainingAnimals;
-+   public int wakeupInactiveRemainingFlying;
-+   public int wakeupInactiveRemainingMonsters;
-+   public int wakeupInactiveRemainingVillagers;
-+
-+   public long ticksPerAnimalSpawns;
-+   public long ticksPerMonsterSpawns;
-+   public long ticksPerWaterSpawns;
-+   public long ticksPerWaterAmbientSpawns;
-+   public long ticksPerAmbientSpawns;
-+
-+   private int monsterSpawn = -1;
-+   private int animalSpawn = -1;
-+   private int waterAnimalSpawn = -1;
-+   private int waterAmbientSpawn = -1;
-+   private int ambientSpawn = -1;
-+
-+   public int getMonsterSpawnLimit() {
-+      if (monsterSpawn < 0) {
-+         return MinecraftServer.getServer().getMonsterSpawnLimit();
-+      }
-+
-+      return monsterSpawn;
-+   }
-+
-+   public int getAnimalSpawnLimit() {
-+      if (animalSpawn < 0) {
-+         return MinecraftServer.getServer().getAnimalSpawnLimit();
-+      }
-+
-+      return animalSpawn;
-+   }
-+
-+   public int getWaterAnimalSpawnLimit() {
-+      if (waterAnimalSpawn < 0) {
-+         return MinecraftServer.getServer().getWaterAnimalSpawnLimit();
-+      }
-+
-+      return waterAnimalSpawn;
-+   }
-+
-+   public int getWaterAmbientSpawnLimit() {
-+      if (waterAmbientSpawn < 0) {
-+         return MinecraftServer.getServer().getWaterAmbientSpawnLimit();
-+      }
-+
-+      return waterAmbientSpawn;
-+   }
-+
-+   public int getAmbientSpawnLimit() {
-+      if (ambientSpawn < 0) {
-+         return MinecraftServer.getServer().getAmbientSpawnLimit();
-+      }
-+
-+      return ambientSpawn;
-+   }
  
     protected World(ISpawnWorldInfo p_i241925_1_, RegistryKey<World> p_i241925_2_, final DimensionType p_i241925_3_, Supplier<IProfiler> p_i241925_4_, boolean p_i241925_5_, boolean p_i241925_6_, long p_i241925_7_) {
 +      super(World.class);
-+      this.spigotConfig = new org.spigotmc.SpigotWorldConfig(p_i241925_2_.func_240901_a_().toString()); // Spigot
-+      this.paperConfig = new com.destroystokyo.paper.PaperWorldConfig(p_i241925_2_.func_240901_a_().toString(), this.spigotConfig); // Paper
-+
-+      this.ticksPerAnimalSpawns = BukkitConfig.ticksPerAnimalSpawn;
-+      this.ticksPerMonsterSpawns = BukkitConfig.ticksPerMonsterSpawn;
-+      this.ticksPerWaterSpawns = BukkitConfig.ticksPerWaterSpawn;
-+      this.ticksPerWaterAmbientSpawns = BukkitConfig.ticksPerWaterAmbientSpawn;
-+      this.ticksPerAmbientSpawns = BukkitConfig.getTicksPerAmbientSpawn;
-+
        this.field_72984_F = p_i241925_4_;
        this.field_72986_A = p_i241925_1_;
        this.field_234921_x_ = p_i241925_3_;
-@@ -116,6 +_,11 @@
-       this.field_217407_c = Thread.currentThread();
-       this.field_226689_w_ = new BiomeManager(this, p_i241925_7_, p_i241925_3_.func_227176_e_());
-       this.field_234916_c_ = p_i241925_6_;
-+      this.keepSpawnInMemory = this.paperConfig.keepSpawnInMemory; // Paper
-+   }
-+
-+   public boolean getKeepSpawnInMemory() {
-+      return keepSpawnInMemory;
-    }
- 
-    public boolean func_201670_d() {
-@@ -124,11 +_,12 @@
- 
-    @Nullable
-    public MinecraftServer func_73046_m() {
--      return null;
-+      return MinecraftServer.getServer();
-    }
- 
-    public static boolean func_175701_a(BlockPos p_175701_0_) {
--      return !func_189509_E(p_175701_0_) && func_234934_e_(p_175701_0_);
-+      return p_175701_0_.isValidLocation();
-+      //return !isOutsideBuildHeight(p_175701_0_) && isInWorldBoundsHorizontal(p_175701_0_);
-    }
- 
-    public static boolean func_234935_k_(BlockPos p_234935_0_) {
-@@ -155,11 +_,57 @@
-       return this.func_212866_a_(p_175726_1_.func_177958_n() >> 4, p_175726_1_.func_177952_p() >> 4);
-    }
- 
-+   // Paper start - if loaded
-+
-+   public final boolean func_175667_e(BlockPos blockposition) {
-+      return getChunkIfLoaded(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null; // Paper
-+   }
-+
-+   public final boolean isLoadedAndInBounds(BlockPos blockposition) { // Paper - final for inline
-+      return func_175723_af().func_177746_a(blockposition) && getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null;
-+   }
-+
-+   public Chunk getChunkIfLoaded(int x, int z) { // Overridden in WorldServer for ABI compat which has final
-+      return ((ServerWorld) this).func_72863_F().getChunkAtIfLoadedImmediately(x, z);
-+   }
-+
-+   public final Chunk getChunkIfLoaded(BlockPos blockposition) {
-+      return ((ServerWorld) this).func_72863_F().getChunkAtIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
-+   }
-+
-+   //  reduces need to do isLoaded before getType
-+   public final BlockState getTypeIfLoadedAndInBounds(BlockPos blockposition) {
-+      return func_175723_af().func_177746_a(blockposition) ? getTypeIfLoaded(blockposition) : null;
-+   }
-+
-+   @Override
-+   public final BlockState getTypeIfLoaded(BlockPos blockposition) {
-+      if (!func_175701_a(blockposition)) {
-+         return Blocks.field_150350_a.func_176223_P();
-+      }
-+      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
-+
-+      return chunk == null ? null : chunk.func_180495_p(blockposition);
-+   }
-+
-+   @Override
-+   public final FluidState getFluidIfLoaded(BlockPos blockposition) {
-+      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
-+
-+      return chunk == null ? null : chunk.func_204610_c(blockposition);
-+   }
-+
-+   @Nullable
-+   @Override
-+   public final IChunk getChunkIfLoadedImmediately(int x, int z) {
-+      return ((ServerWorld)this).func_72863_F().getChunkAtIfLoadedImmediately(x, z);
-+   }
-+
-    public Chunk func_212866_a_(int p_212866_1_, int p_212866_2_) {
-       return (Chunk)this.func_217348_a(p_212866_1_, p_212866_2_, ChunkStatus.field_222617_m);
-    }
- 
--   public IChunk func_217353_a(int p_217353_1_, int p_217353_2_, ChunkStatus p_217353_3_, boolean p_217353_4_) {
-+   public final IChunk func_217353_a(int p_217353_1_, int p_217353_2_, ChunkStatus p_217353_3_, boolean p_217353_4_) {
-       IChunk ichunk = this.func_72863_F().func_212849_a_(p_217353_1_, p_217353_2_, p_217353_3_, p_217353_4_);
-       if (ichunk == null && p_217353_4_) {
-          throw new IllegalStateException("Should always be able to create a chunk!");
-@@ -180,24 +_,58 @@
+@@ -180,17 +_,45 @@
        } else {
           Chunk chunk = this.func_175726_f(p_241211_1_);
           Block block = p_241211_2_.func_177230_c();
@@ -290,20 +78,6 @@
              if (blockstate1 == p_241211_2_) {
                 if (blockstate != blockstate1) {
                    this.func_225319_b(p_241211_1_, blockstate, blockstate1);
-                }
- 
--               if ((p_241211_3_ & 2) != 0 && (!this.field_72995_K || (p_241211_3_ & 4) == 0) && (this.field_72995_K || chunk.func_217321_u() != null && chunk.func_217321_u().func_219065_a(ChunkHolder.LocationType.TICKING))) {
-+               //if ((p_241211_3_ & 2) != 0 && (!this.isClientSide || (p_241211_3_ & 4) == 0) && (this.isClientSide || chunk.getFullStatus() != null && chunk.getFullStatus().isOrAfter(ChunkHolder.LocationType.TICKING))) {
-+               if ((p_241211_3_ & 2) != 0 && (!this.field_72995_K || (p_241211_3_ & 4) == 0) && (this.field_72995_K || chunk == null || (chunk.func_217321_u() != null && chunk.func_217321_u().func_219065_a(ChunkHolder.LocationType.TICKING)))) {
-+                  // Paper start - per player view distance - allow block updates for non-ticking chunks in player view distance
-+                  // if copied from above
-                   this.func_184138_a(p_241211_1_, blockstate, p_241211_2_, p_241211_3_);
-+               } else if ((p_241211_3_ & 2) != 0 && (!this.field_72995_K || (p_241211_3_ & 4) == 0) && (this.field_72995_K || chunk == null || ((ServerWorld)this).func_72863_F().field_217237_a.playerViewDistanceBroadcastMap.getObjectsInRange(MCUtil.getCoordinateKey(p_241211_1_)) != null)) {
-+                  ((ServerWorld)this).func_72863_F().func_217217_a(p_241211_1_);
-+                  // Paper end - per player view distance
-                }
- 
-                if ((p_241211_3_ & 1) != 0) {
 @@ -216,8 +_,6 @@
  
                 this.func_217393_a(p_241211_1_, blockstate, blockstate1);
@@ -450,12 +224,7 @@
              }
           }
        }
-@@ -491,16 +_,20 @@
-       }
- 
-       iprofiler.func_76319_b();
-+      spigotConfig.currentPrimedTnt = 0; // Spigot
-    }
+@@ -495,12 +_,15 @@
  
     public void func_217390_a(Consumer<Entity> p_217390_1_, Entity p_217390_2_) {
        try {

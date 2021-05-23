@@ -1,29 +1,5 @@
 --- a/net/minecraft/entity/projectile/FishingBobberEntity.java
 +++ b/net/minecraft/entity/projectile/FishingBobberEntity.java
-@@ -61,6 +_,12 @@
-    private final int field_191518_aw;
-    private final int field_191519_ax;
- 
-+   // CraftBukkit start - Extra variables to enable modification of fishing wait time, values are minecraft defaults
-+   public int minWaitTime = 100;
-+   public int maxWaitTime = 600;
-+   public boolean applyLure = true;
-+   // CraftBukkit end
-+
-    private FishingBobberEntity(World p_i50219_1_, PlayerEntity p_i50219_2_, int p_i50219_3_, int p_i50219_4_) {
-       super(EntityType.field_200730_aI, p_i50219_1_);
-       this.field_70158_ak = true;
-@@ -68,6 +_,10 @@
-       p_i50219_2_.field_71104_cf = this;
-       this.field_191518_aw = Math.max(0, p_i50219_3_);
-       this.field_191519_ax = Math.max(0, p_i50219_4_);
-+      // Paper start
-+      minWaitTime = p_i50219_1_.paperConfig.fishingMinTicks;
-+      maxWaitTime = p_i50219_1_.paperConfig.fishingMaxTicks;
-+      // paper end
-    }
- 
-    @OnlyIn(Dist.CLIENT)
 @@ -300,7 +_,7 @@
              double d1 = (double)((float)MathHelper.func_76128_c(this.func_226278_cu_()) + 1.0F);
              double d2 = this.func_226281_cx_() + (double)(f2 * (float)this.field_146038_az * 0.1F);
@@ -42,19 +18,6 @@
                 serverworld.func_195598_a(ParticleTypes.field_218422_X, d4, d5, d6, 2 + this.field_70146_Z.nextInt(2), (double)0.1F, 0.0D, (double)0.1F, 0.0D);
              }
           }
-@@ -346,8 +_,10 @@
-             this.field_146038_az = MathHelper.func_76136_a(this.field_70146_Z, 20, 80);
-          }
-       } else {
--         this.field_146040_ay = MathHelper.func_76136_a(this.field_70146_Z, 100, 600);
--         this.field_146040_ay -= this.field_191519_ax * 20 * 5;
-+         // CraftBukkit start - logic to modify fishing wait time
-+         this.field_146040_ay = MathHelper.func_76136_a(this.field_70146_Z, this.minWaitTime, this.maxWaitTime);
-+         this.field_146040_ay -= (this.applyLure) ? this.field_191519_ax * 20 * 5 : 0;
-+         // CraftBukkit end
-       }
- 
-    }
 @@ -407,6 +_,7 @@
        PlayerEntity playerentity = this.func_234606_i_();
        if (!this.field_70170_p.field_72995_K && playerentity != null) {

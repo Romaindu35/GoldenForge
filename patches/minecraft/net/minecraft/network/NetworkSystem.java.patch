@@ -1,14 +1,6 @@
 --- a/net/minecraft/network/NetworkSystem.java
 +++ b/net/minecraft/network/NetworkSystem.java
-@@ -17,6 +_,7 @@
- import io.netty.channel.nio.NioEventLoopGroup;
- import io.netty.channel.socket.ServerSocketChannel;
- import io.netty.channel.socket.nio.NioServerSocketChannel;
-+import io.netty.handler.flush.FlushConsolidationHandler;
- import io.netty.handler.timeout.ReadTimeoutHandler;
- import java.io.IOException;
- import java.net.InetAddress;
-@@ -41,16 +_,28 @@
+@@ -41,11 +_,12 @@
  
  public class NetworkSystem {
     private static final Logger field_151275_b = LogManager.getLogger();
@@ -23,22 +15,6 @@
     });
     private final MinecraftServer field_151273_d;
     public volatile boolean field_151277_a;
-    private final List<ChannelFuture> field_151274_e = Collections.synchronizedList(Lists.newArrayList());
-    private final List<NetworkManager> field_151272_f = Collections.synchronizedList(Lists.newArrayList());
-+   // Paper start - prevent blocking on adding a new network manager while the server is ticking
-+   private final java.util.Queue<NetworkManager> pending = new java.util.concurrent.ConcurrentLinkedQueue<>();
-+   private static final boolean disableFlushConsolidation = Boolean.getBoolean("Paper.disableFlushConsolidate"); // Paper
-+   private void addPending() {
-+      NetworkManager manager = null;
-+      while ((manager = pending.poll()) != null) {
-+         field_151272_f.add(manager);
-+         manager.isPending = false;
-+      }
-+   }
-+   // Paper end
- 
-    public NetworkSystem(MinecraftServer p_i45292_1_) {
-       this.field_151273_d = p_i45292_1_;
 @@ -58,6 +_,7 @@
     }
  
@@ -47,64 +23,12 @@
        synchronized(this.field_151274_e) {
           Class<? extends ServerSocketChannel> oclass;
           LazyValue<? extends EventLoopGroup> lazyvalue;
-@@ -77,17 +_,28 @@
-                   p_initChannel_1_.config().setOption(ChannelOption.TCP_NODELAY, true);
+@@ -78,7 +_,7 @@
                 } catch (ChannelException channelexception) {
                 }
--
+ 
 -               p_initChannel_1_.pipeline().addLast("timeout", new ReadTimeoutHandler(30)).addLast("legacy_query", new LegacyPingHandler(NetworkSystem.this)).addLast("splitter", new NettyVarint21FrameDecoder()).addLast("decoder", new NettyPacketDecoder(PacketDirection.SERVERBOUND)).addLast("prepender", new NettyVarint21FrameEncoder()).addLast("encoder", new NettyPacketEncoder(PacketDirection.CLIENTBOUND));
-+               if (!disableFlushConsolidation) p_initChannel_1_.pipeline().addFirst(new FlushConsolidationHandler()); // Paper
 +               p_initChannel_1_.pipeline().addLast("timeout", new ReadTimeoutHandler(READ_TIMEOUT)).addLast("legacy_query", new LegacyPingHandler(NetworkSystem.this)).addLast("splitter", new NettyVarint21FrameDecoder()).addLast("decoder", new NettyPacketDecoder(PacketDirection.SERVERBOUND)).addLast("prepender", new NettyVarint21FrameEncoder()).addLast("encoder", new NettyPacketEncoder(PacketDirection.CLIENTBOUND));
                 int i = NetworkSystem.this.field_151273_d.func_241871_k();
                 NetworkManager networkmanager = (NetworkManager)(i > 0 ? new RateLimitedNetworkManager(i) : new NetworkManager(PacketDirection.SERVERBOUND));
--               NetworkSystem.this.field_151272_f.add(networkmanager);
-+               //NetworkSystem.this.connections.add(networkmanager);
-+               NetworkSystem.this.pending.add(networkmanager);
-                p_initChannel_1_.pipeline().addLast("packet_handler", networkmanager);
-                networkmanager.func_150719_a(new ServerHandshakeNetHandler(NetworkSystem.this.field_151273_d, networkmanager));
-             }
--         }).group(lazyvalue.func_179281_c()).localAddress(p_151265_1_, p_151265_2_).bind().syncUninterruptibly());
--      }
--   }
-+         }).group(lazyvalue.func_179281_c()).localAddress(p_151265_1_, p_151265_2_).option(ChannelOption.AUTO_READ, false).bind().syncUninterruptibly());
-+      }
-+   }
-+
-+   // CraftBukkit start
-+   public void acceptConnections() {
-+      synchronized (this.field_151274_e) {
-+         for (ChannelFuture future : this.field_151274_e) {
-+            future.channel().config().setAutoRead(true);
-+         }
-+      }
-+   }
-+   // CraftBukkit end
- 
-    @OnlyIn(Dist.CLIENT)
-    public SocketAddress func_151270_a() {
-@@ -122,6 +_,14 @@
- 
-    public void func_151269_c() {
-       synchronized(this.field_151272_f) {
-+         // Spigot Start
-+         this.addPending();
-+         // This prevents players from 'gaming' the server, and strategically relogging to increase their position in the tick order
-+         if ( org.spigotmc.SpigotConfig.playerShuffle > 0 && MinecraftServer.currentTick % org.spigotmc.SpigotConfig.playerShuffle == 0 )
-+         {
-+            Collections.shuffle( this.field_151272_f );
-+         }
-+         // Spigot End
-          Iterator<NetworkManager> iterator = this.field_151272_f.iterator();
- 
-          while(iterator.hasNext()) {
-@@ -143,6 +_,10 @@
-                      networkmanager.func_150721_g();
-                   }
-                } else {
-+                  // Spigot Start
-+                  // Fix a race condition where a NetworkManager could be unregistered just before connection.
-+                  if (networkmanager.preparing) continue;
-+                  // Spigot End
-                   iterator.remove();
-                   networkmanager.func_179293_l();
-                }
+                NetworkSystem.this.field_151272_f.add(networkmanager);

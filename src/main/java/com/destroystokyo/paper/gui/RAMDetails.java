@@ -56,16 +56,17 @@ public class RAMDetails extends JList<String> {
         GraphData data = RAMGraph.DATA.peekLast();
         Vector<String> vector = new Vector<>();
 
-        double[] tps = new double[] {server.tps1.getAverage(), server.tps5.getAverage(), server.tps15.getAverage()};
-        String[] tpsAvg = new String[tps.length];
-
-        for ( int g = 0; g < tps.length; g++) {
-            tpsAvg[g] = format( tps[g] );
-        }
+        //double[] tps = new double[] {server.tps1.getAverage(), server.tps5.getAverage(), server.tps15.getAverage()};
+        //TODO:
+//        String[] tpsAvg = new String[tps.length];
+//
+//        for ( int g = 0; g < tps.length; g++) {
+//            tpsAvg[g] = format( tps[g] );
+//        }
         vector.add("Memory use: " + (data.getUsedMem() / 1024L / 1024L) + " mb (" + (data.getFree() * 100L / data.getMax()) + "% free)");
         vector.add("Heap: " + (data.getTotal() / 1024L / 1024L) + " / " + (data.getMax() / 1024L / 1024L) + " mb");
         vector.add("Avg tick: " + DECIMAL_FORMAT.format(getAverage(server.tickTimes)) + " ms");
-        vector.add("TPS from last 1m, 5m, 15m: " + String.join(", ", tpsAvg));
+        //vector.add("TPS from last 1m, 5m, 15m: " + String.join(", ", tpsAvg));
 
         setListData(vector);
     }

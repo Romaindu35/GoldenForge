@@ -1,42 +1,12 @@
 --- a/net/minecraft/entity/Entity.java
 +++ b/net/minecraft/entity/Entity.java
-@@ -1,5 +_,6 @@
- package net.minecraft.entity;
- 
-+import com.destroystokyo.paper.util.MCUtil;
- import com.google.common.collect.Iterables;
- import com.google.common.collect.Lists;
- import com.google.common.collect.Sets;
-@@ -38,7 +_,10 @@
- import net.minecraft.enchantment.ProtectionEnchantment;
- import net.minecraft.entity.effect.LightningBoltEntity;
- import net.minecraft.entity.item.BoatEntity;
-+import net.minecraft.entity.item.HangingEntity;
- import net.minecraft.entity.item.ItemEntity;
-+import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
-+import net.minecraft.entity.item.minecart.MinecartEntity;
- import net.minecraft.entity.player.PlayerEntity;
- import net.minecraft.entity.player.ServerPlayerEntity;
- import net.minecraft.fluid.Fluid;
-@@ -101,24 +_,29 @@
- import net.minecraft.world.IWorldReader;
- import net.minecraft.world.World;
- import net.minecraft.world.border.WorldBorder;
-+import net.minecraft.world.chunk.Chunk;
- import net.minecraft.world.gen.Heightmap;
-+import net.minecraft.world.server.ChunkManager;
- import net.minecraft.world.server.ServerWorld;
- import net.minecraft.world.server.TicketType;
- import net.minecraftforge.api.distmarker.Dist;
- import net.minecraftforge.api.distmarker.OnlyIn;
+@@ -109,12 +_,13 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
-+import org.goldenforge.util.KeyedObject;
  
 -public abstract class Entity implements INameable, ICommandSource {
-+public abstract class Entity extends net.minecraftforge.common.capabilities.CapabilityProvider<Entity> implements INameable, ICommandSource, net.minecraftforge.common.extensions.IForgeEntity, KeyedObject {
++public abstract class Entity extends net.minecraftforge.common.capabilities.CapabilityProvider<Entity> implements INameable, ICommandSource, net.minecraftforge.common.extensions.IForgeEntity {
     protected static final Logger field_184243_a = LogManager.getLogger();
-+   boolean preserveMotion = true; // Paper - keep initial motion on first setPositionRotation
     private static final AtomicInteger field_213331_b = new AtomicInteger();
     private static final List<ItemStack> field_190535_b = Collections.emptyList();
     private static final AxisAlignedBB field_174836_a = new AxisAlignedBB(0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D);
@@ -45,11 +15,6 @@
     private final EntityType<?> field_200606_g;
     private int field_145783_c = field_213331_b.incrementAndGet();
     public boolean field_70156_m;
--   private final List<Entity> field_184244_h = Lists.newArrayList();
-+   public final List<Entity> field_184244_h = Lists.newArrayList();
-    protected int field_184245_j;
-    @Nullable
-    private Entity field_184239_as;
 @@ -140,6 +_,7 @@
     public boolean field_70124_G;
     public boolean field_70133_I;
@@ -58,132 +23,14 @@
     public boolean field_70128_L;
     public float field_70141_P;
     public float field_70140_Q;
-@@ -153,10 +_,10 @@
-    public float field_70138_W;
-    public boolean field_70145_X;
-    public float field_70144_Y;
--   protected final Random field_70146_Z = new Random();
-+   protected final Random field_70146_Z;// = new Random(); //GoldenForge
-    public int field_70173_aa;
--   private int field_190534_ay = -this.func_190531_bD();
--   protected boolean field_70171_ac;
-+   public int field_190534_ay = -this.func_190531_bD();
-+   public boolean field_70171_ac;
-    protected Object2DoubleMap<ITag<Fluid>> field_233554_M_ = new Object2DoubleArrayMap<>(2);
-    protected boolean field_205013_W;
-    @Nullable
-@@ -179,12 +_,12 @@
-    private Vector3d field_242272_av;
-    public boolean field_70158_ak;
-    public boolean field_70160_al;
--   private int field_242273_aw;
--   protected boolean field_71087_bX;
-+   public int field_242273_aw;
-+   public boolean field_71087_bX;
-    protected int field_82153_h;
-    protected BlockPos field_242271_ac;
-    private boolean field_83001_bt;
--   protected UUID field_96093_i = MathHelper.func_180182_a(this.field_70146_Z);
-+   protected UUID field_96093_i = MathHelper.func_180182_a(SHARED_RANDOM);
-    protected String field_189513_ar = this.field_96093_i.toString();
-    protected boolean field_184238_ar;
-    private final Set<String> field_184236_aF = Sets.newHashSet();
-@@ -194,7 +_,81 @@
-    private EntitySize field_213325_aI;
+@@ -195,6 +_,7 @@
     private float field_213326_aJ;
  
-+   // Paper start
-+   public boolean valid;
-+   public Throwable addedToWorldStack; // Paper - entity debug
-+   public boolean isTemporarilyActive = false; // Paper
-+   public boolean collisionLoadChunks = false; // Paper
-+   public boolean shouldBeRemoved; // Paper
-+   public void inactiveTick() { }
-+   public final org.spigotmc.ActivationRange.ActivationType activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(this);
-+   final org.spigotmc.TrackingRange.TrackingRangeType trackingRangeType = org.spigotmc.TrackingRange.getTrackingRangeType(this);
-+   public final boolean defaultActivationState;
-+   public long activatedTick = Integer.MIN_VALUE;
-+   public ChunkManager.EntityTracker tracker; // Paper package private -> public
-+   public List<Entity> entitySlice = null;
-+   public SpawnReason spawnReason;
-+   // Paper start
-+   public boolean isQueuedForRegister = false;
-+   public static Random SHARED_RANDOM = new Random() {
-+      private boolean locked = false;
-+      @Override
-+      public synchronized void setSeed(long seed) {
-+         if (locked) {
-+            LogManager.getLogger().error("Ignoring setSeed on Entity.SHARED_RANDOM", new Throwable());
-+         } else {
-+            super.setSeed(seed);
-+            locked = true;
-+         }
-+      }
-+   };
-+   // Paper end
-+
-+   public java.lang.ref.WeakReference<Chunk> currentChunk = null;
-+
-+   public void setCurrentChunk(Chunk chunk) {
-+      this.currentChunk = chunk != null ? new java.lang.ref.WeakReference<>(chunk) : null;
-+   }
-+   /**
-+    * Returns the entities current registered chunk. If the entity is not added to a chunk yet, it will return null
-+    */
-+   public Chunk getCurrentChunk() {
-+      final Chunk chunk = currentChunk != null ? currentChunk.get() : null;
-+      if (chunk != null && chunk.field_76636_d) {
-+         return chunk;
-+      }
-+
-+      return !field_70175_ag ? null : ((ServerWorld)field_70170_p).func_72863_F().getChunkAtIfLoadedMainThreadNoCache(field_70176_ah, field_70164_aj);
-+   }
-+
-+
-+   private ResourceLocation entityKey;
-+   private String entityKeyString;
-+
-+   @Override
-+   public ResourceLocation getMinecraftKey() {
-+      if (entityKey == null) {
-+         this.entityKey = EntityType.func_200718_a(this.func_200600_R());
-+         this.entityKeyString = this.entityKey != null ? this.entityKey.toString() : null;
-+      }
-+      return entityKey;
-+   }
-+
-+   @Override
-+   public String getMinecraftKeyString() {
-+      getMinecraftKey(); // Try to load if it doesn't exists. see: https://github.com/PaperMC/Paper/issues/1280
-+      return entityKeyString;
-+   }
-+
-+
-+   public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> getPlayersInTrackRange() {
-+      return ((ServerWorld)this.field_70170_p).func_72863_F().field_217237_a.playerEntityTrackerTrackMaps[this.trackingRangeType.ordinal()]
-+              .getObjectsInRange(MCUtil.getCoordinateKey(this));
-+   }
-+
     public Entity(EntityType<?> p_i48580_1_, World p_i48580_2_) {
 +      super(Entity.class);
-+      this.field_70146_Z = SHARED_RANDOM; // Paper
        this.field_200606_g = p_i48580_1_;
        this.field_70170_p = p_i48580_2_;
        this.field_213325_aI = p_i48580_1_.func_220334_j();
-@@ -202,6 +_,13 @@
-       this.field_233558_ap_ = BlockPos.field_177992_a;
-       this.field_242272_av = Vector3d.field_186680_a;
-       this.func_70107_b(0.0D, 0.0D, 0.0D);
-+      // Spigot start
-+      if (field_70170_p != null) {
-+         this.defaultActivationState = org.spigotmc.ActivationRange.initializeEntityActivationState(this, field_70170_p.spigotConfig);
-+      } else {
-+         this.defaultActivationState = false;
-+      }
-+      // Spigot end
-       this.field_70180_af = new EntityDataManager(this);
-       this.field_70180_af.func_187214_a(field_184240_ax, (byte)0);
-       this.field_70180_af.func_187214_a(field_184241_ay, this.func_205010_bg());
 @@ -211,7 +_,11 @@
        this.field_70180_af.func_187214_a(field_189655_aD, false);
        this.field_70180_af.func_187214_a(field_213330_X, Pose.STANDING);
@@ -219,61 +66,6 @@
        double d1 = p_233562_1_.field_233557_ao_.field_72448_b - this.field_233557_ao_.field_72448_b;
        double d2 = p_233562_1_.field_233557_ao_.field_72449_c - this.field_233557_ao_.field_72449_c;
        return d0 * d0 + d1 * d1 + d2 * d2 < p_233562_2_ * p_233562_2_;
-@@ -416,9 +_,12 @@
-          this.field_70143_R *= 0.5F;
-       }
- 
--      if (this.func_226278_cu_() < -64.0D) {
--         this.func_70076_C();
--      }
-+      // Paper start - Configurable nether ceiling damage
-+//      if (this.getY() < -64.0D) {
-+//         this.outOfWorld();
-+//      }
-+      this.performVoidDamage();
-+      // Paper end
- 
-       if (!this.field_70170_p.field_72995_K) {
-          this.func_70052_a(0, this.field_190534_ay > 0);
-@@ -428,6 +_,15 @@
-       this.field_70170_p.func_217381_Z().func_76319_b();
-    }
- 
-+   // Paper start
-+   protected void performVoidDamage() {
-+      if (this.func_226278_cu_() < -64.0D || (field_70170_p.paperConfig.doNetherTopVoidDamage()
-+              && this.func_226278_cu_() >= field_70170_p.paperConfig.netherVoidTopDamageHeight)) {
-+         this.func_70076_C();
-+      }
-+   }
-+   // Paper end
-+
-    public void func_242279_ag() {
-       this.field_242273_aw = this.func_82147_ab();
-    }
-@@ -504,6 +_,7 @@
-          this.func_174829_m();
-       } else {
-          if (p_213315_1_ == MoverType.PISTON) {
-+            this.activatedTick = MinecraftServer.currentTick + 20; // Paper
-             p_213315_2_ = this.func_213308_a(p_213315_2_);
-             if (p_213315_2_.equals(Vector3d.field_186680_a)) {
-                return;
-@@ -517,6 +_,14 @@
-             this.func_213317_d(Vector3d.field_186680_a);
-          }
- 
-+         // Paper start - ignore movement changes while inactive.
-+         if (isTemporarilyActive && !(this instanceof ItemEntity || this instanceof AbstractMinecartEntity) && p_213315_2_ == func_213322_ci() && p_213315_1_ == MoverType.SELF) {
-+            func_213317_d(Vector3d.field_186680_a);
-+            this.field_70170_p.func_217381_Z().func_76319_b();
-+            return;
-+         }
-+         // Paper end
-+
-          p_213315_2_ = this.func_225514_a_(p_213315_2_, p_213315_1_);
-          Vector3d vector3d = this.func_213306_e(p_213315_2_);
-          if (vector3d.func_189985_c() > 1.0E-7D) {
 @@ -560,7 +_,7 @@
  
              this.field_70140_Q = (float)((double)this.field_70140_Q + (double)MathHelper.func_76133_a(func_213296_b(vector3d)) * 0.6D);
@@ -318,15 +110,6 @@
              return blockpos1;
           }
        }
-@@ -684,7 +_,7 @@
-       AxisAlignedBB axisalignedbb = this.func_174813_aQ();
-       ISelectionContext iselectioncontext = ISelectionContext.func_216374_a(this);
-       VoxelShape voxelshape = this.field_70170_p.func_175723_af().func_222521_a();
--      Stream<VoxelShape> stream = VoxelShapes.func_197879_c(voxelshape, VoxelShapes.func_197881_a(axisalignedbb.func_186664_h(1.0E-7D)), IBooleanFunction.field_223238_i_) ? Stream.empty() : Stream.of(voxelshape);
-+      Stream<VoxelShape> stream = !this.field_70170_p.func_175723_af().func_177743_a(axisalignedbb) ? Stream.empty() : Stream.of(voxelshape);//VoxelShapes.joinIsNotEmpty(voxelshape, VoxelShapes.create(axisalignedbb.deflate(1.0E-7D)), IBooleanFunction.AND) ? Stream.empty() : Stream.of(voxelshape);
-       Stream<VoxelShape> stream1 = this.field_70170_p.func_230318_c_(this, axisalignedbb.func_216361_a(p_213306_1_), (p_233561_0_) -> {
-          return true;
-       });
 @@ -801,6 +_,7 @@
     public void func_174829_m() {
        AxisAlignedBB axisalignedbb = this.func_174813_aQ();
@@ -356,36 +139,6 @@
        }
  
     }
-@@ -1117,6 +_,7 @@
-       this.field_70167_r = p_242281_3_;
-       this.field_70166_s = d1;
-       this.func_70107_b(d0, p_242281_3_, d1);
-+      if (valid) field_70170_p.func_212866_a_((int) Math.floor(this.func_226277_ct_()) >> 4, (int) Math.floor(this.func_226281_cx_()) >> 4); // CraftBukkit // Paper
-    }
- 
-    public void func_233576_c_(Vector3d p_233576_1_) {
-@@ -1132,6 +_,13 @@
-    }
- 
-    public void func_70012_b(double p_70012_1_, double p_70012_3_, double p_70012_5_, float p_70012_7_, float p_70012_8_) {
-+      // Paper - cancel entity velocity if teleported
-+      if (!preserveMotion) {
-+         this.field_213327_at = Vector3d.field_186680_a;
-+      } else {
-+         this.preserveMotion = false;
-+      }
-+      // Paper end
-       this.func_226286_f_(p_70012_1_, p_70012_3_, p_70012_5_);
-       this.field_70177_z = p_70012_7_;
-       this.field_70125_A = p_70012_8_;
-@@ -1179,6 +_,7 @@
-    public void func_70108_f(Entity p_70108_1_) {
-       if (!this.func_184223_x(p_70108_1_)) {
-          if (!p_70108_1_.field_70145_X && !this.field_70145_X) {
-+            if (this.field_70170_p.paperConfig.onlyPlayersCollide && !(p_70108_1_ instanceof ServerPlayerEntity || this instanceof ServerPlayerEntity)) return; // Paper
-             double d0 = p_70108_1_.func_226277_ct_() - this.func_226277_ct_();
-             double d1 = p_70108_1_.func_226281_cx_() - this.func_226281_cx_();
-             double d2 = MathHelper.func_76132_a(d0, d1);
 @@ -1377,6 +_,7 @@
           if (this.field_184238_ar) {
              p_189511_1_.func_74757_a("Glowing", this.field_184238_ar);
@@ -415,13 +168,9 @@
                 if (p_70020_1_.func_150297_b("Tags", 9)) {
                    this.field_184236_aF.clear();
                    ListNBT listnbt3 = p_70020_1_.func_150295_c("Tags", 8);
-@@ -1544,8 +_,11 @@
-       } else if (this.field_70170_p.field_72995_K) {
-          return null;
+@@ -1546,6 +_,8 @@
        } else {
--         ItemEntity itementity = new ItemEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_() + (double)p_70099_2_, this.func_226281_cx_(), p_70099_1_);
-+         ItemEntity itementity = new ItemEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_() + (double)p_70099_2_, this.func_226281_cx_(), p_70099_1_.func_77946_l()); // Paper - clone so we can destroy original
-+         p_70099_1_.func_190920_e(0); // Paper - destroy this item - if this ever leaks due to game bugs, ensure it doesn't dupe
+          ItemEntity itementity = new ItemEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_() + (double)p_70099_2_, this.func_226281_cx_(), p_70099_1_);
           itementity.func_174869_p();
 +         if (captureDrops() != null) captureDrops().add(itementity);
 +         else
@@ -452,29 +201,8 @@
           this.field_184239_as = null;
           entity.func_184225_p(this);
        }
-@@ -1670,6 +_,7 @@
-    }
- 
-    protected void func_184200_o(Entity p_184200_1_) {
-+      if (p_184200_1_ == this) throw new IllegalArgumentException("Entities cannot become a passenger of themselves"); // Paper - issue 572
-       if (p_184200_1_.func_184187_bx() != this) {
-          throw new IllegalStateException("Use x.startRiding(y), not y.addPassenger(x)");
-       } else {
-@@ -1692,7 +_,7 @@
-    }
- 
-    protected boolean func_184219_q(Entity p_184219_1_) {
--      return this.func_184188_bt().size() < 1;
-+      return this.field_184244_h.size() < 1; // Paper - do not copy list
-    }
- 
-    @OnlyIn(Dist.CLIENT)
-@@ -1813,9 +_,10 @@
-    }
- 
-    public boolean func_184207_aI() {
--      return !this.func_184188_bt().isEmpty();
-+      return !this.field_184244_h.isEmpty();
+@@ -1816,6 +_,7 @@
+       return !this.func_184188_bt().isEmpty();
     }
  
 +   @Deprecated //Forge: Use rider sensitive version
@@ -490,7 +218,7 @@
     }
  
     public boolean func_70028_i(Entity p_70028_1_) {
-@@ -2087,14 +_,26 @@
+@@ -2087,14 +_,19 @@
  
     @Nullable
     public Entity func_241206_a_(ServerWorld p_241206_1_) {
@@ -498,7 +226,6 @@
 +   }
 +   @Nullable
 +   public Entity changeDimension(ServerWorld p_241206_1_, net.minecraftforge.common.util.ITeleporter teleporter) {
-+
        if (this.field_70170_p instanceof ServerWorld && !this.field_70128_L) {
           this.field_70170_p.func_217381_Z().func_76320_a("changeDimension");
           this.func_213319_R();
@@ -508,12 +235,6 @@
           if (portalinfo == null) {
              return null;
           } else {
-+            // Paper start - fix bad state entities causing dupes
-+            if (!func_70089_S() || !valid) {
-+               field_184243_a.warn("Illegal Entity Teleport " + this + " to " + p_241206_1_ + ":" + portalinfo.field_222505_a, new Throwable());
-+               return null;
-+            }
-+            // Paper end
 +            Entity transportedEntity = teleporter.placeEntity(this, (ServerWorld) this.field_70170_p, p_241206_1_, this.field_70177_z, spawnPortal -> { //Forge: Start vanilla logic
              this.field_70170_p.func_217381_Z().func_219895_b("reloading");
              Entity entity = this.func_200600_R().func_200721_a(p_241206_1_);
@@ -552,55 +273,6 @@
        if (entitysize1.field_220315_a < entitysize.field_220315_a) {
           double d0 = (double)entitysize1.field_220315_a / 2.0D;
           this.func_174826_a(new AxisAlignedBB(this.func_226277_ct_() - d0, this.func_226278_cu_(), this.func_226281_cx_() - d0, this.func_226277_ct_() + d0, this.func_226278_cu_() + (double)entitysize1.field_220316_b, this.func_226281_cx_() + d0));
-@@ -2482,7 +_,7 @@
-    }
- 
-    public boolean func_184196_w(Entity p_184196_1_) {
--      for(Entity entity : this.func_184188_bt()) {
-+      for(Entity entity : this.field_184244_h) { // Paper - do not copy list
-          if (entity.equals(p_184196_1_)) {
-             return true;
-          }
-@@ -2492,7 +_,7 @@
-    }
- 
-    public boolean func_205708_a(Class<? extends Entity> p_205708_1_) {
--      for(Entity entity : this.func_184188_bt()) {
-+      for(Entity entity : this.field_184244_h) { // Paper - do not copy list
-          if (p_205708_1_.isAssignableFrom(entity.getClass())) {
-             return true;
-          }
-@@ -2504,7 +_,7 @@
-    public Collection<Entity> func_184182_bu() {
-       Set<Entity> set = Sets.newHashSet();
- 
--      for(Entity entity : this.func_184188_bt()) {
-+      for(Entity entity : this.field_184244_h) { // Paper - do not copy list
-          set.add(entity);
-          entity.func_200604_a(false, set);
-       }
-@@ -2523,7 +_,7 @@
-    }
- 
-    private void func_200604_a(boolean p_200604_1_, Set<Entity> p_200604_2_) {
--      for(Entity entity : this.func_184188_bt()) {
-+      for(Entity entity : this.field_184244_h) { // Paper - do not copy list
-          if (!p_200604_1_ || ServerPlayerEntity.class.isAssignableFrom(entity.getClass())) {
-             p_200604_2_.add(entity);
-          }
-@@ -2785,6 +_,12 @@
-    }
- 
-    public void func_226288_n_(double p_226288_1_, double p_226288_3_, double p_226288_5_) {
-+      // Paper start - never allow AABB to become desynced from position
-+      // hanging has its own special logic
-+      if (!(this instanceof HangingEntity) && (this.field_233557_ao_.field_72450_a != p_226288_1_ || this.field_233557_ao_.field_72448_b != p_226288_3_ || this.field_233557_ao_.field_72449_c != p_226288_5_)) {
-+         this.func_174826_a(this.field_213325_aI.func_242285_a(p_226288_1_, p_226288_3_, p_226288_5_));
-+      }
-+      // Paper end
-       if (this.field_233557_ao_.field_72450_a != p_226288_1_ || this.field_233557_ao_.field_72448_b != p_226288_3_ || this.field_233557_ao_.field_72449_c != p_226288_5_) {
-          this.field_233557_ao_ = new Vector3d(p_226288_1_, p_226288_3_, p_226288_5_);
-          int i = MathHelper.func_76128_c(p_226288_1_);
 @@ -2796,6 +_,7 @@
  
           this.field_233555_aA_ = true;

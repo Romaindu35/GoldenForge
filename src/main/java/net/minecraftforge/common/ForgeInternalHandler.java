@@ -46,9 +46,7 @@ import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.LogicalSidedProvider;
 import net.minecraftforge.server.command.ForgeCommand;
 import net.minecraftforge.server.command.ConfigCommand;
-import org.goldenforge.command.GoldenForgeCommand;
-import org.goldenforge.command.TicksPerSecondCommand;
-import org.goldenforge.command.TimingsCommand;
+import org.goldenforge.command.GoldenForgeCommands;
 
 public class ForgeInternalHandler
 {
@@ -127,9 +125,7 @@ public class ForgeInternalHandler
     public void onCommandsRegister(RegisterCommandsEvent event)
     {
         new ForgeCommand(event.getDispatcher());
-        TicksPerSecondCommand.register(event.getDispatcher());
-        TimingsCommand.register(event.getDispatcher());
-        GoldenForgeCommand.register(event.getDispatcher());
+        GoldenForgeCommands.register(event.getDispatcher());
         ConfigCommand.register(event.getDispatcher());
     }
     

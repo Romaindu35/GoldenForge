@@ -1,14 +1,5 @@
 --- a/net/minecraft/entity/monster/ZombieEntity.java
 +++ b/net/minecraft/entity/monster/ZombieEntity.java
-@@ -100,7 +_,7 @@
-       this.field_70714_bg.func_75776_a(7, new WaterAvoidingRandomWalkingGoal(this, 1.0D));
-       this.field_70715_bh.func_75776_a(1, (new HurtByTargetGoal(this)).func_220794_a(ZombifiedPiglinEntity.class));
-       this.field_70715_bh.func_75776_a(2, new NearestAttackableTargetGoal<>(this, PlayerEntity.class, true));
--      this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, AbstractVillagerEntity.class, false));
-+      if ( field_70170_p.spigotConfig.zombieAggressiveTowardsVillager ) this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, AbstractVillagerEntity.class, false));
-       this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, IronGolemEntity.class, true));
-       this.field_70715_bh.func_75776_a(5, new NearestAttackableTargetGoal<>(this, TurtleEntity.class, 10, true, false, TurtleEntity.field_203029_bx));
-    }
 @@ -186,7 +_,8 @@
        if (!this.field_70170_p.field_72995_K && this.func_70089_S() && !this.func_175446_cd()) {
           if (this.func_204706_dD()) {

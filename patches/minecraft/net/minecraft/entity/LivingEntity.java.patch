@@ -10,39 +10,6 @@
     protected static final DataParameter<Byte> field_184621_as = EntityDataManager.func_187226_a(LivingEntity.class, DataSerializers.field_187191_a);
     private static final DataParameter<Float> field_184632_c = EntityDataManager.func_187226_a(LivingEntity.class, DataSerializers.field_187193_c);
     private static final DataParameter<Integer> field_184633_f = EntityDataManager.func_187226_a(LivingEntity.class, DataSerializers.field_187192_b);
-@@ -128,7 +_,7 @@
-    protected static final EntitySize field_213377_as = EntitySize.func_220311_c(0.2F, 0.2F);
-    private final AttributeModifierManager field_110155_d;
-    private final CombatTracker field_94063_bt = new CombatTracker(this);
--   private final Map<Effect, EffectInstance> field_70713_bf = Maps.newHashMap();
-+   public final Map<Effect, EffectInstance> field_70713_bf = Maps.newHashMap();
-    private final NonNullList<ItemStack> field_184630_bs = NonNullList.func_191197_a(2, ItemStack.field_190927_a);
-    private final NonNullList<ItemStack> field_184631_bt = NonNullList.func_191197_a(4, ItemStack.field_190927_a);
-    public boolean field_82175_bq;
-@@ -166,7 +_,7 @@
-    protected float field_70741_aB;
-    protected int field_70744_aE;
-    protected float field_110153_bc;
--   protected boolean field_70703_bu;
-+   public boolean field_70703_bu;
-    public float field_70702_br;
-    public float field_70701_bs;
-    public float field_191988_bg;
-@@ -199,6 +_,14 @@
-    private float field_205018_bM;
-    protected Brain<?> field_213378_br;
- 
-+   // Spigot start
-+   public void inactiveTick()
-+   {
-+      super.inactiveTick();
-+      ++this.field_70708_bq; // Above all the floats
-+   }
-+   // Spigot end
-+
-    protected LivingEntity(EntityType<? extends LivingEntity> p_i48577_1_, World p_i48577_2_) {
-       super(p_i48577_1_, p_i48577_2_);
-       this.field_110155_d = new AttributeModifierManager(GlobalEntityTypeAttributes.func_233835_a_(p_i48577_1_));
 @@ -245,7 +_,7 @@
     }
  
@@ -52,7 +19,7 @@
     }
  
     protected void func_184231_a(double p_184231_1_, boolean p_184231_3_, BlockState p_184231_4_, BlockPos p_184231_5_) {
-@@ -260,9 +_,10 @@
+@@ -260,10 +_,11 @@
  
        if (!this.field_70170_p.field_72995_K && this.field_70143_R > 3.0F && p_184231_3_) {
           float f = (float)MathHelper.func_76123_f(this.field_70143_R - 3.0F);
@@ -60,10 +27,12 @@
 +         if (!p_184231_4_.isAir(field_70170_p, p_184231_5_)) {
              double d0 = Math.min((double)(0.2F + f / 15.0F), 2.5D);
              int i = (int)(150.0D * d0);
+-            ((ServerWorld)this.field_70170_p).func_195598_a(new BlockParticleData(ParticleTypes.field_197611_d, p_184231_4_), this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), i, 0.0D, 0.0D, 0.0D, (double)0.15F);
 +            if (!p_184231_4_.addLandingEffects((ServerWorld)this.field_70170_p, p_184231_5_, p_184231_4_, this, i))
-             ((ServerWorld)this.field_70170_p).func_195598_a(new BlockParticleData(ParticleTypes.field_197611_d, p_184231_4_), this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), i, 0.0D, 0.0D, 0.0D, (double)0.15F);
++            ((ServerWorld)this.field_70170_p).func_195598_a(new BlockParticleData(ParticleTypes.field_197611_d, p_184231_4_).setPos(p_184231_5_), this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), i, 0.0D, 0.0D, 0.0D, (double)0.15F);
           }
        }
+ 
 @@ -330,7 +_,7 @@
                 }
              }
@@ -178,31 +147,6 @@
                 if (wolfentity.func_70909_n()) {
                    this.field_70718_bc = 100;
                    LivingEntity livingentity = wolfentity.func_70902_q();
-@@ -995,6 +_,7 @@
-             }
-          }
- 
-+         boolean knockbackCancelled = field_70170_p.paperConfig.disableExplosionKnockback && p_70097_1_.func_94541_c() && this instanceof PlayerEntity; // Paper - Disable explosion knockback
-          if (flag1) {
-             if (flag) {
-                this.field_70170_p.func_72960_a(this, (byte)29);
-@@ -1011,7 +_,7 @@
-                } else {
-                   b0 = 2;
-                }
--
-+               if (!knockbackCancelled) // Paper - Disable explosion knockback
-                this.field_70170_p.func_72960_a(this, b0);
-             }
- 
-@@ -1034,6 +_,7 @@
-             }
-          }
- 
-+         if (knockbackCancelled) this.field_70170_p.func_72960_a(this, (byte) 2); // Paper - Disable explosion knockback
-          if (this.func_233643_dh_()) {
-             if (!this.func_190628_d(p_70097_1_)) {
-                SoundEvent soundevent = this.func_184615_bR();
 @@ -1165,6 +_,7 @@
     }
  
@@ -443,33 +387,8 @@
           if (itemstack.func_77973_b() == Items.field_185160_cR && ElytraItem.func_185069_d(itemstack)) {
              flag = true;
              if (!this.field_70170_p.field_72995_K && (this.field_184629_bo + 1) % 20 == 0) {
-@@ -2460,9 +_,15 @@
-    }
+@@ -2668,8 +_,16 @@
  
-    protected void func_85033_bc() {
--      List<Entity> list = this.field_70170_p.func_175674_a(this, this.func_174813_aQ(), EntityPredicates.func_200823_a(this));
-+      // Paper - start don't run getEntities if we're not going to use its result
-+      int i = this.field_70170_p.func_82736_K().func_223592_c(GameRules.field_223616_s);
-+      if (i <= 0 && field_70170_p.paperConfig.maxCollisionsPerEntity <= 0) {
-+         return;
-+      }
-+      // Paper - end don't run getEntities if we're not going to use its result
-+      List<Entity> list = this.field_70170_p.func_175674_a(this, this.func_174813_aQ(), EntityPredicates.func_200823_a(this)); //TODO: fix climbing bypassing cramming rule
-       if (!list.isEmpty()) {
--         int i = this.field_70170_p.func_82736_K().func_223592_c(GameRules.field_223616_s);
-+         // Paper - move up int i = this.level.getGameRules().getInt(GameRules.RULE_MAX_ENTITY_CRAMMING);
-          if (i > 0 && list.size() > i - 1 && this.field_70146_Z.nextInt(4) == 0) {
-             int j = 0;
- 
-@@ -2666,16 +_,33 @@
-       return (this.field_70180_af.func_187225_a(field_184621_as) & 2) > 0 ? Hand.OFF_HAND : Hand.MAIN_HAND;
-    }
- 
-+   // Paper start - lag compensate eating
-+   protected long eatStartTime;
-+   protected int totalEatTimeTicks;
-+   // Paper end
-+
     private void func_184608_ct() {
        if (this.func_184587_cr()) {
 -         if (ItemStack.func_185132_d(this.func_184586_b(this.func_184600_cs()), this.field_184627_bm)) {
@@ -487,18 +406,6 @@
              this.field_184627_bm.func_222121_b(this.field_70170_p, this, this.func_184605_cv());
              if (this.func_226299_p_()) {
                 this.func_226293_b_(this.field_184627_bm, 5);
-             }
--
--            if (--this.field_184628_bn == 0 && !this.field_70170_p.field_72995_K && !this.field_184627_bm.func_222122_m()) {
-+            // Paper start - lag compensate eating
-+            // we add 1 to the expected time to avoid lag compensating when we should not
-+            boolean shouldLagCompensate = this.field_184627_bm.func_77973_b().func_219971_r() && this.eatStartTime != -1 && (System.nanoTime() - this.eatStartTime) > ((1 + this.totalEatTimeTicks) * 50 * (1000 * 1000));
-+            if ((--this.field_184628_bn == 0 || shouldLagCompensate ) && !this.field_70170_p.field_72995_K && !this.field_184627_bm.func_222122_m()) {
-+               this.field_184628_bn = 0;
-+               // Paper end
-                this.func_71036_o();
-             }
-          } else {
 @@ -2717,8 +_,10 @@
     public void func_184598_c(Hand p_184598_1_) {
        ItemStack itemstack = this.func_184586_b(p_184598_1_);
@@ -543,19 +450,6 @@
           if (this.field_184627_bm.func_222122_m()) {
              this.func_184608_ct();
           }
-@@ -2830,7 +_,11 @@
-       }
- 
-       this.field_184627_bm = ItemStack.field_190927_a;
--      this.field_184628_bn = 0;
-+      // Paper start - lag compensate eating
-+      this.field_184628_bn = this.totalEatTimeTicks = 0;
-+      this.eatStartTime = -1L;
-+      // Paper end
-+     // this.useItemRemaining = 0;
-    }
- 
-    public boolean func_184585_cz() {
 @@ -2964,8 +_,8 @@
        }
  

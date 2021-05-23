@@ -1,14 +1,5 @@
 --- a/net/minecraft/world/chunk/IChunk.java
 +++ b/net/minecraft/world/chunk/IChunk.java
-@@ -27,6 +_,8 @@
- import org.apache.logging.log4j.LogManager;
- 
- public interface IChunk extends IBlockReader, IStructureReader {
-+
-+   BlockState getBlockState(final int x, final int y, final int z); // Paper
-    @Nullable
-    BlockState func_177436_a(BlockPos p_177436_1_, BlockState p_177436_2_, boolean p_177436_3_);
- 
 @@ -145,4 +_,9 @@
     boolean func_217310_r();
  

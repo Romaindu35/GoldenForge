@@ -21,7 +21,6 @@ package net.minecraftforge.server;
 
 import cpw.mods.modlauncher.InvalidLauncherSetupException;
 import cpw.mods.modlauncher.Launcher;
-import org.goldenforge.GoldenForgeEntryPoint;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,7 +34,6 @@ import java.util.jar.Manifest;
 
 public class ServerMain {
     public static void main(String[] args) {
-        new GoldenForgeEntryPoint();
         try {
             Class.forName("cpw.mods.modlauncher.Launcher", false, ClassLoader.getSystemClassLoader());
             Class.forName("net.minecraftforge.forgespi.Environment", false, ClassLoader.getSystemClassLoader());

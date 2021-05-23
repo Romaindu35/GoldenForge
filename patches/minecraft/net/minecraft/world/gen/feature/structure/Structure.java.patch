@@ -9,22 +9,6 @@
     public static final BiMap<String, Structure<?>> field_236365_a_ = HashBiMap.create();
     private static final Map<Structure<?>, GenerationStage.Decoration> field_236385_u_ = Maps.newHashMap();
     private static final Logger field_208204_b = LogManager.getLogger();
-@@ -158,6 +_,15 @@
-                   int k1 = j + i * i1;
-                   int l1 = k + i * j1;
-                   ChunkPos chunkpos = this.func_236392_a_(p_236388_8_, p_236388_6_, sharedseedrandom, k1, l1);
-+                  if (!p_236388_1_.func_175723_af().isChunkInBounds(chunkpos.field_77276_a, chunkpos.field_77275_b)) { continue; } // Paper
-+                  // Paper start - seed based feature search
-+                  if (p_236388_2_.getWorld().paperConfig.seedBasedFeatureSearch) {
-+                     Biome biomeBase = p_236388_2_.getWorld().func_225523_d_().func_226836_a_(new BlockPos(chunkpos.func_180334_c() + 9, 0, chunkpos.func_180333_d() + 9));
-+                     if (!biomeBase.func_242440_e().func_242493_a(this)) {
-+                        continue;
-+                     }
-+                  }
-+                  // Paper end
-                   IChunk ichunk = p_236388_1_.func_217348_a(chunkpos.field_77276_a, chunkpos.field_77275_b, ChunkStatus.field_222606_b);
-                   StructureStart<?> structurestart = p_236388_2_.func_235013_a_(SectionPos.func_218156_a(ichunk.func_76632_l(), 0), this, ichunk);
-                   if (structurestart != null && structurestart.func_75069_d()) {
 @@ -237,11 +_,16 @@
     }
  

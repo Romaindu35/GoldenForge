@@ -1,24 +1,7 @@
 --- a/net/minecraft/fluid/FlowingFluid.java
 +++ b/net/minecraft/fluid/FlowingFluid.java
-@@ -141,7 +_,9 @@
-             Direction direction = entry.getKey();
-             FluidState fluidstate = entry.getValue();
-             BlockPos blockpos = p_207937_2_.func_177972_a(direction);
--            BlockState blockstate = p_207937_1_.func_180495_p(blockpos);
-+            //BlockState blockstate = p_207937_1_.getBlockState(blockpos);
-+            BlockState blockstate = p_207937_1_.getTypeIfLoaded(blockpos); // Paper
-+            if (blockstate == null) continue; // Paper
-             if (this.func_205570_b(p_207937_1_, p_207937_2_, p_207937_4_, direction, blockpos, blockstate, p_207937_1_.func_204610_c(blockpos), fluidstate.func_206886_c())) {
-                this.func_205574_a(p_207937_1_, blockpos, blockstate, direction, fluidstate);
-             }
-@@ -156,10 +_,12 @@
- 
-       for(Direction direction : Direction.Plane.HORIZONTAL) {
-          BlockPos blockpos = p_205576_2_.func_177972_a(direction);
--         BlockState blockstate = p_205576_1_.func_180495_p(blockpos);
-+         //BlockState blockstate = p_205576_1_.getBlockState(blockpos);
-+         BlockState blockstate = p_205576_1_.getTypeIfLoaded(blockpos); // Paper
-+         if (blockstate == null) continue; // Paper
+@@ -159,7 +_,7 @@
+          BlockState blockstate = p_205576_1_.func_180495_p(blockpos);
           FluidState fluidstate = blockstate.func_204520_s();
           if (fluidstate.func_206886_c().func_207187_a(this) && this.func_212751_a(direction, p_205576_1_, p_205576_2_, p_205576_3_, blockpos, blockstate)) {
 -            if (fluidstate.func_206889_d()) {
@@ -35,59 +18,3 @@
           BlockState blockstate1 = p_205576_1_.func_180495_p(p_205576_2_.func_177977_b());
           FluidState fluidstate1 = blockstate1.func_204520_s();
           if (blockstate1.func_185904_a().func_76220_a() || this.func_211758_g(fluidstate1)) {
-@@ -261,10 +_,22 @@
-          if (direction != p_205571_4_) {
-             BlockPos blockpos = p_205571_2_.func_177972_a(direction);
-             short short1 = func_212752_a(p_205571_6_, blockpos);
--            Pair<BlockState, FluidState> pair = p_205571_7_.computeIfAbsent(short1, (p_212748_2_) -> {
--               BlockState blockstate1 = p_205571_1_.func_180495_p(blockpos);
--               return Pair.of(blockstate1, blockstate1.func_204520_s());
--            });
-+//            Pair<BlockState, FluidState> pair = p_205571_7_.computeIfAbsent(short1, (p_212748_2_) -> {
-+//               BlockState blockstate1 = p_205571_1_.getBlockState(blockpos);
-+//               return Pair.of(blockstate1, blockstate1.getFluidState());
-+//            });
-+            // Paper start - avoid loading chunks
-+            Pair<BlockState, FluidState> pair = p_205571_7_.get(short1);
-+            if (pair == null) {
-+               BlockState iblockdatax = p_205571_1_.getTypeIfLoaded(blockpos);
-+               if (iblockdatax == null) {
-+                  continue;
-+               }
-+
-+               pair = Pair.of(iblockdatax, iblockdatax.func_204520_s());
-+               p_205571_7_.put(short1, pair);
-+            }
-+            // Paper end
-             BlockState blockstate = pair.getFirst();
-             FluidState fluidstate = pair.getSecond();
-             if (this.func_211760_a(p_205571_1_, this.func_210197_e(), p_205571_2_, p_205571_5_, direction, blockpos, blockstate, fluidstate)) {
-@@ -331,12 +_,22 @@
-       for(Direction direction : Direction.Plane.HORIZONTAL) {
-          BlockPos blockpos = p_205572_2_.func_177972_a(direction);
-          short short1 = func_212752_a(p_205572_2_, blockpos);
--         Pair<BlockState, FluidState> pair = short2objectmap.computeIfAbsent(short1, (p_212755_2_) -> {
--            BlockState blockstate1 = p_205572_1_.func_180495_p(blockpos);
--            return Pair.of(blockstate1, blockstate1.func_204520_s());
--         });
--         BlockState blockstate = pair.getFirst();
--         FluidState fluidstate = pair.getSecond();
-+//         Pair<BlockState, FluidState> pair = short2objectmap.computeIfAbsent(short1, (p_212755_2_) -> {
-+//            BlockState blockstate1 = p_205572_1_.getBlockState(blockpos);
-+//            return Pair.of(blockstate1, blockstate1.getFluidState());
-+//         });
-+         // Paper start
-+         Pair pair = (Pair) short2objectmap.get(short1);
-+         if (pair == null) {
-+            BlockState iblockdatax = p_205572_1_.getTypeIfLoaded(blockpos);
-+            if (iblockdatax == null) continue;
-+
-+            pair = Pair.of(iblockdatax, iblockdatax.func_204520_s());
-+            short2objectmap.put(short1, pair);
-+         }
-+         // Paper end
-+         BlockState blockstate = (BlockState) pair.getFirst();
-+         FluidState fluidstate = (FluidState) pair.getSecond();
-          FluidState fluidstate1 = this.func_205576_a(p_205572_1_, blockpos, blockstate);
-          if (this.func_211760_a(p_205572_1_, fluidstate1.func_206886_c(), p_205572_2_, p_205572_3_, direction, blockpos, blockstate, fluidstate)) {
-             BlockPos blockpos1 = blockpos.func_177977_b();

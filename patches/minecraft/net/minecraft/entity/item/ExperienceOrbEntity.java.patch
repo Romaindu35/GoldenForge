@@ -18,21 +18,7 @@
        if (this.func_180431_b(p_70097_1_)) {
           return false;
        } else {
-@@ -139,25 +_,26 @@
-    public void func_213281_b(CompoundNBT p_213281_1_) {
-       p_213281_1_.func_74777_a("Health", (short)this.field_70529_d);
-       p_213281_1_.func_74777_a("Age", (short)this.field_70531_b);
--      p_213281_1_.func_74777_a("Value", (short)this.field_70530_e);
-+      p_213281_1_.func_74768_a("Value", this.field_70530_e); // Paper - save as Integer
-    }
- 
-    public void func_70037_a(CompoundNBT p_70037_1_) {
-       this.field_70529_d = p_70037_1_.func_74765_d("Health");
-       this.field_70531_b = p_70037_1_.func_74765_d("Age");
--      this.field_70530_e = p_70037_1_.func_74765_d("Value");
-+      this.field_70530_e = p_70037_1_.func_74762_e("Value"); // Paper - save as Integer
-    }
- 
+@@ -151,13 +_,14 @@
     public void func_70100_b_(PlayerEntity p_70100_1_) {
        if (!this.field_70170_p.field_72995_K) {
           if (this.field_70532_c == 0 && p_70100_1_.field_71090_bL == 0) {

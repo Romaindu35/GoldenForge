@@ -1,13 +1,6 @@
 --- a/net/minecraft/world/biome/Biome.java
 +++ b/net/minecraft/world/biome/Biome.java
-@@ -47,13 +_,14 @@
- import net.minecraft.world.gen.feature.ConfiguredFeature;
- import net.minecraft.world.gen.feature.structure.Structure;
- import net.minecraft.world.gen.feature.structure.StructureManager;
-+import net.minecraft.world.gen.feature.structure.StructureStart;
- import net.minecraft.world.gen.surfacebuilders.ConfiguredSurfaceBuilder;
- import net.minecraftforge.api.distmarker.Dist;
- import net.minecraftforge.api.distmarker.OnlyIn;
+@@ -53,7 +_,7 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -36,21 +29,3 @@
                 return true;
              }
           }
-@@ -228,9 +_,14 @@
-                int k1 = i1 << 4;
- 
-                try {
--                  p_242427_1_.func_235011_a_(SectionPos.func_218167_a(p_242427_7_), structure).forEach((p_242426_8_) -> {
--                     p_242426_8_.func_230366_a_(p_242427_3_, p_242427_1_, p_242427_2_, p_242427_6_, new MutableBoundingBox(j1, k1, j1 + 15, k1 + 15), new ChunkPos(l, i1));
--                  });
-+//                  p_242427_1_.startsForFeature(SectionPos.of(p_242427_7_), structure).forEach((p_242426_8_) -> {
-+//                     p_242426_8_.placeInChunk(p_242427_3_, p_242427_1_, p_242427_2_, p_242427_6_, new MutableBoundingBox(j1, k1, j1 + 15, k1 + 15), new ChunkPos(l, i1));
-+//                  });
-+                  // Paper start - remove structure streams
-+                  for (StructureStart<?> structureStart : p_242427_1_.getFeatureStarts(SectionPos.func_218167_a(p_242427_7_), structure)) {
-+                     structureStart.func_230366_a_(p_242427_3_, p_242427_1_, p_242427_2_, p_242427_6_, new MutableBoundingBox(j1, k1, j1 + 15, k1 + 15), new ChunkPos(l, i1));
-+                  }
-+                  // Paper end
-                } catch (Exception exception) {
-                   CrashReport crashreport = CrashReport.func_85055_a(exception, "Feature placement");
-                   crashreport.func_85058_a("Feature").func_71507_a("Id", Registry.field_218361_B.func_177774_c(structure)).func_189529_a("Description", () -> {
