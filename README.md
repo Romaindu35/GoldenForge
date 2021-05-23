@@ -2,6 +2,8 @@
 <div align="left">
 <h1>GoldenForge</h1>
 
+[![Build Status](http://185.157.247.64:8080/job/GoldenForge/badge/icon)](http://185.157.247.64:8080/job/GoldenForge/)
+
 <h3>The most powerfull forge server software (not yet) which aims for high capacity and performance on 1.16.5 modded server.</h3>
 </div>
 
