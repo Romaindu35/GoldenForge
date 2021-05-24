@@ -1,0 +1,31 @@
+--- a/net/minecraft/world/Region.java
++++ b/net/minecraft/world/Region.java
+@@ -91,6 +_,28 @@
+       }
+    }
+ 
++   // Paper start - if loaded util
++   private IChunk getChunkIfLoaded(int x, int z) {
++      int k = x - this.field_72818_a;
++      int l = z - this.field_72816_b;
++
++      if (k >= 0 && k < this.field_72817_c.length && l >= 0 && l < this.field_72817_c[k].length) {
++         return this.field_72817_c[k][l];
++      }
++      return null;
++   }
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      IChunk chunk = getChunkIfLoaded(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++      return chunk == null ? null : chunk.func_180495_p(blockposition);
++   }
++
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      IChunk chunk = getChunkIfLoaded(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++      return chunk == null ? null : chunk.func_204610_c(blockposition);
++   }
++
+    public Stream<VoxelShape> func_230318_c_(@Nullable Entity p_230318_1_, AxisAlignedBB p_230318_2_, Predicate<Entity> p_230318_3_) {
+       return Stream.empty();
+    }

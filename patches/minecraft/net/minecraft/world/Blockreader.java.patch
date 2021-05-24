@@ -1,0 +1,19 @@
+--- a/net/minecraft/world/Blockreader.java
++++ b/net/minecraft/world/Blockreader.java
+@@ -24,6 +_,16 @@
+       return i >= 0 && i < this.field_234996_a_.length ? this.field_234996_a_[i] : Blocks.field_150350_a.func_176223_P();
+    }
+ 
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      return this.func_180495_p(blockposition);
++   }
++
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      return this.func_204610_c(blockposition);
++   }
++
+    public FluidState func_204610_c(BlockPos p_204610_1_) {
+       return this.func_180495_p(p_204610_1_).func_204520_s();
+    }

@@ -1,6 +1,14 @@
 --- a/net/minecraft/world/IBlockReader.java
 +++ b/net/minecraft/world/IBlockReader.java
-@@ -26,7 +_,7 @@
+@@ -22,11 +_,14 @@
+    TileEntity func_175625_s(BlockPos p_175625_1_);
+ 
+    BlockState func_180495_p(BlockPos p_180495_1_);
+-
++   // Paper start - if loaded util
++   BlockState getTypeIfLoaded(BlockPos blockposition);
++   FluidState getFluidIfLoaded(BlockPos blockposition);
++   // Paper end
     FluidState func_204610_c(BlockPos p_204610_1_);
  
     default int func_217298_h(BlockPos p_217298_1_) {

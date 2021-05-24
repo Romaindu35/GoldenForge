@@ -1,5 +1,13 @@
 --- a/net/minecraft/world/World.java
 +++ b/net/minecraft/world/World.java
+@@ -55,6 +_,7 @@
+ import net.minecraft.world.gen.Heightmap;
+ import net.minecraft.world.lighting.WorldLightManager;
+ import net.minecraft.world.server.ChunkHolder;
++import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.storage.ISpawnWorldInfo;
+ import net.minecraft.world.storage.IWorldInfo;
+ import net.minecraft.world.storage.MapData;
 @@ -63,7 +_,7 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -20,7 +28,7 @@
     private final boolean field_234916_c_;
     private int field_73008_k;
     protected int field_73005_l = (new Random()).nextInt();
-@@ -92,8 +_,26 @@
+@@ -92,8 +_,53 @@
     private final WorldBorder field_175728_M;
     private final BiomeManager field_226689_w_;
     private final RegistryKey<World> field_73011_w;
@@ -39,6 +47,33 @@
 +   public int wakeupInactiveRemainingMonsters;
 +   public int wakeupInactiveRemainingVillagers;
 +   // GoldenForge end
++
++   //  reduces need to do isLoaded before getType
++   public final BlockState getTypeIfLoadedAndInBounds(BlockPos blockposition) {
++      return func_175723_af().func_177746_a(blockposition) ? getTypeIfLoaded(blockposition) : null;
++   }
++   // Paper end
++
++   public final IChunk getChunkIfLoadedImmediately(int x, int z) {
++      return ((ServerWorld)this).func_72863_F().getChunkAtIfLoadedImmediately(x, z);
++   }
++
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      if (!isValidLocation(blockposition)) {
++         return Blocks.field_150350_a.func_176223_P();
++      }
++      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++
++      return chunk == null ? null : chunk.func_180495_p(blockposition);
++   }
++
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++
++      return chunk == null ? null : chunk.func_204610_c(blockposition);
++   }
  
     protected World(ISpawnWorldInfo p_i241925_1_, RegistryKey<World> p_i241925_2_, final DimensionType p_i241925_3_, Supplier<IProfiler> p_i241925_4_, boolean p_i241925_5_, boolean p_i241925_6_, long p_i241925_7_) {
 +      super(World.class);
@@ -47,6 +82,17 @@
        this.field_72984_F = p_i241925_4_;
        this.field_72986_A = p_i241925_1_;
        this.field_234921_x_ = p_i241925_3_;
+@@ -127,6 +_,10 @@
+       return null;
+    }
+ 
++   public static boolean isValidLocation(BlockPos blockposition) {
++      return blockposition.isValidLocation(); // Paper - use better/optimized check
++   }
++
+    public static boolean func_175701_a(BlockPos p_175701_0_) {
+       return !func_189509_E(p_175701_0_) && func_234934_e_(p_175701_0_);
+    }
 @@ -180,17 +_,45 @@
        } else {
           Chunk chunk = this.func_175726_f(p_241211_1_);
@@ -142,6 +188,16 @@
        if (p_175695_3_ != Direction.WEST) {
           this.func_190524_a(p_175695_1_.func_177976_e(), p_175695_2_, p_175695_1_);
        }
+@@ -296,7 +_,8 @@
+ 
+    public void func_190524_a(BlockPos p_190524_1_, Block p_190524_2_, BlockPos p_190524_3_) {
+       if (!this.field_72995_K) {
+-         BlockState blockstate = this.func_180495_p(p_190524_1_);
++         BlockState blockstate = this.getTypeIfLoaded(p_190524_1_);
++         if (blockstate == null) return; // EMC
+ 
+          try {
+             blockstate.func_215697_a(this, p_190524_1_, p_190524_2_, p_190524_3_, false);
 @@ -305,9 +_,9 @@
              CrashReportCategory crashreportcategory = crashreport.func_85058_a("Block being updated");
              crashreportcategory.func_189529_a("Source block type", () -> {

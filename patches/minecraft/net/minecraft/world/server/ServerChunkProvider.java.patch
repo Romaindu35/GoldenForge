@@ -16,7 +16,7 @@
  import net.minecraft.entity.Entity;
  import net.minecraft.entity.player.ServerPlayerEntity;
  import net.minecraft.network.IPacket;
-@@ -65,6 +_,79 @@
+@@ -65,6 +_,104 @@
     @Nullable
     private WorldEntitySpawner.EntityDensityManager field_241097_p_;
  
@@ -90,6 +90,31 @@
 +
 +   public final Chunk getChunkAtIfLoadedMainThreadNoCache(int x, int z) {
 +      return this.loadedChunkMap.get(ChunkPos.func_77272_a(x, z));
++   }
++
++   public Chunk getChunkAtIfLoadedImmediately(int x, int z) {
++      long k = ChunkPos.func_77272_a(x, z);
++
++      if (Thread.currentThread() == this.field_217241_g) {
++         return this.getChunkAtIfLoadedMainThread(x, z);
++      }
++
++      Chunk ret = null;
++      long readlock;
++      do {
++         readlock = this.loadedChunkMapSeqLock.acquireRead();
++         try {
++            ret = this.loadedChunkMap.get(k);
++         } catch (Throwable thr) {
++            if (thr instanceof ThreadDeath) {
++               throw (ThreadDeath)thr;
++            }
++            // re-try, this means a CME occurred...
++            continue;
++         }
++      } while (!this.loadedChunkMapSeqLock.tryReleaseRead(readlock));
++
++      return ret;
 +   }
 +   // GoldenForge end
 +

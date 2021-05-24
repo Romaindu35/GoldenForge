@@ -150,7 +150,7 @@ public class WatchdogThread extends Thread
                         //RestartCommand.addShutdownHook( SpigotConfig.restartScript );
                     }
                     // try one last chance to safe shutdown on main incase it 'comes back'
-                    //server.safeShutdown(false, restart);
+                    server.halt(false, restart);
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {

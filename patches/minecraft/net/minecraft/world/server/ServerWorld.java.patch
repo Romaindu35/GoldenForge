@@ -20,7 +20,7 @@
  import net.minecraft.crash.CrashReport;
  import net.minecraft.entity.Entity;
  import net.minecraft.entity.EntityClassification;
-@@ -143,10 +_,11 @@
+@@ -143,27 +_,24 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -33,7 +33,12 @@
     private final Map<UUID, Entity> field_175741_N = Maps.newHashMap();
     private final Queue<Entity> field_217499_z = Queues.newArrayDeque();
     private final List<ServerPlayerEntity> field_217491_A = Lists.newArrayList();
-@@ -158,12 +_,8 @@
+    private final ServerChunkProvider field_241102_C_;
+-   boolean field_217492_a;
++   public boolean field_217492_a;
+    private final MinecraftServer field_73061_a;
+    private final IServerWorldInfo field_241103_E_;
+    public boolean field_73058_d;
     private boolean field_73068_P;
     private int field_80004_Q;
     private final Teleporter field_85177_Q;

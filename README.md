@@ -1,8 +1,8 @@
-<img width="200" src="http://185.157.247.64/gold_spin.gif" alt="GoldenForge" align="right">
+<img width="200" src="https://modcraftmc.fr/gold_spin.gif" alt="GoldenForge" align="right">
 <div align="left">
 <h1>GoldenForge</h1>
 
-[![Build Status](http://185.157.247.64:8080/job/GoldenForge/badge/icon)](http://185.157.247.64:8080/job/GoldenForge/)
+[![Build Status](http://download.modcraftmc.fr:8080/job/GoldenForge/badge/icon)](http://download.modcraftmc.fr:8080/job/GoldenForge/)
 
 <h3>The most powerfull forge server software (not yet) which aims for high capacity and performance on 1.16.5 modded server.</h3>
 </div>

@@ -1,0 +1,20 @@
+--- a/net/minecraft/entity/ai/RandomPositionGenerator.java
++++ b/net/minecraft/entity/ai/RandomPositionGenerator.java
+@@ -5,6 +_,7 @@
+ import java.util.function.ToDoubleFunction;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.CreatureEntity;
++import net.minecraft.fluid.FluidState;
+ import net.minecraft.pathfinding.PathNavigator;
+ import net.minecraft.pathfinding.PathNodeType;
+ import net.minecraft.pathfinding.WalkNodeProcessor;
+@@ -119,7 +_,8 @@
+                   });
+                }
+ 
+-               if (p_226339_5_ || !p_226339_0_.field_70170_p.func_204610_c(blockpos3).func_206884_a(FluidTags.field_206959_a)) {
++               FluidState fluid = p_226339_0_.field_70170_p.getFluidIfLoaded(blockpos3); // Paper
++               if (p_226339_5_ || (fluid != null && !fluid.func_206884_a(FluidTags.field_206959_a))) {
+                   PathNodeType pathnodetype = WalkNodeProcessor.func_237231_a_(p_226339_0_.field_70170_p, blockpos3.func_239590_i_());
+                   if (p_226339_0_.func_184643_a(pathnodetype) == 0.0F) {
+                      double d1 = p_226339_8_.applyAsDouble(blockpos3);

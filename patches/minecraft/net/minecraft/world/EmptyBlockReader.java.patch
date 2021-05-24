@@ -1,0 +1,20 @@
+--- a/net/minecraft/world/EmptyBlockReader.java
++++ b/net/minecraft/world/EmptyBlockReader.java
+@@ -19,6 +_,17 @@
+    public BlockState func_180495_p(BlockPos p_180495_1_) {
+       return Blocks.field_150350_a.func_176223_P();
+    }
++   // Paper start - If loaded util
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      return func_180495_p(blockposition);
++   }
++
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      return func_204610_c(blockposition);
++   }
++   // Paper end
+ 
+    public FluidState func_204610_c(BlockPos p_204610_1_) {
+       return Fluids.field_204541_a.func_207188_f();

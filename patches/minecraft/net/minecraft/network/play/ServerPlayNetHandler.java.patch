@@ -1,5 +1,13 @@
 --- a/net/minecraft/network/play/ServerPlayNetHandler.java
 +++ b/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -133,6 +_,7 @@
+ import net.minecraft.util.math.AxisAlignedBB;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.BlockRayTraceResult;
++import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.math.shapes.IBooleanFunction;
+ import net.minecraft.util.math.shapes.VoxelShape;
+ import net.minecraft.util.math.shapes.VoxelShapes;
 @@ -391,9 +_,11 @@
              }
  
@@ -12,12 +20,38 @@
                 this.field_147371_a.func_179290_a(new SMoveVehiclePacket(entity));
                 return;
              }
-@@ -410,7 +_,7 @@
+@@ -410,7 +_,33 @@
     }
  
     private boolean func_241162_a_(Entity p_241162_1_) {
 -      return p_241162_1_.field_70170_p.func_234853_a_(p_241162_1_.func_174813_aQ().func_186662_g(0.0625D).func_72321_a(0.0D, -0.55D, 0.0D)).allMatch(AbstractBlock.AbstractBlockState::func_196958_f);
-+      return BlockPos.func_239581_a_(p_241162_1_.func_174813_aQ().func_186662_g(0.0625D).func_72321_a(0.0D, -0.55D, 0.0D)).allMatch(b -> p_241162_1_.field_70170_p.func_180495_p(b).isAir(p_241162_1_.field_70170_p, b));
++      // Tuinity start - stop using streams, this is already a known fixed problem in Entity#move
++      AxisAlignedBB box = p_241162_1_.func_174813_aQ().func_186662_g(0.0625D).func_72321_a(0.0D, -0.55D, 0.0D);
++      int minX = MathHelper.func_76128_c(box.field_72340_a);
++      int minY = MathHelper.func_76128_c(box.field_72338_b);
++      int minZ = MathHelper.func_76128_c(box.field_72339_c);
++      int maxX = MathHelper.func_76128_c(box.field_72336_d);
++      int maxY = MathHelper.func_76128_c(box.field_72337_e);
++      int maxZ = MathHelper.func_76128_c(box.field_72334_f);
++
++      World world = p_241162_1_.field_70170_p;
++      BlockPos.Mutable pos = new BlockPos.Mutable();
++
++      for (int y = minY; y <= maxY; ++y) {
++         for (int z = minZ; z <= maxZ; ++z) {
++            for (int x = minX; x <= maxX; ++x) {
++               pos.func_181079_c(x, y, z);
++               BlockState type = world.getTypeIfLoaded(pos);
++               if (type != null && !type.func_196958_f()) {
++                  return false;
++               }
++            }
++         }
++      }
++
++      return true;
++      // Tuinity end - stop using streams, this is already a known fixed problem in Entity#move
++      //return BlockPos.betweenClosedStream(p_241162_1_.getBoundingBox().inflate(0.0625D).expandTowards(0.0D, -0.55D, 0.0D)).allMatch(b -> p_241162_1_.level.getBlockState(b).isAir(p_241162_1_.level, b));
     }
  
     public void func_184339_a(CConfirmTeleportPacket p_184339_1_) {

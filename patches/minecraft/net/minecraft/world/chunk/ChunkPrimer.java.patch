@@ -1,5 +1,22 @@
 --- a/net/minecraft/world/chunk/ChunkPrimer.java
 +++ b/net/minecraft/world/chunk/ChunkPrimer.java
+@@ -97,6 +_,16 @@
+       }
+    }
+ 
++   @Override
++   public BlockState getTypeIfLoaded(BlockPos blockposition) {
++      return this.func_180495_p(blockposition);
++   }
++
++   @Override
++   public FluidState getFluidIfLoaded(BlockPos blockposition) {
++      return this.func_204610_c(blockposition);
++   }
++
+    public FluidState func_204610_c(BlockPos p_204610_1_) {
+       int i = p_204610_1_.func_177956_o();
+       if (World.func_217405_b(i)) {
 @@ -138,13 +_,13 @@
           if (this.field_201661_i[j >> 4] == Chunk.field_186036_a && p_177436_2_.func_203425_a(Blocks.field_150350_a)) {
              return p_177436_2_;

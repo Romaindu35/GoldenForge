@@ -1,23 +1,40 @@
 --- a/net/minecraft/server/management/PlayerInteractionManager.java
 +++ b/net/minecraft/server/management/PlayerInteractionManager.java
-@@ -87,7 +_,7 @@
+@@ -86,8 +_,8 @@
+    public void func_73075_a() {
        ++this.field_73100_i;
        if (this.field_73097_j) {
-          BlockState blockstate = this.field_73092_a.func_180495_p(this.field_180241_i);
+-         BlockState blockstate = this.field_73092_a.func_180495_p(this.field_180241_i);
 -         if (blockstate.func_196958_f()) {
-+         if (blockstate.isAir(field_73092_a, field_180241_i)) {
++         BlockState blockstate = this.field_73092_a.getTypeIfLoaded(this.field_180241_i); // Paper
++         if (blockstate == null || blockstate.isAir(field_73092_a, field_180241_i)) {
              this.field_73097_j = false;
           } else {
              float f = this.func_229859_a_(blockstate, this.field_180241_i, this.field_73093_n);
-@@ -98,7 +_,7 @@
+@@ -97,13 +_,20 @@
+             }
           }
        } else if (this.field_73088_d) {
-          BlockState blockstate1 = this.field_73092_a.func_180495_p(this.field_180240_f);
+-         BlockState blockstate1 = this.field_73092_a.func_180495_p(this.field_180240_f);
 -         if (blockstate1.func_196958_f()) {
-+         if (blockstate1.isAir(field_73092_a, field_180240_f)) {
++         // Paper start - don't want to do same logic as above, return instead
++         BlockState iblockdata = this.field_73092_a.getTypeIfLoaded(this.field_180240_f);
++         if (iblockdata == null) {
++            this.field_73088_d = false;
++            return;
++         }
++         // Paper end
++         //BlockState blockstate1 = this.level.getBlockState(this.destroyPos);
++         if (iblockdata.isAir(field_73092_a, field_180240_f)) {
              this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), this.field_180240_f, -1);
              this.field_73094_o = -1;
              this.field_73088_d = false;
+          } else {
+-            this.func_229859_a_(blockstate1, this.field_180240_f, this.field_73089_e);
++            this.func_229859_a_(iblockdata, this.field_180240_f, this.field_73089_e);
+          }
+       }
+ 
 @@ -126,7 +_,15 @@
        double d1 = this.field_73090_b.func_226278_cu_() - ((double)p_225416_1_.func_177956_o() + 0.5D) + 1.5D;
        double d2 = this.field_73090_b.func_226281_cx_() - ((double)p_225416_1_.func_177952_p() + 0.5D);
@@ -51,6 +68,19 @@
                 this.func_229860_a_(p_225416_1_, p_225416_2_, "insta mine");
              } else {
                 if (this.field_73088_d) {
+@@ -196,8 +_,10 @@
+             this.field_73088_d = false;
+             if (!Objects.equals(this.field_180240_f, p_225416_1_)) {
+                field_225418_c.warn("Mismatch in destroy block pos: " + this.field_180240_f + " " + p_225416_1_);
+-               this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), this.field_180240_f, -1);
+-               this.field_73090_b.field_71135_a.func_147359_a(new SPlayerDiggingPacket(this.field_180240_f, this.field_73092_a.func_180495_p(this.field_180240_f), p_225416_2_, true, "aborted mismatched destroying"));
++               BlockState type = this.field_73092_a.getTypeIfLoaded(this.field_180240_f); // Paper - don't load unloaded chunks for stale records here
++               if (type != null) this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), this.field_180240_f, -1);
++               if (type != null) this.field_73090_b.field_71135_a.func_147359_a(new SPlayerDiggingPacket(this.field_180240_f, type, p_225416_2_, true, "aborted mismatched destroying"));
++               this.field_180240_f = BlockPos.field_177992_a; // Paper
+             }
+ 
+             this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), p_225416_1_, -1);
 @@ -218,7 +_,8 @@
  
     public boolean func_180237_b(BlockPos p_180237_1_) {

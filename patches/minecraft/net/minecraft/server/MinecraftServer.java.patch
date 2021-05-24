@@ -1,10 +1,12 @@
 --- a/net/minecraft/server/MinecraftServer.java
 +++ b/net/minecraft/server/MinecraftServer.java
-@@ -155,9 +_,11 @@
+@@ -155,9 +_,13 @@
  import org.apache.commons.lang3.Validate;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
 +import org.goldenforge.scheduler.GoldenScheduler;
++import org.goldenforge.threads.ServerShutdownThread;
++import org.spigotmc.SpigotConfig;
  
  public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask> implements ISnooperInfo, ICommandSource, AutoCloseable {
 -   private static final Logger field_147145_h = LogManager.getLogger();
@@ -109,6 +111,14 @@
        this.field_240767_f_ = p_i232576_2_;
        this.field_240768_i_ = p_i232576_4_;
        this.field_110456_c = p_i232576_6_;
+@@ -259,6 +_,7 @@
+       this.field_240765_ak_ = new TemplateManager(p_i232576_8_.func_240970_h_(), p_i232576_3_, p_i232576_7_);
+       this.field_175590_aa = p_i232576_1_;
+       this.field_213217_au = Util.func_215072_e();
++      Runtime.getRuntime().addShutdownHook(new ServerShutdownThread(this));
+    }
+ 
+    private void func_213204_a(DimensionSavedDataManager p_213204_1_) {
 @@ -376,6 +_,7 @@
              worldborder.func_177737_a(new IBorderListener.Impl(serverworld1.func_175723_af()));
              this.field_71305_c.put(registrykey1, serverworld1);
@@ -141,6 +151,59 @@
           }
        }
  
+@@ -541,7 +_,44 @@
+       this.func_71260_j();
+    }
+ 
++   // GoldenForge start
++   public volatile Thread shutdownThread; // Paper
++   private boolean hasStopped = false;
++   public volatile boolean hasFullyShutdown = false; // Paper
++   private boolean hasLoggedStop = false; // Paper
++   private final Object stopLock = new Object();
++   public final boolean hasStopped() {
++      synchronized (stopLock) {
++         return hasStopped;
++      }
++   }
++   // GoldenForge end
++
+    protected void func_71260_j() {
++      // CraftBukkit start - prevent double stopping on multiple threads
++      synchronized(stopLock) {
++         if (hasStopped) return;
++         hasStopped = true;
++      }
++      // Paper start - kill main thread, and kill it hard
++      shutdownThread = Thread.currentThread();
++      org.spigotmc.WatchdogThread.doStop(); // Paper
++      if (!func_213162_bc()) {
++         MinecraftServer.field_147145_h.info("Stopping main thread (Ignore any thread death message you see! - DO NOT REPORT THREAD DEATH TO PAPER)");
++         long start = System.nanoTime(); // Tuinity - really try hard to kill the main thread
++         while (this.func_213170_ax().isAlive()) {
++            this.func_213170_ax().stop();
++            try {
++               if ((System.nanoTime() - start) <= (15L * 1000L * 1000L * 1000L)) Thread.sleep(1); // Tuinity - really try hard to kill the main thread - if we're past 15s we're probably in a terrible loop, spam it to really kill it
++            } catch (InterruptedException e) {}
++         }
++         // We've just obliterated the main thread, this will prevent stop from dying when removing players
++         MinecraftServer.getServer().func_212370_w().forEach(world -> {
++            world.field_217492_a = false;
++         });
++      }
++      // Paper end
++      // CraftBukkit end
+       field_147145_h.info("Stopping server");
+       if (this.func_147137_ag() != null) {
+          this.func_147137_ag().func_151268_b();
+@@ -551,6 +_,7 @@
+          field_147145_h.info("Saving players");
+          this.field_71318_t.func_72389_g();
+          this.field_71318_t.func_72392_r();
++         try { Thread.sleep(100); } catch (InterruptedException ex) {} // CraftBukkit - SPIGOT-625 - give server at least a chance to send packets
+       }
+ 
+       field_147145_h.info("Saving worlds");
 @@ -566,6 +_,7 @@
        for(ServerWorld serverworld1 : this.func_212370_w()) {
           if (serverworld1 != null) {
@@ -149,6 +212,24 @@
                 serverworld1.close();
              } catch (IOException ioexception1) {
                 field_147145_h.error("Exception closing the level", (Throwable)ioexception1);
+@@ -585,6 +_,7 @@
+          field_147145_h.error("Failed to unlock level {}", this.field_71310_m.func_237282_a_(), ioexception);
+       }
+ 
++      this.func_71240_o();
+    }
+ 
+    public String func_71211_k() {
+@@ -600,6 +_,9 @@
+    }
+ 
+    public void func_71263_m(boolean p_71263_1_) {
++      this.halt(p_71263_1_, false);
++   }
++   public void halt(boolean p_71263_1_, boolean isRestarting) {
+       this.field_71317_u = false;
+       if (p_71263_1_) {
+          try {
 @@ -614,20 +_,39 @@
     protected void func_240802_v_() {
        try {
@@ -191,7 +272,7 @@
                 this.field_211151_aa += 50L;
                 LongTickDetector longtickdetector = LongTickDetector.func_233524_a_("Server");
                 this.func_240773_a_(longtickdetector);
-@@ -643,7 +_,10 @@
+@@ -643,10 +_,19 @@
                 this.func_240795_b_(longtickdetector);
                 this.field_71296_Q = true;
              }
@@ -202,6 +283,15 @@
              this.func_71228_a((CrashReport)null);
           }
        } catch (Throwable throwable1) {
++         // Paper start
++         if (throwable1 instanceof ThreadDeath) {
++            MinecraftServer.field_147145_h.error("Main thread terminated by WatchDog due to hard crash", throwable1);
++            return;
++         }
++         // Paper end
+          field_147145_h.error("Encountered an unexpected exception", throwable1);
+          CrashReport crashreport;
+          if (throwable1 instanceof ReportedException) {
 @@ -662,6 +_,7 @@
              field_147145_h.error("We were unable to save this crash report to disk.");
           }
@@ -210,15 +300,29 @@
           this.func_71228_a(crashreport);
        } finally {
           try {
-@@ -670,6 +_,7 @@
+@@ -670,7 +_,7 @@
           } catch (Throwable throwable) {
              field_147145_h.error("Exception stopping the server", throwable);
           } finally {
+-            this.func_71240_o();
 +            net.minecraftforge.fml.server.ServerLifecycleHooks.handleServerStopped(this);
-             this.func_71240_o();
           }
  
-@@ -771,6 +_,7 @@
+       }
+@@ -689,6 +_,12 @@
+    }
+ 
+    protected TickDelayedTask func_212875_d_(Runnable p_212875_1_) {
++      // Paper start - anything that does try to post to main during watchdog crash, run on watchdog
++      if (this.hasStopped && Thread.currentThread().equals(shutdownThread)) {
++         p_212875_1_.run();
++         p_212875_1_ = () -> {};
++      }
++      // Paper end
+       return new TickDelayedTask(this.field_71315_w, p_212875_1_);
+    }
+ 
+@@ -771,12 +_,13 @@
  
     protected void func_71217_p(BooleanSupplier p_71217_1_) {
        long i = Util.func_211178_c();
@@ -226,6 +330,13 @@
        ++this.field_71315_w;
        this.func_71190_q(p_71217_1_);
        if (i - this.field_147142_T >= 5000000000L) {
+          this.field_147142_T = i;
+          this.field_147147_p.func_151319_a(new ServerStatusResponse.Players(this.func_71275_y(), this.func_71233_x()));
+-         GameProfile[] agameprofile = new GameProfile[Math.min(this.func_71233_x(), 12)];
++         GameProfile[] agameprofile = new GameProfile[Math.min(this.func_71233_x(), SpigotConfig.playerSample)]; // Paper
+          int j = MathHelper.func_76136_a(this.field_147146_q, 0, this.func_71233_x() - agameprofile.length);
+ 
+          for(int k = 0; k < agameprofile.length; ++k) {
 @@ -785,6 +_,7 @@
  
           Collections.shuffle(Arrays.asList(agameprofile));
