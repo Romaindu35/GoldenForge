@@ -1,5 +1,60 @@
 --- a/net/minecraft/util/Util.java
 +++ b/net/minecraft/util/Util.java
+@@ -60,11 +_,12 @@
+ import org.apache.commons.io.IOUtils;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.goldenforge.threads.ServerWorkerThread;
+ 
+ public class Util {
+    private static final AtomicInteger field_215090_b = new AtomicInteger(1);
+-   private static final ExecutorService field_240974_d_ = func_240979_a_("Bootstrap");
+-   private static final ExecutorService field_215091_c = func_240979_a_("Main");
++   private static final ExecutorService field_240974_d_ = makeExecutor("Bootstrap", -2);
++   private static final ExecutorService field_215091_c = makeExecutor("Main", -1);
+    private static final ExecutorService field_240975_f_ = func_240995_n_();
+    public static LongSupplier field_211180_a = System::nanoTime;
+    public static final UUID field_240973_b_ = new UUID(0L, 0L);
+@@ -94,30 +_,18 @@
+       return Instant.now().toEpochMilli();
+    }
+ 
+-   private static ExecutorService func_240979_a_(String p_240979_0_) {
+-      int i = MathHelper.func_76125_a(Runtime.getRuntime().availableProcessors() - 1, 1, 7);
+-      ExecutorService executorservice;
++   private static ExecutorService makeExecutor(String p_240979_0_, int priorityModifier) {
++      // Paper start - use simpler thread pool that allows 1 thread
++      int i = Math.min(8, Math.max(Runtime.getRuntime().availableProcessors() - 2, 1));
++      i = Integer.getInteger("Paper.WorkerThreadCount", i);
++      ExecutorService object;
++
+       if (i <= 0) {
+-         executorservice = MoreExecutors.newDirectExecutorService();
++         object = MoreExecutors.newDirectExecutorService();
+       } else {
+-         executorservice = new ForkJoinPool(i, (p_240981_1_) -> {
+-            ForkJoinWorkerThread forkjoinworkerthread = new ForkJoinWorkerThread(p_240981_1_) {
+-               protected void onTermination(Throwable p_onTermination_1_) {
+-                  if (p_onTermination_1_ != null) {
+-                     Util.field_195650_a.warn("{} died", this.getName(), p_onTermination_1_);
+-                  } else {
+-                     Util.field_195650_a.debug("{} shutdown", (Object)this.getName());
+-                  }
+-
+-                  super.onTermination(p_onTermination_1_);
+-               }
+-            };
+-            forkjoinworkerthread.setName("Worker-" + p_240979_0_ + "-" + field_215090_b.getAndIncrement());
+-            return forkjoinworkerthread;
+-         }, Util::func_240983_a_, true);
++         object = new java.util.concurrent.ThreadPoolExecutor(i, i,0L, TimeUnit.MILLISECONDS, new java.util.concurrent.LinkedBlockingQueue<Runnable>(), target -> new ServerWorkerThread(target, p_240979_0_, priorityModifier));
+       }
+-
+-      return executorservice;
++      return object;
+    }
+ 
+    public static Executor func_240991_e_() {
 @@ -174,7 +_,7 @@
        throw p_229756_0_ instanceof RuntimeException ? (RuntimeException)p_229756_0_ : new RuntimeException(p_229756_0_);
     }
@@ -9,6 +64,14 @@
        func_229757_c_(p_240983_1_);
        if (p_240983_1_ instanceof CompletionException) {
           p_240983_1_ = p_240983_1_.getCause();
+@@ -186,6 +_,7 @@
+       }
+ 
+       field_195650_a.error(String.format("Caught exception in thread %s", p_240983_0_), p_240983_1_);
++      p_240983_1_.printStackTrace();
+    }
+ 
+    @Nullable
 @@ -200,7 +_,7 @@
        try {
           type = DataFixesManager.func_210901_a().getSchema(DataFixUtils.makeKey(SharedConstants.func_215069_a().getWorldVersion())).getChoiceType(p_240990_0_, p_240990_1_);

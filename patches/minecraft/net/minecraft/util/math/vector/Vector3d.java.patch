@@ -1,0 +1,15 @@
+--- a/net/minecraft/util/math/vector/Vector3d.java
++++ b/net/minecraft/util/math/vector/Vector3d.java
+@@ -13,6 +_,12 @@
+    public final double field_72448_b;
+    public final double field_72449_c;
+ 
++   // Tuinity start
++   public final double magnitudeXZSquared() {
++      return (this.field_72450_a * this.field_72450_a) + (this.field_72449_c * this.field_72449_c);
++   }
++   // Tuinity end
++
+    @OnlyIn(Dist.CLIENT)
+    public static Vector3d func_237487_a_(int p_237487_0_) {
+       double d0 = (double)(p_237487_0_ >> 16 & 255) / 255.0D;

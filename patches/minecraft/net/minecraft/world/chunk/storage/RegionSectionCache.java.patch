@@ -1,0 +1,107 @@
+--- a/net/minecraft/world/chunk/storage/RegionSectionCache.java
++++ b/net/minecraft/world/chunk/storage/RegionSectionCache.java
+@@ -30,22 +_,23 @@
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
+-public class RegionSectionCache<R> implements AutoCloseable {
++public class RegionSectionCache<R> extends RegionFileCache implements AutoCloseable {
+    private static final Logger field_219120_a = LogManager.getLogger();
+-   private final IOWorker field_227173_b_;
++   //private final IOWorker worker;
+    private final Long2ObjectMap<Optional<R>> field_219121_b = new Long2ObjectOpenHashMap<>();
+-   private final LongLinkedOpenHashSet field_219122_d = new LongLinkedOpenHashSet();
++   public final LongLinkedOpenHashSet field_219122_d = new LongLinkedOpenHashSet();
+    private final Function<Runnable, Codec<R>> field_235988_e_;
+    private final Function<Runnable, R> field_219124_f;
+    private final DataFixer field_219125_g;
+    private final DefaultTypeReferences field_219126_h;
+ 
+    public RegionSectionCache(File p_i231897_1_, Function<Runnable, Codec<R>> p_i231897_2_, Function<Runnable, R> p_i231897_3_, DataFixer p_i231897_4_, DefaultTypeReferences p_i231897_5_, boolean p_i231897_6_) {
++      super(p_i231897_1_, p_i231897_6_);
+       this.field_235988_e_ = p_i231897_2_;
+       this.field_219124_f = p_i231897_3_;
+       this.field_219125_g = p_i231897_4_;
+       this.field_219126_h = p_i231897_5_;
+-      this.field_227173_b_ = new IOWorker(p_i231897_1_, p_i231897_6_, p_i231897_1_.getName());
++      //this.worker = new IOWorker(p_i231897_1_, p_i231897_6_, p_i231897_1_.getName());
+    }
+ 
+    protected void func_219115_a(BooleanSupplier p_219115_1_) {
+@@ -99,13 +_,16 @@
+    }
+ 
+    private void func_219107_b(ChunkPos p_219107_1_) {
+-      this.func_235992_a_(p_219107_1_, NBTDynamicOps.field_210820_a, this.func_223138_c(p_219107_1_));
++      this.readColumn(p_219107_1_, this.func_223138_c(p_219107_1_));
++   }
++   public void readColumn(ChunkPos p_219107_1_, CompoundNBT compound) {
++      this.func_235992_a_(p_219107_1_, NBTDynamicOps.field_210820_a, compound);
+    }
+ 
+    @Nullable
+    private CompoundNBT func_223138_c(ChunkPos p_223138_1_) {
+       try {
+-         return this.field_227173_b_.func_227090_a_(p_223138_1_);
++         return this.func_219099_e(p_223138_1_);
+       } catch (IOException ioexception) {
+          field_219120_a.error("Error reading chunk {} data from disk", p_223138_1_, ioexception);
+          return null;
+@@ -149,13 +_,29 @@
+       Dynamic<INBT> dynamic = this.func_235991_a_(p_219117_1_, NBTDynamicOps.field_210820_a);
+       INBT inbt = dynamic.getValue();
+       if (inbt instanceof CompoundNBT) {
+-         this.field_227173_b_.func_227093_a_(p_219117_1_, (CompoundNBT)inbt);
++         try {
++            this.func_219100_a(p_219117_1_, (CompoundNBT)inbt);
++         } catch (IOException ioexception) { field_219120_a.error("Error writing data to disk", ioexception); }
+       } else {
+          field_219120_a.error("Expected compound tag, got {}", (Object)inbt);
+       }
+ 
+    }
+ 
++   // Paper start - internal get data function, copied from above
++   private CompoundNBT getDataInternal(ChunkPos chunkcoordintpair) {
++      Dynamic<INBT> dynamic = this.func_235991_a_(chunkcoordintpair, NBTDynamicOps.field_210820_a);
++      INBT nbtbase = (INBT) dynamic.getValue();
++
++      if (nbtbase instanceof CompoundNBT) {
++         return (CompoundNBT)nbtbase;
++      } else {
++         field_219120_a.error("Expected compound tag, got {}", nbtbase);
++      }
++      return null;
++   }
++   // Paper end
++
+    private <T> Dynamic<T> func_235991_a_(ChunkPos p_235991_1_, DynamicOps<T> p_235991_2_) {
+       Map<T, T> map = Maps.newHashMap();
+ 
+@@ -206,7 +_,24 @@
+ 
+    }
+ 
+-   public void close() throws IOException {
+-      this.field_227173_b_.close();
++   // Paper start - get data function
++   public CompoundNBT getData(ChunkPos chunkcoordintpair) {
++      // Note: Copied from above
++      // This is checking if the data exists, then it builds it later in getDataInternal(ChunkCoordIntPair)
++      if (!this.field_219122_d.isEmpty()) {
++         for (int i = 0; i < 16; ++i) {
++            long j = SectionPos.func_218156_a(chunkcoordintpair, i).func_218146_v();
++
++            if (this.field_219122_d.contains(j)) {
++               return this.getDataInternal(chunkcoordintpair);
++            }
++         }
++      }
++      return null;
+    }
++   // Paper end
++
++//   public void close() throws IOException {
++//      this.worker.close();
++//   }
+ }

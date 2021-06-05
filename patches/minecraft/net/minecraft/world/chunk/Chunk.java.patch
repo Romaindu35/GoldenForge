@@ -1,6 +1,22 @@
 --- a/net/minecraft/world/chunk/Chunk.java
 +++ b/net/minecraft/world/chunk/Chunk.java
-@@ -58,7 +_,7 @@
+@@ -28,6 +_,7 @@
+ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.boss.dragon.EnderDragonEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonPartEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.fluid.Fluid;
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.fluid.Fluids;
+@@ -52,13 +_,15 @@
+ import net.minecraft.world.gen.feature.structure.StructureStart;
+ import net.minecraft.world.lighting.WorldLightManager;
+ import net.minecraft.world.server.ChunkHolder;
++import net.minecraft.world.server.ChunkManager;
++import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraftforge.api.distmarker.Dist;
+ import net.minecraftforge.api.distmarker.OnlyIn;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -9,7 +25,7 @@
     private static final Logger field_150817_t = LogManager.getLogger();
     @Nullable
     public static final ChunkSection field_186036_a = null;
-@@ -84,17 +_,79 @@
+@@ -84,17 +_,222 @@
     private Supplier<ChunkHolder.LocationType> field_217329_u;
     @Nullable
     private Consumer<Chunk> field_217330_v;
@@ -19,6 +35,7 @@
  
 +   // GoldenForge - paper entity list
 +   public final com.destroystokyo.paper.util.maplist.EntityList entities = new com.destroystokyo.paper.util.maplist.EntityList();
++   public ChunkHolder playerChunk;
 +   // GoldenForge end
 +
 +   // GoldenForge - optimise ticking
@@ -35,47 +52,189 @@
 +
 +   // GoldenForge - callback
 +   public void loadCallback() {
-+//      // Paper start - neighbour cache
-+//      int chunkX = this.loc.x;
-+//      int chunkZ = this.loc.z;
-+//      ChunkProviderServer chunkProvider = ((WorldServer)this.world).getChunkProvider();
-+//      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
-+//         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
-+//            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
-+//            if (neighbour != null) {
-+//               neighbour.setNeighbourLoaded(-dx, -dz, this);
-+//               // should be in cached already
-+//               this.setNeighbourLoaded(dx, dz, neighbour);
-+//            }
-+//         }
-+//      }
-+//      this.setNeighbourLoaded(0, 0, this);
-+//      this.loadedTicketLevel = true;
-+//      // Paper end - neighbour cache
++      // Paper start - neighbour cache
++      int chunkX = this.field_212816_F.field_77276_a;
++      int chunkZ = this.field_212816_F.field_77275_b;
++      ServerChunkProvider chunkProvider = ((ServerWorld)this.field_76637_e).func_72863_F();
++      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
++         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
++            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
++            if (neighbour != null) {
++               neighbour.setNeighbourLoaded(-dx, -dz, this);
++               // should be in cached already
++               this.setNeighbourLoaded(dx, dz, neighbour);
++            }
++         }
++      }
++      this.setNeighbourLoaded(0, 0, this);
++      this.loadedTicketLevel = true;
++      // Paper end - neighbour cache
 +      ((ServerWorld)this.field_76637_e).func_72863_F().addLoadedChunk(this); // Paper
-+      //((WorldServer)this.world).getChunkProvider().playerChunkMap.playerChunkManager.onChunkLoad(this.loc.x, this.loc.z); // Tuinity - rewrite player chunk management
++      ((ServerWorld)this.field_76637_e).func_72863_F().field_217237_a.playerChunkManager.onChunkLoad(this.field_212816_F.field_77276_a, this.field_212816_F.field_77275_b); // Tuinity - rewrite player chunk management
 +   }
 +
 +   public void unloadCallback() {
 +
 +      ((ServerWorld)this.field_76637_e).func_72863_F().removeLoadedChunk(this); // Paper
-+//      // Paper start - neighbour cache
-+//      int chunkX = this.loc.x;
-+//      int chunkZ = this.loc.z;
-+//      ChunkProviderServer chunkProvider = ((WorldServer)this.world).getChunkProvider();
-+//      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
-+//         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
-+//            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
-+//            if (neighbour != null) {
-+//               neighbour.setNeighbourUnloaded(-dx, -dz);
-+//            }
-+//         }
-+//      }
-+//      this.loadedTicketLevel = false;
-+//      this.resetNeighbours();
-+//      // Paper end
++      // Paper start - neighbour cache
++      int chunkX = this.field_212816_F.field_77276_a;
++      int chunkZ = this.field_212816_F.field_77275_b;
++      ServerChunkProvider chunkProvider = ((ServerWorld)this.field_76637_e).func_72863_F();
++      for (int dx = -NEIGHBOUR_CACHE_RADIUS; dx <= NEIGHBOUR_CACHE_RADIUS; ++dx) {
++         for (int dz = -NEIGHBOUR_CACHE_RADIUS; dz <= NEIGHBOUR_CACHE_RADIUS; ++dz) {
++            Chunk neighbour = chunkProvider.getChunkAtIfLoadedMainThreadNoCache(chunkX + dx, chunkZ + dz);
++            if (neighbour != null) {
++               neighbour.setNeighbourUnloaded(-dx, -dz);
++            }
++         }
++      }
++      this.loadedTicketLevel = false;
++      this.resetNeighbours();
++      // Paper end
 +   }
 +   // GoldenForge end
++
++   private boolean playerGeneralAreaCacheSet;
++   private com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> playerGeneralAreaCache;
++   public void updateGeneralAreaCache() {
++      this.updateGeneralAreaCache(((ServerWorld)this.field_76637_e).func_72863_F().field_217237_a.playerGeneralAreaMap.getObjectsInRange(this.coordinateKey));
++   }
++
++   public void updateGeneralAreaCache(com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> value) {
++      this.playerGeneralAreaCacheSet = true;
++      this.playerGeneralAreaCache = value;
++   }
++
++   static final int NEIGHBOUR_CACHE_RADIUS = 3;
++   public static int getNeighbourCacheRadius() {
++      return NEIGHBOUR_CACHE_RADIUS;
++   }
++
++   boolean loadedTicketLevel;
++   private long neighbourChunksLoadedBitset;
++   private final Chunk[] loadedNeighbourChunks = new Chunk[(NEIGHBOUR_CACHE_RADIUS * 2 + 1) * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)];
++
++   private static int getNeighbourIndex(final int relativeX, final int relativeZ) {
++      // index = (relativeX + NEIGHBOUR_CACHE_RADIUS) + (relativeZ + NEIGHBOUR_CACHE_RADIUS) * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)
++      // optimised variant of the above by moving some of the ops to compile time
++      return relativeX + (relativeZ * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)) + (NEIGHBOUR_CACHE_RADIUS + NEIGHBOUR_CACHE_RADIUS * ((NEIGHBOUR_CACHE_RADIUS * 2 + 1)));
++   }
++
++   public final Chunk getRelativeNeighbourIfLoaded(final int relativeX, final int relativeZ) {
++      return this.loadedNeighbourChunks[getNeighbourIndex(relativeX, relativeZ)];
++   }
++
++   public final boolean isNeighbourLoaded(final int relativeX, final int relativeZ) {
++      return (this.neighbourChunksLoadedBitset & (1L << getNeighbourIndex(relativeX, relativeZ))) != 0;
++   }
++
++   public final void setNeighbourLoaded(final int relativeX, final int relativeZ, final Chunk chunk) {
++      if (chunk == null) {
++         throw new IllegalArgumentException("Chunk must be non-null, neighbour: (" + relativeX + "," + relativeZ + "), chunk: " + this.field_212816_F);
++      }
++      final long before = this.neighbourChunksLoadedBitset;
++      final int index = getNeighbourIndex(relativeX, relativeZ);
++      this.loadedNeighbourChunks[index] = chunk;
++      this.neighbourChunksLoadedBitset |= (1L << index);
++      this.onNeighbourChange(before, this.neighbourChunksLoadedBitset);
++   }
++
++   public final void setNeighbourUnloaded(final int relativeX, final int relativeZ) {
++      final long before = this.neighbourChunksLoadedBitset;
++      final int index = getNeighbourIndex(relativeX, relativeZ);
++      this.loadedNeighbourChunks[index] = null;
++      this.neighbourChunksLoadedBitset &= ~(1L << index);
++      this.onNeighbourChange(before, this.neighbourChunksLoadedBitset);
++   }
++
++   public final void resetNeighbours() {
++      final long before = this.neighbourChunksLoadedBitset;
++      this.neighbourChunksLoadedBitset = 0L;
++      java.util.Arrays.fill(this.loadedNeighbourChunks, null);
++      this.onNeighbourChange(before, 0L);
++   }
++
++   protected void onNeighbourChange(final long bitsetBefore, final long bitsetAfter) {
++      // Paper start - no-tick view distance
++      ServerChunkProvider chunkProviderServer = ((ServerWorld)this.field_76637_e).func_72863_F();
++      ChunkManager chunkMap = chunkProviderServer.field_217237_a;
++      // this code handles the addition of ticking tickets - the distance map handles the removal
++      if (!areNeighboursLoaded(bitsetBefore, 2) && areNeighboursLoaded(bitsetAfter, 2)) {
++         if (chunkMap.playerChunkManager.tickMap.getObjectsInRange(this.coordinateKey) != null) { // Tuinity - replace old player chunk loading system
++            // now we're ready for entity ticking
++            chunkProviderServer.field_217243_i.execute(() -> {
++               // double check that this condition still holds.
++               if (Chunk.this.areNeighboursLoaded(2) && chunkMap.playerChunkManager.tickMap.getObjectsInRange(Chunk.this.coordinateKey) != null) { // Tuinity - replace old player chunk loading system
++                  chunkMap.playerChunkManager.onChunkPlayerTickReady(this.field_212816_F.field_77276_a, this.field_212816_F.field_77275_b); // Tuinity - replace old player chunk loading system
++               }
++            });
++         }
++      }
++
++      // this code handles the chunk sending
++      if (!areNeighboursLoaded(bitsetBefore, 1) && areNeighboursLoaded(bitsetAfter, 1)) {
++         // Tuinity start - replace old player chunk loading system
++         chunkProviderServer.field_217243_i.execute(() -> {
++            if (!Chunk.this.areNeighboursLoaded(1)) {
++               return;
++            }
++            Chunk.this.func_201595_A();
++            if (!Chunk.this.areNeighboursLoaded(1)) {
++               return;
++            }
++            chunkMap.playerChunkManager.onChunkSendReady(this.field_212816_F.field_77276_a, this.field_212816_F.field_77275_b);
++         });
++         // Tuinity end - replace old player chunk loading system
++      }
++      // Paper end - no-tick view distance
++   }
++
++   public final boolean isAnyNeighborsLoaded() {
++      return neighbourChunksLoadedBitset != 0;
++   }
++   public final boolean areNeighboursLoaded(final int radius) {
++      return Chunk.areNeighboursLoaded(this.neighbourChunksLoadedBitset, radius);
++   }
++
++   public static boolean areNeighboursLoaded(final long bitset, final int radius) {
++      // index = relativeX + (relativeZ * (NEIGHBOUR_CACHE_RADIUS * 2 + 1)) + (NEIGHBOUR_CACHE_RADIUS + NEIGHBOUR_CACHE_RADIUS * ((NEIGHBOUR_CACHE_RADIUS * 2 + 1)))
++      switch (radius) {
++         case 0: {
++            return (bitset & (1L << getNeighbourIndex(0, 0))) != 0;
++         }
++         case 1: {
++            long mask = 0L;
++            for (int dx = -1; dx <= 1; ++dx) {
++               for (int dz = -1; dz <= 1; ++dz) {
++                  mask |= (1L << getNeighbourIndex(dx, dz));
++               }
++            }
++            return (bitset & mask) == mask;
++         }
++         case 2: {
++            long mask = 0L;
++            for (int dx = -2; dx <= 2; ++dx) {
++               for (int dz = -2; dz <= 2; ++dz) {
++                  mask |= (1L << getNeighbourIndex(dx, dz));
++               }
++            }
++            return (bitset & mask) == mask;
++         }
++         case 3: {
++            long mask = 0L;
++            for (int dx = -3; dx <= 3; ++dx) {
++               for (int dz = -3; dz <= 3; ++dz) {
++                  mask |= (1L << getNeighbourIndex(dx, dz));
++               }
++            }
++            return (bitset & mask) == mask;
++         }
++
++         default:
++            throw new IllegalArgumentException("Radius not recognized: " + radius);
++      }
++   }
++   // Paper end
 +
     public Chunk(World p_i225780_1_, ChunkPos p_i225780_2_, BiomeContainer p_i225780_3_) {
        this(p_i225780_1_, p_i225780_2_, p_i225780_3_, UpgradeData.field_196994_a, EmptyTickList.func_205388_a(), EmptyTickList.func_205388_a(), 0L, (ChunkSection[])null, (Consumer<Chunk>)null);
@@ -442,6 +601,15 @@
        });
     }
  
+@@ -682,7 +_,7 @@
+                BlockPos blockpos = ChunkPrimer.func_201635_a(oshort, i, chunkpos);
+                BlockState blockstate = this.func_180495_p(blockpos);
+                BlockState blockstate1 = Block.func_199770_b(blockstate, this.field_76637_e, blockpos);
+-               this.field_76637_e.func_180501_a(blockpos, blockstate1, 20);
++               this.field_76637_e.func_180501_a(blockpos, blockstate1, 20| 2); // Paper - We send chunks before they're ticking ready, so we need to notify he
+             }
+ 
+             this.field_201622_t[i].clear();
 @@ -704,9 +_,8 @@
        BlockState blockstate = this.func_180495_p(p_212815_1_);
        TileEntity tileentity;

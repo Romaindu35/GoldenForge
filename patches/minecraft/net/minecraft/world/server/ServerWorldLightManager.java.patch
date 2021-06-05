@@ -1,0 +1,311 @@
+--- a/net/minecraft/world/server/ServerWorldLightManager.java
++++ b/net/minecraft/world/server/ServerWorldLightManager.java
+@@ -1,6 +_,7 @@
+ package net.minecraft.world.server;
+ 
+ import com.mojang.datafixers.util.Pair;
++import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+ import it.unimi.dsi.fastutil.objects.ObjectList;
+ import it.unimi.dsi.fastutil.objects.ObjectListIterator;
+@@ -15,11 +_,7 @@
+ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.SectionPos;
+ import net.minecraft.world.LightType;
+-import net.minecraft.world.chunk.ChunkSection;
+-import net.minecraft.world.chunk.ChunkTaskPriorityQueueSorter;
+-import net.minecraft.world.chunk.IChunk;
+-import net.minecraft.world.chunk.IChunkLightProvider;
+-import net.minecraft.world.chunk.NibbleArray;
++import net.minecraft.world.chunk.*;
+ import net.minecraft.world.lighting.WorldLightManager;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+@@ -32,6 +_,141 @@
+    private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_215608_e;
+    private volatile int field_215609_f = 5;
+    private final AtomicBoolean field_215610_g = new AtomicBoolean();
++   // Paper start
++   private static final int MAX_PRIORITIES = ChunkManager.field_219249_a + 2;
++
++   private boolean isChunkLightStatus(long pair) {
++      ChunkHolder playerChunk = field_215607_d.func_219219_b(pair);
++      if (playerChunk == null) {
++         return false;
++      }
++      ChunkStatus status = ChunkHolder.func_219278_b(playerChunk.func_219299_i());
++      return status != null && status.func_209003_a(ChunkStatus.field_222614_j);
++   }
++
++   static class ChunkLightQueue {
++      public boolean shouldFastUpdate;
++      java.util.ArrayDeque<Runnable> pre = new java.util.ArrayDeque<Runnable>();
++      java.util.ArrayDeque<Runnable> post = new java.util.ArrayDeque<Runnable>();
++
++      ChunkLightQueue(long chunk) {}
++   }
++
++   static class PendingLightTask {
++      long chunkId;
++      IntSupplier priority;
++      Runnable pre;
++      Runnable post;
++      boolean fastUpdate;
++
++      public PendingLightTask(long chunkId, IntSupplier priority, Runnable pre, Runnable post, boolean fastUpdate) {
++         this.chunkId = chunkId;
++         this.priority = priority;
++         this.pre = pre;
++         this.post = post;
++         this.fastUpdate = fastUpdate;
++      }
++   }
++
++
++   // Retain the chunks priority level for queued light tasks
++   class LightQueue {
++      private int size = 0;
++      private final Long2ObjectLinkedOpenHashMap<ChunkLightQueue>[] buckets = new Long2ObjectLinkedOpenHashMap[MAX_PRIORITIES];
++      private final java.util.concurrent.ConcurrentLinkedQueue<PendingLightTask> pendingTasks = new java.util.concurrent.ConcurrentLinkedQueue<>();
++      private final java.util.concurrent.ConcurrentLinkedQueue<Runnable> priorityChanges = new java.util.concurrent.ConcurrentLinkedQueue<>();
++
++      private LightQueue() {
++         for (int i = 0; i < buckets.length; i++) {
++            buckets[i] = new Long2ObjectLinkedOpenHashMap<>();
++         }
++      }
++
++      public void changePriority(long pair, int currentPriority, int priority) {
++         this.priorityChanges.add(() -> {
++            ChunkLightQueue remove = this.buckets[currentPriority].remove(pair);
++            if (remove != null) {
++               ChunkLightQueue existing = this.buckets[Math.max(1, priority)].put(pair, remove);
++               if (existing != null) {
++                  remove.pre.addAll(existing.pre);
++                  remove.post.addAll(existing.post);
++               }
++            }
++         });
++      }
++
++      public final void addChunk(long chunkId, IntSupplier priority, Runnable pre, Runnable post) {
++         pendingTasks.add(new PendingLightTask(chunkId, priority, pre, post, true));
++         func_215588_z_();
++      }
++
++      public final void add(long chunkId, IntSupplier priority, ServerWorldLightManager.Phase type, Runnable run) {
++         pendingTasks.add(new PendingLightTask(chunkId, priority, type == Phase.PRE_UPDATE ? run : null, type == Phase.POST_UPDATE ? run : null, false));
++      }
++      public final void add(PendingLightTask update) {
++         int priority = update.priority.getAsInt();
++         ChunkLightQueue lightQueue = this.buckets[priority].computeIfAbsent(update.chunkId, ChunkLightQueue::new);
++
++         if (update.pre != null) {
++            this.size++;
++            lightQueue.pre.add(update.pre);
++         }
++         if (update.post != null) {
++            this.size++;
++            lightQueue.post.add(update.post);
++         }
++         if (update.fastUpdate) {
++            lightQueue.shouldFastUpdate = true;
++         }
++      }
++
++      public final boolean isEmpty() {
++         return this.size == 0 && this.pendingTasks.isEmpty();
++      }
++
++      public final int size() {
++         return this.size;
++      }
++
++      public boolean poll(java.util.List<Runnable> pre, java.util.List<Runnable> post) {
++         PendingLightTask pending;
++         while ((pending = pendingTasks.poll()) != null) {
++            add(pending);
++         }
++         Runnable run;
++         while ((run = priorityChanges.poll()) != null) {
++            run.run();
++         }
++         boolean hasWork = false;
++         Long2ObjectLinkedOpenHashMap<ChunkLightQueue>[] buckets = this.buckets;
++         int priority = 0;
++         while (priority < MAX_PRIORITIES && !isEmpty()) {
++            Long2ObjectLinkedOpenHashMap<ChunkLightQueue> bucket = buckets[priority];
++            if (bucket.isEmpty()) {
++               priority++;
++               if (hasWork) {
++                  return true;
++               } else {
++                  continue;
++               }
++            }
++            ChunkLightQueue queue = bucket.removeFirst();
++            this.size -= queue.pre.size() + queue.post.size();
++            pre.addAll(queue.pre);
++            post.addAll(queue.post);
++            queue.pre.clear();
++            queue.post.clear();
++            hasWork = true;
++            if (queue.shouldFastUpdate) {
++               return true;
++            }
++         }
++         return hasWork;
++      }
++   }
++
++   final LightQueue queue = new LightQueue();
++   // Paper end
+ 
+    public ServerWorldLightManager(IChunkLightProvider p_i50701_1_, ChunkManager p_i50701_2_, boolean p_i50701_3_, DelegatedTaskExecutor<Runnable> p_i50701_4_, ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> p_i50701_5_) {
+       super(p_i50701_1_, true, p_i50701_3_);
+@@ -114,13 +_,16 @@
+    }
+ 
+    private void func_215600_a(int p_215600_1_, int p_215600_2_, IntSupplier p_215600_3_, ServerWorldLightManager.Phase p_215600_4_, Runnable p_215600_5_) {
+-      this.field_215608_e.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219069_a(() -> {
+-         this.field_215606_c.add(Pair.of(p_215600_4_, p_215600_5_));
+-         if (this.field_215606_c.size() >= this.field_215609_f) {
+-            this.func_215603_b();
+-         }
+-
+-      }, ChunkPos.func_77272_a(p_215600_1_, p_215600_2_), p_215600_3_));
++      // Paper start - replace method
++      this.queue.add(ChunkPos.func_77272_a(p_215600_1_, p_215600_2_), p_215600_3_, p_215600_4_, p_215600_5_);
++      // Paper end
++//      this.sorterMailbox.tell(ChunkTaskPriorityQueueSorter.message(() -> {
++//         this.lightTasks.add(Pair.of(p_215600_4_, p_215600_5_));
++//         if (this.lightTasks.size() >= this.taskPerBatch) {
++//            this.runUpdate();
++//         }
++//
++//      }, ChunkPos.asLong(p_215600_1_, p_215600_2_), p_215600_3_));
+    }
+ 
+    public void func_223115_b(ChunkPos p_223115_1_, boolean p_223115_2_) {
+@@ -135,8 +_,18 @@
+ 
+    public CompletableFuture<IChunk> func_215593_a(IChunk p_215593_1_, boolean p_215593_2_) {
+       ChunkPos chunkpos = p_215593_1_.func_76632_l();
+-      p_215593_1_.func_217305_b(false);
+-      this.func_215586_a(chunkpos.field_77276_a, chunkpos.field_77275_b, ServerWorldLightManager.Phase.PRE_UPDATE, Util.func_215075_a(() -> {
++      //p_215593_1_.setLightCorrect(false);
++      long pair = chunkpos.func_201841_a();
++      CompletableFuture<IChunk> future = new CompletableFuture<>();
++      IntSupplier prioritySupplier = field_215607_d.func_219191_c(pair);
++      boolean[] skippedPre = {false};
++      this.queue.addChunk(pair, prioritySupplier, Util.func_215075_a(() -> {
++         if (!isChunkLightStatus(pair)) {
++            future.complete(p_215593_1_);
++            skippedPre[0] = true;
++            return;
++         }
++         // Paper end
+          ChunkSection[] achunksection = p_215593_1_.func_76587_i();
+ 
+          for(int i = 0; i < 16; ++i) {
+@@ -153,52 +_,71 @@
+             });
+          }
+ 
+-         this.field_215607_d.func_219209_c(chunkpos);
++         //this.chunkMap.releaseLightTicket(chunkpos);
++         // this.d.c(chunkcoordintpair); // Paper - move into post task below
+       }, () -> {
+          return "lightChunk " + chunkpos + " " + p_215593_2_;
+-      }));
+-      return CompletableFuture.supplyAsync(() -> {
++         // Paper start  - merge the 2 together
++      }), () -> {
++         this.field_215607_d.func_219209_c(chunkpos); // Paper - release light tickets as post task to ensure they stay loaded until fully done
++         if (skippedPre[0]) return; // Paper - future's already complete
+          p_215593_1_.func_217305_b(true);
+          super.func_223115_b(chunkpos, false);
+-         return p_215593_1_;
+-      }, (p_215597_2_) -> {
+-         this.func_215586_a(chunkpos.field_77276_a, chunkpos.field_77275_b, ServerWorldLightManager.Phase.POST_UPDATE, p_215597_2_);
++         // Paper start
++         future.complete(p_215593_1_);
+       });
++      return future;
++      // Paper end
+    }
+ 
+    public void func_215588_z_() {
+-      if ((!this.field_215606_c.isEmpty() || super.func_215570_a()) && this.field_215610_g.compareAndSet(false, true)) {
++      if ((!this.queue.isEmpty() || super.func_215570_a()) && this.field_215610_g.compareAndSet(false, true)) {
+          this.field_215605_b.func_212871_a_(() -> {
+             this.func_215603_b();
+             this.field_215610_g.set(false);
++            func_215588_z_();
+          });
+       }
+ 
+    }
+ 
++   // Paper start - replace impl
++   private final java.util.List<Runnable> pre = new java.util.ArrayList<>();
++   private final java.util.List<Runnable> post = new java.util.ArrayList<>();
+    private void func_215603_b() {
+-      int i = Math.min(this.field_215606_c.size(), this.field_215609_f);
+-      ObjectListIterator<Pair<ServerWorldLightManager.Phase, Runnable>> objectlistiterator = this.field_215606_c.iterator();
+-
+-      int j;
+-      for(j = 0; objectlistiterator.hasNext() && j < i; ++j) {
+-         Pair<ServerWorldLightManager.Phase, Runnable> pair = objectlistiterator.next();
+-         if (pair.getFirst() == ServerWorldLightManager.Phase.PRE_UPDATE) {
+-            pair.getSecond().run();
+-         }
+-      }
+-
+-      objectlistiterator.back(j);
+-      super.func_215575_a(Integer.MAX_VALUE, true, true);
+-
+-      for(int k = 0; objectlistiterator.hasNext() && k < i; ++k) {
+-         Pair<ServerWorldLightManager.Phase, Runnable> pair1 = objectlistiterator.next();
+-         if (pair1.getFirst() == ServerWorldLightManager.Phase.POST_UPDATE) {
+-            pair1.getSecond().run();
+-         }
+-
+-         objectlistiterator.remove();
+-      }
++      if (queue.poll(pre, post)) {
++         pre.forEach(Runnable::run);
++         pre.clear();
++         super.func_215575_a(Integer.MAX_VALUE, true, true);
++         post.forEach(Runnable::run);
++         post.clear();
++      } else {
++         // might have level updates to go still
++         super.func_215575_a(Integer.MAX_VALUE, true, true);
++      }
++      // Paper end
++//      int i = Math.min(this.lightTasks.size(), this.taskPerBatch);
++//      ObjectListIterator<Pair<ServerWorldLightManager.Phase, Runnable>> objectlistiterator = this.lightTasks.iterator();
++//
++//      int j;
++//      for(j = 0; objectlistiterator.hasNext() && j < i; ++j) {
++//         Pair<ServerWorldLightManager.Phase, Runnable> pair = objectlistiterator.next();
++//         if (pair.getFirst() == ServerWorldLightManager.Phase.PRE_UPDATE) {
++//            pair.getSecond().run();
++//         }
++//      }
++//
++//      objectlistiterator.back(j);
++//      super.runUpdates(Integer.MAX_VALUE, true, true);
++//
++//      for(int k = 0; objectlistiterator.hasNext() && k < i; ++k) {
++//         Pair<ServerWorldLightManager.Phase, Runnable> pair1 = objectlistiterator.next();
++//         if (pair1.getFirst() == ServerWorldLightManager.Phase.POST_UPDATE) {
++//            pair1.getSecond().run();
++//         }
++//
++//         objectlistiterator.remove();
++//      }
+ 
+    }
+ 

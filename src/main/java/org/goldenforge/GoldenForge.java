@@ -33,6 +33,9 @@ public class GoldenForge {
     }
 
     public static boolean isPrimaryThread() {
-        return Thread.currentThread().equals(MinecraftServer.getServer().serverThread); /*|| Thread.currentThread().equals(net.minecraft.server.MinecraftServer.getServer().shutdownThread*/ // Paper - Fix issues with detecting main thread properly, the only time Watchdog will be used is during a crash shutdown which is a "try our best" scenario
-    }
+        // Tuinity start
+        final Thread currThread = Thread.currentThread();
+        return currThread == MinecraftServer.getServer().serverThread || currThread instanceof com.tuinity.tuinity.util.TickThread || currThread.equals(net.minecraft.server.MinecraftServer.getServer().shutdownThread); // Paper - Fix issues with detecting main thread properly, the only time Watchdog will be used is during a crash shutdown which is a "try our best" scenario
+        // Tuinity End
+        }
 }

@@ -1,7 +1,16 @@
 --- a/net/minecraft/world/server/Ticket.java
 +++ b/net/minecraft/world/server/Ticket.java
-@@ -9,9 +_,14 @@
-    private long field_219483_d;
+@@ -4,14 +_,21 @@
+ 
+ public final class Ticket<T> implements Comparable<Ticket<?>> {
+    private final TicketType<T> field_219480_a;
+-   private final int field_219481_b;
++   private int field_219481_b; public final void setTicketLevel(final int value) { this.field_219481_b = value; } // Tuinity - remove final, add set OBFHELPER
+    private final T field_219482_c;
+-   private long field_219483_d;
++   private long field_219483_d; public final long getCreationTick() { return this.field_219483_d; } public final void setCreationTick(final long value) { this.field_219483_d = value; }  // Paper - OBFHELPER // Tuinity - OBFHELPER
++   public int priority = 0; // Paper
++   boolean isCached; // Tuinity - delay chunk unloads, this defends against really stupid plugins
  
     protected Ticket(TicketType<T> p_i226095_1_, int p_i226095_2_, T p_i226095_3_) {
 +      this(p_i226095_1_, p_i226095_2_, p_i226095_3_, false);

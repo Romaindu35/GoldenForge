@@ -7,7 +7,7 @@
  import com.google.common.annotations.VisibleForTesting;
  import com.google.common.collect.Lists;
  import com.mojang.datafixers.DataFixer;
-@@ -17,6 +_,8 @@
+@@ -17,10 +_,13 @@
  import java.util.function.Function;
  import java.util.function.Supplier;
  import javax.annotation.Nullable;
@@ -16,7 +16,33 @@
  import net.minecraft.entity.Entity;
  import net.minecraft.entity.player.ServerPlayerEntity;
  import net.minecraft.network.IPacket;
-@@ -65,6 +_,104 @@
+ import net.minecraft.profiler.IProfiler;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.concurrent.ThreadTaskExecutor;
+ import net.minecraft.util.math.BlockPos;
+@@ -32,10 +_,7 @@
+ import net.minecraft.world.IBlockReader;
+ import net.minecraft.world.LightType;
+ import net.minecraft.world.World;
+-import net.minecraft.world.chunk.AbstractChunkProvider;
+-import net.minecraft.world.chunk.Chunk;
+-import net.minecraft.world.chunk.ChunkStatus;
+-import net.minecraft.world.chunk.IChunk;
++import net.minecraft.world.chunk.*;
+ import net.minecraft.world.chunk.listener.IChunkStatusListener;
+ import net.minecraft.world.gen.ChunkGenerator;
+ import net.minecraft.world.gen.feature.template.TemplateManager;
+@@ -53,7 +_,7 @@
+    public final ServerWorld field_73251_h;
+    private final Thread field_217241_g;
+    private final ServerWorldLightManager field_217242_h;
+-   private final ServerChunkProvider.ChunkExecutor field_217243_i;
++   public final ServerChunkProvider.ChunkExecutor field_217243_i;
+    public final ChunkManager field_217237_a;
+    private final DimensionSavedDataManager field_217244_j;
+    private long field_217245_k;
+@@ -65,6 +_,247 @@
     @Nullable
     private WorldEntitySpawner.EntityDensityManager field_241097_p_;
  
@@ -116,11 +142,328 @@
 +
 +      return ret;
 +   }
++
++   public Chunk getChunkAtIfCachedImmediately(int x, int z) {
++      long k = ChunkPos.func_77272_a(x, z);
++
++      // Note: Bypass cache since we need to check ticket level, and to make this MT-Safe
++
++      ChunkHolder playerChunk = this.func_217213_a(k);
++      if (playerChunk == null) {
++         return null;
++      }
++
++      return playerChunk.getFullChunkIfCached();
++   }
++
++   public IChunk getChunkAtImmediately(int x, int z) {
++      long k = ChunkPos.func_77272_a(x, z);
++
++      // Note: Bypass cache to make this MT-Safe
++
++      ChunkHolder playerChunk = this.func_217213_a(k);
++      if (playerChunk == null) {
++         return null;
++      }
++
++      return playerChunk.getAvailableChunkNow();
++
++   }
++
++   public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> getChunkAtAsynchronously(int x, int z, boolean gen, boolean isUrgent) {
++      if (Thread.currentThread() != this.field_217241_g) {
++         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = new CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>>();
++         this.field_217243_i.execute(() -> {
++            this.getChunkAtAsynchronously(x, z, gen, isUrgent).whenComplete((chunk, ex) -> {
++               if (ex != null) {
++                  future.completeExceptionally(ex);
++               } else {
++                  future.complete(chunk);
++               }
++            });
++         });
++         return future;
++      }
++
++      if (!com.destroystokyo.paper.PaperConfig.asyncChunks) {
++         //world.getWorld().loadChunk(x, z, gen);
++         Chunk chunk = getChunkAtIfLoadedMainThread(x, z);
++         return CompletableFuture.completedFuture(chunk != null ? Either.left(chunk) : ChunkHolder.field_219306_a);
++      }
++
++      long k = ChunkPos.func_77272_a(x, z);
++      ChunkPos chunkPos = new ChunkPos(x, z);
++
++      IChunk ichunkaccess;
++
++      // try cache
++      for (int l = 0; l < 4; ++l) {
++         if (k == this.field_222875_n[l] && ChunkStatus.field_222617_m == this.field_222876_o[l]) {
++            ichunkaccess = this.field_222877_p[l];
++            if (ichunkaccess != null) { // CraftBukkit - the chunk can become accessible in the meantime TODO for non-null chunks it might also make sense to check that the chunk's state hasn't changed in the meantime
++
++               // move to first in cache
++
++               for (int i1 = 3; i1 > 0; --i1) {
++                  this.field_222875_n[i1] = this.field_222875_n[i1 - 1];
++                  this.field_222876_o[i1] = this.field_222876_o[i1 - 1];
++                  this.field_222877_p[i1] = this.field_222877_p[i1 - 1];
++               }
++
++               this.field_222875_n[0] = k;
++               this.field_222876_o[0] = ChunkStatus.field_222617_m;
++               this.field_222877_p[0] = ichunkaccess;
++
++               return CompletableFuture.completedFuture(Either.left(ichunkaccess));
++            }
++         }
++      }
++
++      if (gen) {
++         return this.bringToFullStatusAsync(x, z, chunkPos, isUrgent);
++      }
++
++      IChunk current = this.getChunkAtImmediately(x, z); // we want to bypass ticket restrictions
++      if (current != null) {
++         if (!(current instanceof ChunkPrimerWrapper) && !(current instanceof Chunk)) {
++            return CompletableFuture.completedFuture(ChunkHolder.field_219306_a);
++         }
++         // we know the chunk is at full status here (either in read-only mode or the real thing)
++         return this.bringToFullStatusAsync(x, z, chunkPos, isUrgent);
++      }
++
++      ChunkStatus status = field_73251_h.func_72863_F().field_217237_a.getStatusOnDiskNoLoad(x, z);
++
++      if (status != null && status != ChunkStatus.field_222617_m) {
++         // does not exist on disk
++         return CompletableFuture.completedFuture(ChunkHolder.field_219306_a);
++      }
++
++      if (status == ChunkStatus.field_222617_m) {
++         return this.bringToFullStatusAsync(x, z, chunkPos, isUrgent);
++      }
++
++      // status is null here
++
++      // here we don't know what status it is and we're not supposed to generate
++      // so we asynchronously load empty status
++      return this.bringToStatusAsync(x, z, chunkPos, ChunkStatus.field_223226_a_, isUrgent).thenCompose((either) -> {
++         IChunk chunk = either.left().orElse(null);
++         if (!(chunk instanceof ChunkPrimerWrapper) && !(chunk instanceof Chunk)) {
++            // the chunk on disk was not a full status chunk
++            return CompletableFuture.completedFuture(ChunkHolder.field_219306_a);
++         }
++         ; // bring to full status if required
++         return this.bringToFullStatusAsync(x, z, chunkPos, isUrgent);
++      });
++   }
++
++   private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> bringToFullStatusAsync(int x, int z, ChunkPos chunkPos, boolean isUrgent) {
++      return this.bringToStatusAsync(x, z, chunkPos, ChunkStatus.field_222617_m, isUrgent);
++   }
++   private long asyncLoadSeqCounter;
++   private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> bringToStatusAsync(int x, int z, ChunkPos chunkPos, ChunkStatus status, boolean isUrgent) {
++      CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.getChunkFutureMainThread(x, z, status, true, isUrgent);
++      Long identifier = Long.valueOf(this.asyncLoadSeqCounter++);
++      int ticketLevel = MCUtil.getTicketLevelFor(status);
++      this.registerTickingTicket(TicketType.ASYNC_LOAD, chunkPos, ticketLevel, identifier);
++
++      return future.thenComposeAsync((Either<IChunk, ChunkHolder.IChunkLoadingError> either) -> {
++         // either left -> success
++         // either right -> failure
++
++         this.releaseTickingTicket(TicketType.ASYNC_LOAD, chunkPos, ticketLevel, identifier);
++         this.registerTickingTicket(TicketType.field_219494_g, chunkPos, ticketLevel, chunkPos); // allow unloading
++
++         Optional<ChunkHolder.IChunkLoadingError> failure = either.right();
++
++         if (failure.isPresent()) {
++            // failure
++            throw new IllegalStateException("Chunk failed to load: " + failure.get().toString());
++         }
++
++         return CompletableFuture.completedFuture(either);
++      }, this.field_217243_i);
++   }
 +   // GoldenForge end
 +
     public ServerChunkProvider(ServerWorld p_i232603_1_, SaveFormat.LevelSave p_i232603_2_, DataFixer p_i232603_3_, TemplateManager p_i232603_4_, Executor p_i232603_5_, ChunkGenerator p_i232603_6_, int p_i232603_7_, boolean p_i232603_8_, IChunkStatusListener p_i232603_9_, Supplier<DimensionSavedDataManager> p_i232603_10_) {
        this.field_73251_h = p_i232603_1_;
        this.field_217243_i = new ServerChunkProvider.ChunkExecutor(p_i232603_1_);
+@@ -105,29 +_,53 @@
+       this.field_222877_p[0] = p_225315_3_;
+    }
+ 
++   public void markAreaHighPriority(ChunkPos center, int priority, int radius) {
++      this.field_217240_d.markAreaHighPriority(center, priority, radius);
++   }
++
+    @Nullable
+    public IChunk func_212849_a_(int p_212849_1_, int p_212849_2_, ChunkStatus p_212849_3_, boolean p_212849_4_) {
++      final int x = p_212849_1_; final int z = p_212849_2_; // Paper - conflict on variable change
+       if (Thread.currentThread() != this.field_217241_g) {
+          return CompletableFuture.supplyAsync(() -> {
+             return this.func_212849_a_(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_);
+          }, this.field_217243_i).join();
+       } else {
++         // Paper start - optimise for loaded chunks
++         Chunk ifLoaded = this.getChunkAtIfLoadedMainThread(p_212849_1_, p_212849_2_);
++         if (ifLoaded != null) {
++            return ifLoaded;
++         }
++         // Paper end
+          IProfiler iprofiler = this.field_73251_h.func_217381_Z();
+          iprofiler.func_230035_c_("getChunk");
+          long i = ChunkPos.func_77272_a(p_212849_1_, p_212849_2_);
+ 
++         IChunk ichunk;
+          for(int j = 0; j < 4; ++j) {
+             if (i == this.field_222875_n[j] && p_212849_3_ == this.field_222876_o[j]) {
+-               IChunk ichunk = this.field_222877_p[j];
+-               if (ichunk != null || !p_212849_4_) {
++               ichunk = this.field_222877_p[j];
++               if (ichunk != null) {
+                   return ichunk;
+                }
+             }
+          }
+ 
+          iprofiler.func_230035_c_("getChunkCacheMiss");
+-         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture = this.func_217233_c(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_);
+-         this.field_217243_i.func_213161_c(completablefuture::isDone);
++         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture = this.getChunkFutureMainThread(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_, true);
++         if (!completablefuture.isDone()) { // Paper
++            // Paper start - async chunk io/loading
++            ChunkPos pair = new ChunkPos(x, z);
++            this.field_217240_d.markUrgent(pair);
++            this.field_73251_h.asyncChunkTaskManager.raisePriority(x, z, com.destroystokyo.paper.io.PrioritizedTaskQueue.HIGHEST_PRIORITY);
++            com.destroystokyo.paper.io.chunk.ChunkTaskManager.pushChunkWait(this.field_73251_h, x, z);
++            // Paper end
++            com.destroystokyo.paper.io.SyncLoadFinder.logSyncLoad(this.field_73251_h, x, z); // Paper - sync load info
++            this.field_217243_i.func_213161_c(completablefuture::isDone);
++            com.destroystokyo.paper.io.chunk.ChunkTaskManager.popChunkWait(); // Paper - async chunk debug
++            this.field_217240_d.clearPriorityTickets(pair); // Paper
++            this.field_217240_d.clearUrgent(pair); // Paper
++         } // Paper
+          IChunk ichunk1 = completablefuture.join().map((p_222874_0_) -> {
+             return p_222874_0_;
+          }, (p_222870_1_) -> {
+@@ -147,35 +_,7 @@
+       if (Thread.currentThread() != this.field_217241_g) {
+          return null;
+       } else {
+-         this.field_73251_h.func_217381_Z().func_230035_c_("getChunkNow");
+-         long i = ChunkPos.func_77272_a(p_225313_1_, p_225313_2_);
+-
+-         for(int j = 0; j < 4; ++j) {
+-            if (i == this.field_222875_n[j] && this.field_222876_o[j] == ChunkStatus.field_222617_m) {
+-               IChunk ichunk = this.field_222877_p[j];
+-               return ichunk instanceof Chunk ? (Chunk)ichunk : null;
+-            }
+-         }
+-
+-         ChunkHolder chunkholder = this.func_217213_a(i);
+-         if (chunkholder == null) {
+-            return null;
+-         } else {
+-            Either<IChunk, ChunkHolder.IChunkLoadingError> either = chunkholder.func_225410_b(ChunkStatus.field_222617_m).getNow((Either<IChunk, ChunkHolder.IChunkLoadingError>)null);
+-            if (either == null) {
+-               return null;
+-            } else {
+-               IChunk ichunk1 = either.left().orElse((IChunk)null);
+-               if (ichunk1 != null) {
+-                  this.func_225315_a(i, ichunk1, ChunkStatus.field_222617_m);
+-                  if (ichunk1 instanceof Chunk) {
+-                     return (Chunk)ichunk1;
+-                  }
+-               }
+-
+-               return null;
+-            }
+-         }
++         return this.getChunkAtIfLoadedMainThread(p_225313_1_, p_225313_2_); // Paper - optimise for loaded chunks
+       }
+    }
+ 
+@@ -204,29 +_,62 @@
+    }
+ 
+    private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_217233_c(int p_217233_1_, int p_217233_2_, ChunkStatus p_217233_3_, boolean p_217233_4_) {
++      return null;
++   }
++
++   private long syncLoadCounter; // Tuinity - prevent plugin unloads from removing our ticket
++   private CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> getChunkFutureMainThread(int p_217233_1_, int p_217233_2_, ChunkStatus p_217233_3_, boolean p_217233_4_, boolean isUrgent) {
+       ChunkPos chunkpos = new ChunkPos(p_217233_1_, p_217233_2_);
+       long i = chunkpos.func_201841_a();
+       int j = 33 + ChunkStatus.func_222599_a(p_217233_3_);
+       ChunkHolder chunkholder = this.func_217213_a(i);
+-      if (p_217233_4_) {
++      // CraftBukkit start - don't add new ticket for currently unloading chunk
++      boolean currentlyUnloading = false;
++      if (chunkholder != null) {
++         ChunkHolder.LocationType oldChunkState = ChunkHolder.func_219286_c(chunkholder.field_219316_k);
++         ChunkHolder.LocationType currentChunkState = ChunkHolder.func_219286_c(chunkholder.func_219299_i());
++         currentlyUnloading = (oldChunkState.func_219065_a(ChunkHolder.LocationType.BORDER) && !currentChunkState.func_219065_a(ChunkHolder.LocationType.BORDER));
++      }
++      final Long identifier; // Tuinity - prevent plugin unloads from removing our ticket
++      if (p_217233_4_ && !currentlyUnloading) {
+          this.field_217240_d.func_219356_a(TicketType.field_219494_g, chunkpos, j, chunkpos);
++         identifier = Long.valueOf(this.syncLoadCounter++); // Tuinity - prevent plugin unloads from removing our ticket
++         this.field_217240_d.registerTicking(TicketType.REQUIRED_LOAD, chunkpos, j, identifier); // Tuinity - prevent plugin unloads from removing our ticket
++         if (isUrgent) this.field_217240_d.markUrgent(chunkpos); // Paper
+          if (this.func_217224_a(chunkholder, j)) {
+             IProfiler iprofiler = this.field_73251_h.func_217381_Z();
+             iprofiler.func_76320_a("chunkLoad");
++            field_217240_d.delayDistanceManagerTick = false; // Paper - ensure this is never false
+             this.func_217235_l();
+             chunkholder = this.func_217213_a(i);
+             iprofiler.func_76319_b();
+             if (this.func_217224_a(chunkholder, j)) {
++               this.field_217240_d.releaseTicking(TicketType.REQUIRED_LOAD, chunkpos, j, identifier); // Tuinity
+                throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException("No chunk holder after ticket has been added"));
+             }
+          }
+-      }
+-
+-      return this.func_217224_a(chunkholder, j) ? ChunkHolder.field_219307_b : chunkholder.func_219276_a(p_217233_3_, this.field_217237_a);
++      } else { identifier = null; } // Tuinity - prevent plugin unloads from removing our ticket
++
++      // Paper start
++      CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.func_217224_a(chunkholder, j) ? ChunkHolder.field_219307_b : chunkholder.func_219276_a(p_217233_3_, this.field_217237_a);
++      // Tuinity start - prevent plugin unloads from removing our ticket
++      if (p_217233_4_ && !currentlyUnloading) {
++         future.thenAcceptAsync((either) -> {
++            this.field_217240_d.releaseTicking(TicketType.REQUIRED_LOAD, chunkpos, j, identifier);
++         }, this.field_217243_i);
++      }
++      // Tuinity end - prevent plugin unloads from removing our ticket
++      if (isUrgent) {
++         future.thenAccept(either -> this.field_217240_d.clearUrgent(chunkpos));
++      }
++      return future;
++      // Paper end
++
++      //return this.chunkAbsent(chunkholder, j) ? ChunkHolder.UNLOADED_CHUNK_FUTURE : chunkholder.getOrScheduleFuture(p_217233_3_, this.chunkMap);
+    }
+ 
+    private boolean func_217224_a(@Nullable ChunkHolder p_217224_1_, int p_217224_2_) {
+-      return p_217224_1_ == null || p_217224_1_.func_219299_i() > p_217224_2_;
++      return p_217224_1_ == null || p_217224_1_.field_219316_k > p_217224_2_;
+    }
+ 
+    public boolean func_73149_a(int p_73149_1_, int p_73149_2_) {
+@@ -267,7 +_,9 @@
+       return this.field_217243_i.func_213168_p();
+    }
+ 
+-   private boolean func_217235_l() {
++   public boolean func_217235_l() {
++      if (field_217240_d.delayDistanceManagerTick) return false; // Paper
++      if (this.field_217237_a.unloadingPlayerChunk) { MinecraftServer.field_147145_h.fatal("Cannot tick distance manager while unloading playerchunks", new Throwable()); throw new IllegalStateException("Cannot tick distance manager while unloading playerchunks"); } // Tuinity
+       boolean flag = this.field_217240_d.func_219353_a(this.field_217237_a);
+       boolean flag1 = this.field_217237_a.func_219245_b();
+       if (!flag && !flag1) {
 @@ -279,12 +_,19 @@
     }
  
@@ -144,6 +487,23 @@
     }
  
     public boolean func_222866_a(BlockPos p_222866_1_) {
+@@ -318,6 +_,7 @@
+       this.field_217240_d.func_219340_a();
+       this.func_217235_l();
+       this.field_73251_h.func_217381_Z().func_219895_b("chunks");
++      this.field_217237_a.playerChunkManager.tick(); // Tuinity - this is mostly is to account for view distance changes
+       this.func_217220_m();
+       this.field_73251_h.func_217381_Z().func_219895_b("unload");
+       this.field_217237_a.func_219204_a(p_217207_1_);
+@@ -325,6 +_,8 @@
+       this.func_222869_l();
+    }
+ 
++   final com.tuinity.tuinity.util.maplist.IteratorSafeOrderedReferenceSet<Chunk> entityTickingChunks = new com.tuinity.tuinity.util.maplist.IteratorSafeOrderedReferenceSet<>(4096, 0.75f, 4096, 0.15, true);
++
+    private void func_217220_m() {
+       long i = this.field_73251_h.func_82737_E();
+       long j = i - this.field_217245_k;
 @@ -334,6 +_,7 @@
        boolean flag1 = this.field_73251_h.func_82736_K().func_223586_b(GameRules.field_223601_d);
        if (!flag) {
@@ -152,15 +512,64 @@
           int k = this.field_73251_h.func_82736_K().func_223592_c(GameRules.field_223610_m);
           boolean flag2 = iworldinfo.func_82573_f() % 400L == 0L;
           this.field_73251_h.func_217381_Z().func_76320_a("naturalSpawnCount");
-@@ -353,7 +_,7 @@
-                if (optional1.isPresent()) {
-                   Chunk chunk = optional1.get();
-                   ChunkPos chunkpos = p_241099_7_.func_219277_h();
+@@ -341,29 +_,37 @@
+          WorldEntitySpawner.EntityDensityManager worldentityspawner$entitydensitymanager = WorldEntitySpawner.func_234964_a_(l, this.field_73251_h.func_241136_z_(), this::func_241098_a_);
+          this.field_241097_p_ = worldentityspawner$entitydensitymanager;
+          this.field_73251_h.func_217381_Z().func_76319_b();
+-         List<ChunkHolder> list = Lists.newArrayList(this.field_217237_a.func_223491_f());
+-         Collections.shuffle(list);
+-         list.forEach((p_241099_7_) -> {
+-            Optional<Chunk> optional = p_241099_7_.func_219296_a().getNow(ChunkHolder.field_219308_c).left();
+-            if (optional.isPresent()) {
+-               this.field_73251_h.func_217381_Z().func_76320_a("broadcast");
+-               p_241099_7_.func_219274_a(optional.get());
+-               this.field_73251_h.func_217381_Z().func_76319_b();
+-               Optional<Chunk> optional1 = p_241099_7_.func_219297_b().getNow(ChunkHolder.field_219308_c).left();
+-               if (optional1.isPresent()) {
+-                  Chunk chunk = optional1.get();
+-                  ChunkPos chunkpos = p_241099_7_.func_219277_h();
 -                  if (!this.field_217237_a.func_219243_d(chunkpos)) {
-+                  if (!this.field_217237_a.func_219243_d(chunkpos) || field_217237_a.func_219246_e().shouldForceTicks(chunkpos.func_201841_a())) {
-                      chunk.func_177415_c(chunk.func_177416_w() + j);
-                      if (flag1 && (this.field_217246_l || this.field_217247_m) && this.field_73251_h.func_175723_af().func_177730_a(chunk.func_76632_l())) {
-                         WorldEntitySpawner.func_234979_a_(this.field_73251_h, chunk, worldentityspawner$entitydensitymanager, this.field_217247_m, this.field_217246_l, flag2);
+-                     chunk.func_177415_c(chunk.func_177416_w() + j);
+-                     if (flag1 && (this.field_217246_l || this.field_217247_m) && this.field_73251_h.func_175723_af().func_177730_a(chunk.func_76632_l())) {
+-                        WorldEntitySpawner.func_234979_a_(this.field_73251_h, chunk, worldentityspawner$entitydensitymanager, this.field_217247_m, this.field_217246_l, flag2);
++//         List<ChunkHolder> list = Lists.newArrayList(this.chunkMap.getChunks());
++//         Collections.shuffle(list);
++         int ticked = 0; // Tuinity - exec chunk tasks during world tick
++         com.tuinity.tuinity.util.maplist.IteratorSafeOrderedReferenceSet.Iterator<Chunk> iterator = this.entityTickingChunks.iterator();
++         try {
++            while (iterator.hasNext()) {
++               Chunk chunk = iterator.next();
++               ChunkHolder playerchunk = chunk.playerChunk;
++
++               if (playerchunk != null) { // make sure load event has been called along with the load logic we put there
++                  this.field_73251_h.func_217381_Z().func_76320_a("broadcast");
++                  playerchunk.func_219274_a(chunk);
++                  this.field_73251_h.func_217381_Z().func_76319_b();
++
++                  if (true) {
++                     ChunkPos chunkpos = playerchunk.func_219277_h();
++                     if (!this.field_217237_a.func_219243_d(chunkpos)) {
++                        chunk.func_177415_c(chunk.func_177416_w() + j);
++                        if (flag1 && (this.field_217246_l || this.field_217247_m) && this.field_73251_h.func_175723_af().func_177730_a(chunk.func_76632_l())) {
++                           WorldEntitySpawner.func_234979_a_(this.field_73251_h, chunk, worldentityspawner$entitydensitymanager, this.field_217247_m, this.field_217246_l, flag2);
++                        }
++
++                        this.field_73251_h.func_217441_a(chunk, k);
++                        if ((++ticked & 1) == 0) MinecraftServer.getServer().executeMidTickTasks(); // Tuinity - exec chunk tasks during world tick
+                      }
+-
+-                     this.field_73251_h.func_217441_a(chunk, k);
+                   }
+                }
+-            }
+-         });
++         }
++         } finally {
++            iterator.finishedIterating();
++         }
+          this.field_73251_h.func_217381_Z().func_76320_a("customSpawners");
+          if (flag1) {
+             this.field_73251_h.func_241123_a_(this.field_217246_l, this.field_217247_m);
 @@ -429,6 +_,14 @@
        this.field_217240_d.func_219362_d(p_217222_1_, p_217222_2_, p_217222_3_, p_217222_4_);
     }
@@ -176,7 +585,16 @@
     public void func_217206_a(ChunkPos p_217206_1_, boolean p_217206_2_) {
        this.field_217240_d.func_219364_a(p_217206_1_, p_217206_2_);
     }
-@@ -507,11 +_,16 @@
+@@ -480,7 +_,7 @@
+       return this.field_241097_p_;
+    }
+ 
+-   final class ChunkExecutor extends ThreadTaskExecutor<Runnable> {
++   public final class ChunkExecutor extends ThreadTaskExecutor<Runnable> {
+       private ChunkExecutor(World p_i50985_2_) {
+          super("Chunk source main thread executor for " + p_i50985_2_.func_234923_W_().func_240901_a_());
+       }
+@@ -507,11 +_,19 @@
        }
  
        protected boolean func_213168_p() {
@@ -185,12 +603,15 @@
 -         } else {
 -            ServerChunkProvider.this.field_217242_h.func_215588_z_();
 -            return super.func_213168_p();
++         com.tuinity.tuinity.util.TickThread.softEnsureTickThread("Cannot execute chunk tasks off-main thread");// Tuinity
++         ServerChunkProvider.this.field_217237_a.playerChunkManager.tickMidTick(); // Tuinity
 +         try {
++            boolean execChunkTask = com.destroystokyo.paper.io.chunk.ChunkTaskManager.pollChunkWaitQueue() || ServerChunkProvider.this.field_73251_h.asyncChunkTaskManager.pollNextChunkTask(); // Paper
 +            if (ServerChunkProvider.this.func_217235_l()) {
 +               return true;
 +            } else {
 +               ServerChunkProvider.this.field_217242_h.func_215588_z_();
-+               return super.func_213168_p();
++               return super.func_213168_p()|| execChunkTask; // Paper
 +            }
 +         } finally {
 +            field_217237_a.chunkLoadConversionCallbackExecutor.run(); // Paper - Add chunk load conversion callback executor to prevent deadlock due to recursion in the chunk task queue sorter

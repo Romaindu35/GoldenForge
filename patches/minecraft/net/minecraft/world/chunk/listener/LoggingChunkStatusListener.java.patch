@@ -1,0 +1,33 @@
+--- a/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java
++++ b/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java
+@@ -11,14 +_,13 @@
+ 
+ public class LoggingChunkStatusListener implements IChunkStatusListener {
+    private static final Logger field_219512_a = LogManager.getLogger();
+-   private final int field_219513_b;
++   private int field_219513_b;
+    private int field_219514_c;
+    private long field_219515_d;
+    private long field_219516_e = Long.MAX_VALUE;
+ 
+    public LoggingChunkStatusListener(int p_i50697_1_) {
+-      int i = p_i50697_1_ * 2 + 1;
+-      this.field_219513_b = i * i;
++      setChunkRadius(p_i50697_1_);
+    }
+ 
+    public void func_219509_a(ChunkPos p_219509_1_) {
+@@ -42,6 +_,13 @@
+    public void func_219510_b() {
+       field_219512_a.info("Time elapsed: {} ms", (long)(Util.func_211177_b() - this.field_219515_d));
+       this.field_219516_e = Long.MAX_VALUE;
++   }
++
++   @Override
++   public void setChunkRadius(int radius) {
++      int j = radius * 2 + 1;
++
++      this.field_219513_b = j * j;
+    }
+ 
+    public int func_219511_c() {

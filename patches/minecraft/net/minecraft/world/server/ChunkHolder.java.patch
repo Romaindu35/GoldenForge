@@ -1,5 +1,14 @@
 --- a/net/minecraft/world/server/ChunkHolder.java
 +++ b/net/minecraft/world/server/ChunkHolder.java
+@@ -1,6 +_,8 @@
+ package net.minecraft.world.server;
+ 
++import com.destroystokyo.paper.util.MCUtil;
+ import com.mojang.datafixers.util.Either;
++import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+ import it.unimi.dsi.fastutil.shorts.ShortArraySet;
+ import it.unimi.dsi.fastutil.shorts.ShortSet;
+ import java.util.List;
 @@ -18,6 +_,7 @@
  import net.minecraft.network.play.server.SMultiBlockChangePacket;
  import net.minecraft.network.play.server.SUpdateLightPacket;
@@ -8,8 +17,11 @@
  import net.minecraft.tileentity.TileEntity;
  import net.minecraft.util.Util;
  import net.minecraft.util.math.BlockPos;
-@@ -44,9 +_,9 @@
+@@ -42,16 +_,18 @@
+    public static final Either<Chunk, ChunkHolder.IChunkLoadingError> field_219308_c = Either.right(ChunkHolder.IChunkLoadingError.field_219055_b);
+    private static final CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219309_d = CompletableFuture.completedFuture(field_219308_c);
     private static final List<ChunkStatus> field_219310_e = ChunkStatus.func_222582_a();
++   public boolean isUpdateQueued = false; // Paper
     private static final ChunkHolder.LocationType[] field_219311_f = ChunkHolder.LocationType.values();
     private final AtomicReferenceArray<CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>>> field_219312_g = new AtomicReferenceArray<>(field_219310_e.size());
 -   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_222983_h = field_219309_d;
@@ -19,13 +31,71 @@
 +   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219313_h = field_219309_d; private volatile boolean isTickingReady; // Paper - cache chunk ticking stage
 +   private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219314_i = field_219309_d; private volatile boolean isEntityTickingReady; // Paper - cache chunk ticking stage
     private CompletableFuture<IChunk> field_219315_j = CompletableFuture.completedFuture((IChunk)null);
-    private int field_219316_k;
+-   private int field_219316_k;
++   public int field_219316_k;
     private int field_219317_l;
-@@ -62,6 +_,20 @@
+-   private int field_219318_m;
+-   private final ChunkPos field_219319_n;
++   private volatile int field_219318_m;  public final int getCurrentPriority() { return field_219318_m; } // Paper - OBFHELPER - make volatile since this is concurrently accessed
++   public final ChunkPos field_219319_n;
++   private final long coordinateKey; // Airplane - cache key for location
+    private boolean field_244382_p;
+    private final ShortSet[] field_244383_q = new ShortSet[16];
+    private int field_219324_s;
+@@ -62,8 +_,213 @@
     private boolean field_219329_x;
     private boolean field_244384_x;
  
++   private final ChunkManager chunkMap; // Paper
++   public ServerWorld getWorld() { return chunkMap.field_219255_i; } // Pape
++
 +   // GoldenForge start
++   // Paper start - optimize chunk status progression without jumping through thread pool
++   public boolean canAdvanceStatus() {
++      ChunkStatus status = getChunkHolderStatus();
++      IChunk chunk = getAvailableChunkNow();
++      return chunk != null && (status == null || chunk.func_201589_g().func_209003_a(getNextStatus(status)));
++   }
++
++   public static ChunkStatus getNextStatus(ChunkStatus status) {
++      if (status == ChunkStatus.field_222617_m) {
++         return status;
++      }
++      return field_219310_e.get(status.func_222584_c() + 1);
++   }
++   // Paper end
++
++   public IChunk getAvailableChunkNow() {
++      // TODO can we just getStatusFuture(EMPTY)?
++      for (ChunkStatus curr = ChunkStatus.field_222617_m, next = curr.func_222593_e(); curr != next; curr = next, next = next.func_222593_e()) {
++         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.func_219301_a(curr);
++         Either<IChunk, ChunkHolder.IChunkLoadingError> either = future.getNow(null);
++         if (either == null || !either.left().isPresent()) {
++            continue;
++         }
++         return either.left().get();
++      }
++      return null;
++   }
++
++   public ChunkStatus getChunkHolderStatus() {
++      for (ChunkStatus curr = ChunkStatus.field_222617_m, next = curr.func_222593_e(); curr != next; curr = next, next = next.func_222593_e()) {
++         CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.func_219301_a(curr);
++         Either<IChunk, ChunkHolder.IChunkLoadingError> either = future.getNow(null);
++         if (either == null || !either.left().isPresent()) {
++            continue;
++         }
++         return curr;
++      }
++      return null;
++   }
++   public final Chunk getFullChunkIfCached() {
++      // Note: Copied from above without ticket level check
++      CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> statusFuture = this.func_219301_a(ChunkStatus.field_222617_m);
++      Either<IChunk, ChunkHolder.IChunkLoadingError> either = (Either<IChunk, ChunkHolder.IChunkLoadingError>) statusFuture.getNow(null);
++      return either == null ? null : (Chunk) either.left().orElse(null);
++   }
++
 +   public final boolean isEntityTickingReady() {
 +      return this.isEntityTickingReady;
 +   }
@@ -39,9 +109,181 @@
 +   }
 +   // GoldenForge end
 +
++   // GoldenForge - no tick view distance
++   public final Chunk getSendingChunk() {
++      // it's important that we use getChunkAtIfLoadedImmediately to mirror the chunk sending logic used
++      // in Chunk's neighbour callback
++      Chunk ret = this.chunkMap.field_219255_i.func_72863_F().getChunkAtIfLoadedImmediately(this.field_219319_n.field_77276_a, this.field_219319_n.field_77275_b);
++      if (ret != null && ret.areNeighboursLoaded(1) ) {
++         return ret;
++      }
++      return null;
++   }
++   // GoldenForge end
++
++   com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> playersInMobSpawnRange;
++   com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> playersInChunkTickRange;
++
++   void updateRanges() {
++      long key = this.coordinateKey; //net.minecraft.server.MCUtil.getCoordinateKey(this.location); // Airplane - use cached key
++      //this.playersInMobSpawnRange = this.chunkMap.playerMobSpawnMap.getObjectsInRange(key);
++      this.playersInChunkTickRange = this.chunkMap.playerChunkTickRangeMap.getObjectsInRange(key);
++      // Tuinity start - optimise checkDespawn
++      Chunk chunk = this.getFullChunkIfCached();
++      if (chunk != null) {
++         chunk.updateGeneralAreaCache();
++      }
++      // Tuinity end - optimise checkDespawn
++   }
++   // Paper end - optimise isOutsideOfRange
++   // Paper start - Chunk gen/load priority system
++   volatile int neighborPriority = -1;
++   volatile int priorityBoost = 0;
++   public final java.util.concurrent.ConcurrentHashMap<ChunkHolder, ChunkStatus> neighbors = new java.util.concurrent.ConcurrentHashMap<>();
++   public final Long2ObjectOpenHashMap<Integer> neighborPriorities = new Long2ObjectOpenHashMap<>();
++
++   private int getDemandedPriority() {
++      int priority = neighborPriority; // if we have a neighbor priority, use it
++      int myPriority = getMyPriority();
++
++      if (priority == -1 || (field_219317_l <= 33 && priority > myPriority)) {
++         priority = myPriority;
++      }
++
++      return Math.max(1, Math.min(Math.max(field_219317_l, ChunkManager.field_219249_a), priority));
++   }
++
++   private int getMyPriority() {
++      if (priorityBoost == TicketManager.URGENT_PRIORITY) {
++         return 2; // Urgent - ticket level isn't always 31 so 33-30 = 3, but allow 1 more tasks to go below this for dependents
++      }
++      return field_219317_l - priorityBoost;
++   }
++
++   private int getNeighborsPriority() {
++      return (neighborPriorities.isEmpty() ? getMyPriority() : getDemandedPriority()) + 1;
++   }
++
++   public void onNeighborRequest(ChunkHolder neighbor, ChunkStatus status) {
++      neighbor.setNeighborPriority(this, getNeighborsPriority());
++      this.neighbors.compute(neighbor, (playerChunk, currentWantedStatus) -> {
++         if (currentWantedStatus == null || !currentWantedStatus.func_209003_a(status)) {
++            //System.out.println(this + " request " + neighbor + " at " + status + " currently " + currentWantedStatus);
++            return status;
++         } else {
++            //System.out.println(this + " requested " + neighbor + " at " + status + " but thats lower than other wanted status " + currentWantedStatus);
++            return currentWantedStatus;
++         }
++      });
++
++   }
++
++   public void onNeighborDone(ChunkHolder neighbor, ChunkStatus chunkstatus, IChunk chunk) {
++      this.neighbors.compute(neighbor, (playerChunk, wantedStatus) -> {
++         if (wantedStatus != null && chunkstatus.func_209003_a(wantedStatus)) {
++            //System.out.println(this + " neighbor done at " + neighbor + " for status " + chunkstatus + " wanted " + wantedStatus);
++            neighbor.removeNeighborPriority(this);
++            return null;
++         } else {
++            //System.out.println(this + " neighbor finished our previous request at " + neighbor + " for status " + chunkstatus + " but we now want instead " + wantedStatus);
++            return wantedStatus;
++         }
++      });
++   }
++
++   private void removeNeighborPriority(ChunkHolder requester) {
++      synchronized (neighborPriorities) {
++         neighborPriorities.remove(requester.field_219319_n.func_201841_a());
++         recalcNeighborPriority();
++      }
++      checkPriority();
++   }
++
++
++   private void setNeighborPriority(ChunkHolder requester, int priority) {
++      synchronized (neighborPriorities) {
++         neighborPriorities.put(requester.field_219319_n.func_201841_a(), Integer.valueOf(priority));
++         recalcNeighborPriority();
++      }
++      checkPriority();
++   }
++
++   private void recalcNeighborPriority() {
++      neighborPriority = -1;
++      if (!neighborPriorities.isEmpty()) {
++         synchronized (neighborPriorities) {
++            for (Integer neighbor : neighborPriorities.values()) {
++               if (neighbor < neighborPriority || neighborPriority == -1) {
++                  neighborPriority = neighbor;
++               }
++            }
++         }
++      }
++   }
++   private void checkPriority() {
++      if (getCurrentPriority() != getDemandedPriority()) this.chunkMap.queueHolderUpdate(this);
++   }
++
++   public final double getDistance(ServerPlayerEntity player) {
++      return getDistance(player.func_226277_ct_(), player.func_226281_cx_());
++   }
++   public final double getDistance(double blockX, double blockZ) {
++      int cx = MCUtil.fastFloor(blockX) >> 4;
++      int cz = MCUtil.fastFloor(blockZ) >> 4;
++      final double x = field_219319_n.field_77276_a - cx;
++      final double z = field_219319_n.field_77275_b - cz;
++      return (x * x) + (z * z);
++   }
++
++   public final double getDistanceFrom(BlockPos pos) {
++      return getDistance(pos.func_177958_n(), pos.func_177952_p());
++   }
++
++   @Override
++   public String toString() {
++      return "PlayerChunk{" +
++              "location=" + field_219319_n +
++              ", ticketLevel=" + field_219317_l + "/" + func_219278_b(this.field_219317_l) +
++              ", chunkHolderStatus=" + getChunkHolderStatus() +
++              ", neighborPriority=" + getNeighborsPriority() +
++              ", priority=(" + field_219317_l + " - " + priorityBoost +" vs N " + neighborPriority + ") = " + getDemandedPriority() + " A " + getCurrentPriority() +
++              '}';
++   }
++   // Paper end
++
     public ChunkHolder(ChunkPos p_i50716_1_, int p_i50716_2_, WorldLightManager p_i50716_3_, ChunkHolder.IListener p_i50716_4_, ChunkHolder.IPlayerProvider p_i50716_5_) {
-       this.field_219319_n = p_i50716_1_;
+-      this.field_219319_n = p_i50716_1_;
++      this.field_219319_n = p_i50716_1_; this.coordinateKey = MCUtil.getCoordinateKey(this.field_219319_n); // Airplane
        this.field_219326_u = p_i50716_3_;
+       this.field_219327_v = p_i50716_4_;
+       this.field_219328_w = p_i50716_5_;
+@@ -71,6 +_,8 @@
+       this.field_219317_l = this.field_219316_k;
+       this.field_219318_m = this.field_219316_k;
+       this.func_219292_a(p_i50716_2_);
++      this.chunkMap = (ChunkManager) p_i50716_5_; // Paper
++      this.updateRanges();
+    }
+ 
+    public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_219301_a(ChunkStatus p_219301_1_) {
+@@ -136,7 +_,7 @@
+    }
+ 
+    public void func_244386_a(BlockPos p_244386_1_) {
+-      Chunk chunk = this.func_219298_c();
++      Chunk chunk = this.getSendingChunk();
+       if (chunk != null) {
+          byte b0 = (byte)SectionPos.func_218159_a(p_244386_1_.func_177956_o());
+          if (this.field_244383_q[b0] == null) {
+@@ -149,7 +_,7 @@
+    }
+ 
+    public void func_219280_a(LightType p_219280_1_, int p_219280_2_) {
+-      Chunk chunk = this.func_219298_c();
++      Chunk chunk = this.getSendingChunk();
+       if (chunk != null) {
+          chunk.func_177427_f(true);
+          if (p_219280_1_ == LightType.SKY) {
 @@ -204,7 +_,7 @@
     }
  
@@ -51,15 +293,74 @@
           this.func_219305_a(p_244385_1_, p_244385_2_);
        }
  
-@@ -282,6 +_,7 @@
+@@ -222,9 +_,53 @@
+    }
+ 
+    private void func_219293_a(IPacket<?> p_219293_1_, boolean p_219293_2_) {
+-      this.field_219328_w.func_219097_a(this.field_219319_n, p_219293_2_).forEach((p_219304_1_) -> {
+-         p_219304_1_.field_71135_a.func_147359_a(p_219293_1_);
+-      });
++      // Paper start - per player view distance
++      // there can be potential desync with player's last mapped section and the view distance map, so use the
++      // view distance map here.
++      com.destroystokyo.paper.util.misc.PlayerAreaMap viewDistanceMap = this.chunkMap.playerChunkManager.broadcastMap; // Tuinity - replace old player chunk manager
++      com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> players = viewDistanceMap.getObjectsInRange(this.field_219319_n);
++      if (players == null) {
++         return;
++      }
++
++      if (p_219293_2_) { // flag -> border only
++         Object[] backingSet = players.getBackingSet();
++         for (int i = 0, len = backingSet.length; i < len; ++i) {
++            Object temp = backingSet[i];
++            if (!(temp instanceof ServerPlayerEntity)) {
++               continue;
++            }
++            ServerPlayerEntity player = (ServerPlayerEntity)temp;
++            if (!this.chunkMap.playerChunkManager.isChunkSent(player, this.field_219319_n.field_77276_a, this.field_219319_n.field_77275_b)) continue; // Tuinity - replace player chunk management
++
++            int viewDistance = viewDistanceMap.getLastViewDistance(player);
++            long lastPosition = viewDistanceMap.getLastCoordinate(player);
++
++            int distX = Math.abs(MCUtil.getCoordinateX(lastPosition) - this.field_219319_n.field_77276_a);
++            int distZ = Math.abs(MCUtil.getCoordinateZ(lastPosition) - this.field_219319_n.field_77275_b);
++
++            if (Math.max(distX, distZ) == viewDistance) {
++               player.field_71135_a.func_147359_a(p_219293_1_);
++            }
++         }
++      } else {
++         Object[] backingSet = players.getBackingSet();
++         for (int i = 0, len = backingSet.length; i < len; ++i) {
++            Object temp = backingSet[i];
++            if (!(temp instanceof ServerPlayerEntity)) {
++               continue;
++            }
++            ServerPlayerEntity player = (ServerPlayerEntity)temp;
++            if (!this.chunkMap.playerChunkManager.isChunkSent(player, this.field_219319_n.field_77276_a, this.field_219319_n.field_77275_b)) continue; // Tuinity - replace player chunk management
++            player.field_71135_a.func_147359_a(p_219293_1_);
++         }
++      }
++
++      return;
++      // Paper end - per player view distance
++//      this.playerProvider.getPlayers(this.pos, p_219293_2_).forEach((p_219304_1_) -> {
++//         p_219304_1_.connection.send(p_219293_1_);
++//      });
+    }
+ 
+    public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_219276_a(ChunkStatus p_219276_1_, ChunkManager p_219276_2_) {
+@@ -282,13 +_,50 @@
        this.field_219317_l = p_219292_1_;
     }
  
 +   protected long updateCount; // Tuinity - correctly handle recursion
     protected void func_219291_a(ChunkManager p_219291_1_) {
++      com.tuinity.tuinity.util.TickThread.ensureTickThread("Async ticket level update"); // Tuinity
++      long updateCount = ++this.updateCount; // Tuinity - correctly handle recursion
        ChunkStatus chunkstatus = func_219278_b(this.field_219316_k);
        ChunkStatus chunkstatus1 = func_219278_b(this.field_219317_l);
-@@ -289,6 +_,40 @@
+       boolean flag = this.field_219316_k <= ChunkManager.field_219249_a;
        boolean flag1 = this.field_219317_l <= ChunkManager.field_219249_a;
        ChunkHolder.LocationType chunkholder$locationtype = func_219286_c(this.field_219316_k);
        ChunkHolder.LocationType chunkholder$locationtype1 = func_219286_c(this.field_219317_l);
@@ -100,9 +401,16 @@
        if (flag) {
           Either<IChunk, ChunkHolder.IChunkLoadingError> either = Either.right(new ChunkHolder.IChunkLoadingError() {
              public String toString() {
-@@ -297,7 +_,7 @@
+@@ -296,8 +_,14 @@
+             }
           });
  
++         // Paper start
++         if (!flag1) {
++            p_219291_1_.field_219255_i.asyncChunkTaskManager.cancelChunkLoad(this.field_219319_n.field_77276_a, this.field_219319_n.field_77275_b);
++         }
++         // Paper end
++
           for(int i = flag1 ? chunkstatus1.func_222584_c() + 1 : 0; i <= chunkstatus.func_222584_c(); ++i) {
 -            CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture = this.field_219312_g.get(i);
 +            completablefuture = this.field_219312_g.get(i);
@@ -122,8 +430,8 @@
 +               // note: Here is a very good place to add callbacks to logic waiting on this.
 +               Chunk fullChunk = either.left().get();
 +               ChunkHolder.this.isFullChunkReady = true;
-+               //fullChunk.playerChunk = PlayerChunk.this;
-+               //this.chunkMap.chunkDistanceManager.clearPriorityTickets(location);
++               fullChunk.playerChunk = this;
++               this.chunkMap.func_219246_e().clearPriorityTickets(field_219319_n);
 +
 +
 +            }
@@ -169,7 +477,7 @@
           this.field_219313_h = field_219309_d;
        }
  
-@@ -341,17 +_,47 @@
+@@ -341,17 +_,75 @@
              throw (IllegalStateException)Util.func_229757_c_(new IllegalStateException());
           }
  
@@ -180,6 +488,10 @@
 +               // note: Here is a very good place to add callbacks to logic waiting on this.
 +               Chunk entityTickingChunk = either.left().get();
 +               ChunkHolder.this.isEntityTickingReady = true;
++
++               // Tuinity start - entity ticking chunk set
++               ChunkHolder.this.chunkMap.field_219255_i.func_72863_F().entityTickingChunks.add(entityTickingChunk);
++               // Tuinity end - entity ticking chunk set
 +
 +
 +            }
@@ -192,9 +504,36 @@
 -         this.field_219314_i.complete(field_219308_c);
 +         this.field_219314_i.complete(field_219308_c);  this.isEntityTickingReady = false; // Paper - cache chunk ticking stage
           this.field_219314_i = field_219309_d;
-       }
- 
-       this.field_219327_v.func_219066_a(this.field_219319_n, this::func_219281_j, this.field_219317_l, this::func_219275_d);
+-      }
+-
+-      this.field_219327_v.func_219066_a(this.field_219319_n, this::func_219281_j, this.field_219317_l, this::func_219275_d);
++         // Tuinity start - entity ticking chunk set
++         Chunk chunkIfCached = this.getFullChunkIfCached();
++         if (chunkIfCached != null) {
++            this.chunkMap.field_219255_i.func_72863_F().entityTickingChunks.remove(chunkIfCached);
++         }
++         // Tuinity end - entity ticking chunk set
++      }
++      // Paper start - raise IO/load priority if priority changes, use our preferred priority
++      priorityBoost = chunkMap.func_219246_e().getChunkPriority(field_219319_n);
++      int priority = getDemandedPriority();
++      if (getCurrentPriority() > priority) {
++         int ioPriority = com.destroystokyo.paper.io.PrioritizedTaskQueue.NORMAL_PRIORITY;
++         if (priority <= 10) {
++            ioPriority = com.destroystokyo.paper.io.PrioritizedTaskQueue.HIGHEST_PRIORITY;
++         } else if (priority <= 20) {
++            ioPriority = com.destroystokyo.paper.io.PrioritizedTaskQueue.HIGH_PRIORITY;
++         }
++         chunkMap.field_219255_i.asyncChunkTaskManager.raisePriority(field_219319_n.field_77276_a, field_219319_n.field_77275_b, ioPriority);
++         chunkMap.field_219255_i.func_72863_F().func_212863_j_().queue.changePriority(field_219319_n.func_201841_a(), getCurrentPriority(), priority);
++      }
++      if (getCurrentPriority() != priority) {
++         this.field_219327_v.func_219066_a(this.field_219319_n, this::func_219281_j, priority, this::func_219275_d);
++         int neighborsPriority = getNeighborsPriority();
++         this.neighbors.forEach((neighbor, neighborDesired) -> neighbor.setNeighborPriority(this, neighborsPriority));
++      }
++      // Paper end
++      //this.onLevelChange.onLevelChange(this.pos, this::getQueueLevel, this.ticketLevel, this::setQueueLevel);
        this.field_219316_k = this.field_219317_l;
 +      // CraftBukkit start
 +      // ChunkLoadEvent: Called after the chunk is loaded: isChunkLoaded returns true and chunk is ready to be modified by plugins.

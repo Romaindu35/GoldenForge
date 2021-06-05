@@ -1,9 +1,10 @@
 --- a/net/minecraft/world/server/ServerWorld.java
 +++ b/net/minecraft/world/server/ServerWorld.java
-@@ -1,5 +_,6 @@
+@@ -1,5 +_,7 @@
  package net.minecraft.world.server;
  
 +import com.destroystokyo.paper.server.ticklist.PaperTickList;
++import com.destroystokyo.paper.util.MCUtil;
  import com.google.common.annotations.VisibleForTesting;
  import com.google.common.collect.Iterables;
  import com.google.common.collect.Lists;
@@ -20,6 +21,22 @@
  import net.minecraft.crash.CrashReport;
  import net.minecraft.entity.Entity;
  import net.minecraft.entity.EntityClassification;
+@@ -60,6 +_,7 @@
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.fluid.Fluids;
+ import net.minecraft.item.crafting.RecipeManager;
++import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.network.DebugPacketSender;
+ import net.minecraft.network.IPacket;
+ import net.minecraft.network.play.server.SAnimateBlockBreakPacket;
+@@ -122,6 +_,7 @@
+ import net.minecraft.world.chunk.ChunkStatus;
+ import net.minecraft.world.chunk.IChunk;
+ import net.minecraft.world.chunk.listener.IChunkStatusListener;
++import net.minecraft.world.chunk.storage.RegionFile;
+ import net.minecraft.world.end.DragonFightManager;
+ import net.minecraft.world.gen.ChunkGenerator;
+ import net.minecraft.world.gen.Heightmap;
 @@ -143,27 +_,24 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
@@ -53,11 +70,88 @@
     private final Set<PathNavigator> field_217495_I = Sets.newHashSet();
     protected final RaidManager field_217494_c;
     private final ObjectLinkedOpenHashSet<BlockEventData> field_147490_S = new ObjectLinkedOpenHashSet<>();
-@@ -173,11 +_,36 @@
+@@ -173,11 +_,154 @@
     private final DragonFightManager field_241105_O_;
     private final StructureManager field_241106_P_;
     private final boolean field_241107_Q_;
 +   private net.minecraftforge.common.util.WorldCapabilityData capabilityData;
++
++   // Paper start - Asynchronous IO
++   public final com.destroystokyo.paper.io.PaperFileIOThread.ChunkDataController poiDataController = new com.destroystokyo.paper.io.PaperFileIOThread.ChunkDataController() {
++      @Override
++      public void writeData(int x, int z, CompoundNBT compound) throws java.io.IOException {
++         ServerWorld.this.func_72863_F().field_217237_a.func_219189_h().func_219100_a(new ChunkPos(x, z), compound);
++      }
++
++      @Override
++      public CompoundNBT readData(int x, int z) throws java.io.IOException {
++         return ServerWorld.this.func_72863_F().field_217237_a.func_219189_h().func_219099_e(new ChunkPos(x, z));
++      }
++
++      @Override
++      public <T> T computeForRegionFile(int chunkX, int chunkZ, java.util.function.Function<RegionFile, T> function) {
++         synchronized (ServerWorld.this.func_72863_F().field_217237_a.func_219189_h()) {
++            RegionFile file;
++
++            try {
++               file = ServerWorld.this.func_72863_F().field_217237_a.func_219189_h().getRegionFile(new ChunkPos(chunkX, chunkZ), false);
++            } catch (java.io.IOException ex) {
++               throw new RuntimeException(ex);
++            }
++
++            return function.apply(file);
++         }
++      }
++
++      @Override
++      public <T> T computeForRegionFileIfLoaded(int chunkX, int chunkZ, java.util.function.Function<RegionFile, T> function) {
++         synchronized (ServerWorld.this.func_72863_F().field_217237_a.func_219189_h()) {
++            RegionFile file = ServerWorld.this.func_72863_F().field_217237_a.func_219189_h().getRegionFileIfLoaded(new ChunkPos(chunkX, chunkZ));
++            return function.apply(file);
++         }
++      }
++   };
++
++   public final com.destroystokyo.paper.io.PaperFileIOThread.ChunkDataController chunkDataController = new com.destroystokyo.paper.io.PaperFileIOThread.ChunkDataController() {
++      @Override
++      public void writeData(int x, int z, CompoundNBT compound) throws java.io.IOException {
++         ServerWorld.this.func_72863_F().field_217237_a.func_219100_a(new ChunkPos(x, z), compound);
++      }
++
++      @Override
++      public CompoundNBT readData(int x, int z) throws java.io.IOException {
++         return ServerWorld.this.func_72863_F().field_217237_a.func_227078_e_(new ChunkPos(x, z));
++      }
++
++      @Override
++      public <T> T computeForRegionFile(int chunkX, int chunkZ, java.util.function.Function<RegionFile, T> function) {
++         synchronized (ServerWorld.this.func_72863_F().field_217237_a) {
++            RegionFile file;
++
++            try {
++               file = ServerWorld.this.func_72863_F().field_217237_a.regionFileCache.getRegionFile(new ChunkPos(chunkX, chunkZ), false);
++            } catch (java.io.IOException ex) {
++               throw new RuntimeException(ex);
++            }
++
++            return function.apply(file);
++         }
++      }
++
++      @Override
++      public <T> T computeForRegionFileIfLoaded(int chunkX, int chunkZ, java.util.function.Function<RegionFile, T> function) {
++         synchronized (ServerWorld.this.func_72863_F().field_217237_a) {
++            RegionFile file = ServerWorld.this.func_72863_F().field_217237_a.regionFileCache.getRegionFileIfLoaded(new ChunkPos(chunkX, chunkZ));
++            return function.apply(file);
++         }
++      }
++   };
++   public final com.destroystokyo.paper.io.chunk.ChunkTaskManager asyncChunkTaskManager;
++   // Paper end
++
++   // Tuinity start - execute chunk tasks mid tick
++   public long lastMidTickExecuteFailure;
++   // Tuinity end - execute chunk tasks mid tick
 +
 +   // GoldenForge - Paper - rewrite ticklistserver
 +   public void onChunkSetTicking(int chunkX, int chunkZ) {
@@ -67,6 +161,47 @@
 +      }
 +   }
 +   // GoldenForge end
++
++   // Paper start - helper function for configurable spawn radius
++   public void addTicketsForSpawn(int radiusInBlocks, BlockPos spawn) {
++      // In order to respect vanilla behavior, which is ensuring everything but the spawn border can tick, we add tickets
++      // with level 31 for the non-border spawn chunks
++      ServerChunkProvider chunkproviderserver = this.func_72863_F();
++      int tickRadius = radiusInBlocks - 16;
++
++      // add ticking chunks
++      for (int x = -tickRadius; x <= tickRadius; x += 16) {
++         for (int z = -tickRadius; z <= tickRadius; z += 16) {
++            // radius of 2 will have the current chunk be level 31
++            chunkproviderserver.registerTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, z)), 2, Unit.INSTANCE);
++         }
++      }
++
++      // add border chunks
++
++      // add border along x axis (including corner chunks)
++      for (int x = -radiusInBlocks; x <= radiusInBlocks; x += 16) {
++         // top
++         chunkproviderserver.registerTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++         // bottom
++         chunkproviderserver.registerTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(x, 0, -radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++      }
++
++      // add border along z axis (excluding corner chunks)
++      for (int z = -radiusInBlocks + 16; z < radiusInBlocks; z += 16) {
++         // right
++         chunkproviderserver.registerTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++         // left
++         chunkproviderserver.registerTickingTicket(TicketType.field_219488_a, new ChunkPos(spawn.func_177982_a(-radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++      }
++
++      MCUtil.getSpiralOutChunks(spawn, radiusInBlocks >> 4).forEach(pair -> {
++         func_72863_F().getChunkAtAsynchronously(pair.field_77276_a, pair.field_77275_b, true, false).exceptionally((ex) -> {
++            ex.printStackTrace();
++            return null;
++         });
++      });
++   }
  
     public ServerWorld(MinecraftServer p_i241885_1_, Executor p_i241885_2_, SaveFormat.LevelSave p_i241885_3_, IServerWorldInfo p_i241885_4_, RegistryKey<World> p_i241885_5_, DimensionType p_i241885_6_, IChunkStatusListener p_i241885_7_, ChunkGenerator p_i241885_8_, boolean p_i241885_9_, long p_i241885_10_, List<ISpecialSpawner> p_i241885_12_, boolean p_i241885_13_) {
        super(p_i241885_4_, p_i241885_5_, p_i241885_6_, p_i241885_1_::func_213185_aS, false, p_i241885_9_, p_i241885_10_);
@@ -90,12 +225,13 @@
        this.field_241104_N_ = p_i241885_12_;
        this.field_241103_E_ = p_i241885_4_;
        this.field_241102_C_ = new ServerChunkProvider(this, p_i241885_3_, p_i241885_1_.func_195563_aC(), p_i241885_1_.func_240792_aT_(), p_i241885_2_, p_i241885_8_, p_i241885_1_.func_184103_al().func_72395_o(), p_i241885_1_.func_230540_aS_(), p_i241885_7_, () -> {
-@@ -200,7 +_,7 @@
+@@ -200,7 +_,8 @@
        } else {
           this.field_241105_O_ = null;
        }
 -
 +      this.initCapabilities();
++      this.asyncChunkTaskManager = new com.destroystokyo.paper.io.chunk.ChunkTaskManager(this); // Paper
     }
  
     public void func_241113_a_(int p_241113_1_, int p_241113_2_, boolean p_241113_3_, boolean p_241113_4_) {

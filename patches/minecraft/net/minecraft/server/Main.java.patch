@@ -1,5 +1,13 @@
 --- a/net/minecraft/server/Main.java
 +++ b/net/minecraft/server/Main.java
+@@ -19,6 +_,7 @@
+ import joptsimple.OptionSpec;
+ import net.minecraft.command.Commands;
+ import net.minecraft.crash.CrashReport;
++import net.minecraft.entity.merchant.villager.VillagerTrades;
+ import net.minecraft.nbt.INBT;
+ import net.minecraft.nbt.NBTDynamicOps;
+ import net.minecraft.resources.DataPackRegistries;
 @@ -71,6 +_,8 @@
        OptionSpec<Integer> optionspec11 = optionparser.accepts("port").withRequiredArg().ofType(Integer.class).defaultsTo(-1);
        OptionSpec<String> optionspec12 = optionparser.accepts("serverId").withRequiredArg();
@@ -64,6 +72,14 @@
              iserverconfiguration = new ServerWorldInfo(worldsettings, dimensiongeneratorsettings, Lifecycle.stable());
           }
  
+@@ -153,6 +_,7 @@
+ 
+          saveformat$levelsave.func_237287_a_(dynamicregistries$impl, iserverconfiguration);
+          IServerConfiguration iserverconfiguration1 = iserverconfiguration;
++         Class.forName(VillagerTrades.class.getName());// Paper - load this sync so it won't fail later async
+          final DedicatedServer dedicatedserver = MinecraftServer.func_240784_a_((p_240762_16_) -> {
+             DedicatedServer dedicatedserver1 = new DedicatedServer(p_240762_16_, dynamicregistries$impl, saveformat$levelsave, resourcepacklist, datapackregistries, iserverconfiguration1, serverpropertiesprovider, DataFixesManager.func_210901_a(), minecraftsessionservice, gameprofilerepository, playerprofilecache, LoggingChunkStatusListener::new);
+             dedicatedserver1.func_71224_l(optionset.valueOf(optionspec8));
 @@ -169,6 +_,7 @@
           Thread thread = new Thread("Server Shutdown Thread") {
              public void run() {

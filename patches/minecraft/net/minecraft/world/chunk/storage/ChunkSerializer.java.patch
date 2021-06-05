@@ -1,5 +1,185 @@
 --- a/net/minecraft/world/chunk/storage/ChunkSerializer.java
 +++ b/net/minecraft/world/chunk/storage/ChunkSerializer.java
+@@ -4,12 +_,8 @@
+ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+ import it.unimi.dsi.fastutil.longs.LongSet;
+ import it.unimi.dsi.fastutil.shorts.ShortList;
+-import java.util.Arrays;
+-import java.util.BitSet;
+-import java.util.EnumSet;
+-import java.util.Locale;
+-import java.util.Map;
+-import java.util.Objects;
++
++import java.util.*;
+ import java.util.Map.Entry;
+ import javax.annotation.Nullable;
+ import net.minecraft.block.Block;
+@@ -51,14 +_,124 @@
+ import net.minecraft.world.gen.feature.structure.StructureStart;
+ import net.minecraft.world.gen.feature.template.TemplateManager;
+ import net.minecraft.world.lighting.WorldLightManager;
++import net.minecraft.world.server.ChunkHolder;
+ import net.minecraft.world.server.ServerWorld;
++import net.minecraft.world.server.ServerWorldLightManager;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
+ public class ChunkSerializer {
+    private static final Logger field_222658_a = LogManager.getLogger();
+ 
+-   public static ChunkPrimer func_222656_a(ServerWorld p_222656_0_, TemplateManager p_222656_1_, PointOfInterestManager p_222656_2_, ChunkPos p_222656_3_, CompoundNBT p_222656_4_) {
++   // Paper start - async chunk save for unload
++   public static final class AsyncSaveData {
++      public final NibbleArray[] blockLight; // null or size of 17 (for indices -1 through 15)
++      public final NibbleArray[] skyLight;
++
++      public final ListNBT blockTickList; // non-null if we had to go to the server's tick list
++      public final ListNBT fluidTickList; // non-null if we had to go to the server's tick list
++
++      public final long worldTime;
++
++      public AsyncSaveData(NibbleArray[] blockLight, NibbleArray[] skyLight, ListNBT blockTickList, ListNBT fluidTickList,
++                           long worldTime) {
++         this.blockLight = blockLight;
++         this.skyLight = skyLight;
++         this.blockTickList = blockTickList;
++         this.fluidTickList = fluidTickList;
++         this.worldTime = worldTime;
++      }
++   }
++
++   // must be called sync
++   public static AsyncSaveData getAsyncSaveData(ServerWorld world, IChunk chunk) {
++      org.spigotmc.AsyncCatcher.catchOp("preparation of chunk data for async save");
++      ChunkPos chunkPos = chunk.func_76632_l();
++
++      ServerWorldLightManager lightenginethreaded = world.func_72863_F().func_212863_j_();
++
++      NibbleArray[] blockLight = new NibbleArray[17 - (-1)];
++      NibbleArray[] skyLight = new NibbleArray[17 - (-1)];
++
++      for (int i = -1; i < 17; ++i) {
++         NibbleArray blockArray = lightenginethreaded.func_215569_a(LightType.BLOCK).func_215612_a(SectionPos.func_218156_a(chunkPos, i));
++         NibbleArray skyArray = lightenginethreaded.func_215569_a(LightType.SKY).func_215612_a(SectionPos.func_218156_a(chunkPos, i));
++
++         // copy data for safety
++         if (blockArray != null) {
++            blockArray = blockArray.func_215654_b();
++         }
++         if (skyArray != null) {
++            skyArray = skyArray.func_215654_b();
++         }
++
++         // apply offset of 1 for -1 starting index
++         blockLight[i + 1] = blockArray;
++         skyLight[i + 1] = skyArray;
++      }
++
++      ITickList<Block> blockTickList = chunk.func_205218_i_();
++
++      ListNBT blockTickListSerialized;
++      if (blockTickList instanceof ChunkPrimerTickList || blockTickList instanceof SerializableTickList) {
++         blockTickListSerialized = null;
++      } else {
++         blockTickListSerialized = world.func_205220_G_().func_219503_a(chunkPos);
++      }
++
++      ITickList<Fluid> fluidTickList = chunk.func_212247_j();
++
++      ListNBT fluidTickListSerialized;
++      if (fluidTickList instanceof ChunkPrimerTickList || fluidTickList instanceof SerializableTickList) {
++         fluidTickListSerialized = null;
++      } else {
++         fluidTickListSerialized = world.func_205219_F_().func_219503_a(chunkPos);
++      }
++
++      return new AsyncSaveData(blockLight, skyLight, blockTickListSerialized, fluidTickListSerialized, world.func_82737_E());
++   }
++
++   // Paper start
++   public static ChunkStatus getStatus(CompoundNBT compound) {
++      if (compound == null) {
++         return null;
++      }
++
++      // Note: Copied from below
++      return ChunkStatus.getStatus(compound.func_74775_l("Level").func_74779_i("Status"));
++   }
++   // Paper end
++   // Tuinity start
++   // TODO: Check on update
++   public static long getLastWorldSaveTime(CompoundNBT chunkData) {
++      CompoundNBT levelData = chunkData.func_74775_l("Level");
++      return levelData.func_74763_f("LastUpdate");
++   }
++   // Tuinity end
++
++   // Paper start - guard against serializing mismatching coordinates
++   // TODO Note: This needs to be re-checked each update
++   public static ChunkPos getChunkCoordinate(CompoundNBT chunkData) {
++      CompoundNBT levelData = chunkData.func_74775_l("Level");
++      return new ChunkPos(levelData.func_74762_e("xPos"), levelData.func_74762_e("zPos"));
++   }
++   // Paper end
++   // Paper start
++   public static final class InProgressChunkHolder {
++
++      public final ChunkPrimer protoChunk;
++      public final ArrayDeque<Runnable> tasks;
++
++      public CompoundNBT poiData;
++
++      public InProgressChunkHolder(final ChunkPrimer protoChunk, final ArrayDeque<Runnable> tasks) {
++         this.protoChunk = protoChunk;
++         this.tasks = tasks;
++      }
++   }
++
++   public static InProgressChunkHolder read(ServerWorld p_222656_0_, TemplateManager p_222656_1_, PointOfInterestManager p_222656_2_, ChunkPos p_222656_3_, CompoundNBT p_222656_4_) {
++      ArrayDeque<Runnable> tasksToExecuteOnMain = new ArrayDeque<>();
+       ChunkGenerator chunkgenerator = p_222656_0_.func_72863_F().func_201711_g();
+       BiomeProvider biomeprovider = chunkgenerator.func_202090_b();
+       CompoundNBT compoundnbt = p_222656_4_.func_74775_l("Level");
+@@ -83,7 +_,9 @@
+       AbstractChunkProvider abstractchunkprovider = p_222656_0_.func_72863_F();
+       WorldLightManager worldlightmanager = abstractchunkprovider.func_212863_j_();
+       if (flag) {
+-         worldlightmanager.func_223115_b(p_222656_3_, true);
++         tasksToExecuteOnMain.add(() -> {
++            worldlightmanager.func_223115_b(p_222656_3_, true);
++         });
+       }
+ 
+       for(int j = 0; j < listnbt.size(); ++j) {
+@@ -97,16 +_,24 @@
+                achunksection[k] = chunksection;
+             }
+ 
+-            p_222656_2_.func_219139_a(p_222656_3_, chunksection);
++            tasksToExecuteOnMain.add(() -> {
++               p_222656_2_.func_219139_a(p_222656_3_, chunksection);
++            });
+          }
+ 
+          if (flag) {
+             if (compoundnbt1.func_150297_b("BlockLight", 7)) {
+-               worldlightmanager.func_215574_a(LightType.BLOCK, SectionPos.func_218156_a(p_222656_3_, k), new NibbleArray(compoundnbt1.func_74770_j("BlockLight")), true);
++               NibbleArray blockLight = new NibbleArray(compoundnbt1.func_74770_j("BlockLight"));
++               tasksToExecuteOnMain.add(() -> {
++                  worldlightmanager.func_215574_a(LightType.BLOCK, SectionPos.func_218156_a(p_222656_3_, k), blockLight, true);
++               });
+             }
+ 
+             if (flag1 && compoundnbt1.func_150297_b("SkyLight", 7)) {
+-               worldlightmanager.func_215574_a(LightType.SKY, SectionPos.func_218156_a(p_222656_3_, k), new NibbleArray(compoundnbt1.func_74770_j("SkyLight")), true);
++               NibbleArray skyLight = new NibbleArray(compoundnbt1.func_74770_j("SkyLight"));
++               tasksToExecuteOnMain.add(() -> {
++                  worldlightmanager.func_215574_a(LightType.SKY, SectionPos.func_218156_a(p_222656_3_, k), skyLight, true);
++               });
+             }
+          }
+       }
 @@ -132,6 +_,7 @@
           ichunk = new Chunk(p_222656_0_.func_201672_e(), p_222656_3_, biomecontainer, upgradedata, iticklist, iticklist1, k1, achunksection, (p_222648_1_) -> {
              func_222650_a(compoundnbt, p_222648_1_);
@@ -26,23 +206,63 @@
        if (compoundnbt.func_74767_n("shouldSave")) {
           ichunk.func_177427_f(true);
        }
-@@ -183,6 +_,7 @@
+@@ -183,7 +_,8 @@
        }
  
        if (chunkstatus$type == ChunkStatus.Type.LEVELCHUNK) {
+-         return new ChunkPrimerWrapper((Chunk)ichunk);
 +         net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.world.ChunkDataEvent.Load(ichunk, p_222656_4_, chunkstatus$type));
-          return new ChunkPrimerWrapper((Chunk)ichunk);
++         return new InProgressChunkHolder(new ChunkPrimerWrapper((Chunk)ichunk), tasksToExecuteOnMain);
        } else {
           ChunkPrimer chunkprimer1 = (ChunkPrimer)ichunk;
-@@ -216,6 +_,8 @@
+          ListNBT listnbt4 = compoundnbt.func_150295_c("Entities", 10);
+@@ -216,11 +_,16 @@
              chunkprimer1.func_205767_a(generationstage$carving, BitSet.valueOf(compoundnbt5.func_74770_j(s1)));
           }
  
+-         return chunkprimer1;
 +         net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new net.minecraftforge.event.world.ChunkDataEvent.Load(ichunk, p_222656_4_, chunkstatus$type));
 +
-          return chunkprimer1;
++         return new InProgressChunkHolder(chunkprimer1, tasksToExecuteOnMain);
        }
     }
+ 
+    public static CompoundNBT func_222645_a(ServerWorld p_222645_0_, IChunk p_222645_1_) {
++      return write(p_222645_0_, p_222645_1_, null);
++   }
++   public static CompoundNBT write(ServerWorld p_222645_0_, IChunk p_222645_1_, AsyncSaveData asyncsavedata) {
+       ChunkPos chunkpos = p_222645_1_.func_76632_l();
+       CompoundNBT compoundnbt = new CompoundNBT();
+       CompoundNBT compoundnbt1 = new CompoundNBT();
+@@ -228,7 +_,7 @@
+       compoundnbt.func_218657_a("Level", compoundnbt1);
+       compoundnbt1.func_74768_a("xPos", chunkpos.field_77276_a);
+       compoundnbt1.func_74768_a("zPos", chunkpos.field_77275_b);
+-      compoundnbt1.func_74772_a("LastUpdate", p_222645_0_.func_82737_E());
++      compoundnbt1.func_74772_a("LastUpdate", asyncsavedata != null ? asyncsavedata.worldTime : p_222645_0_.func_82737_E()); // Paper - async chunk unloading
+       compoundnbt1.func_74772_a("InhabitedTime", p_222645_1_.func_177416_w());
+       compoundnbt1.func_74778_a("Status", p_222645_1_.func_201589_g().func_222596_d());
+       UpgradeData upgradedata = p_222645_1_.func_196966_y();
+@@ -246,8 +_,17 @@
+          ChunkSection chunksection = Arrays.stream(achunksection).filter((p_222657_1_) -> {
+             return p_222657_1_ != null && p_222657_1_.func_222632_g() >> 4 == j;
+          }).findFirst().orElse(Chunk.field_186036_a);
+-         NibbleArray nibblearray = worldlightmanager.func_215569_a(LightType.BLOCK).func_215612_a(SectionPos.func_218156_a(chunkpos, j));
+-         NibbleArray nibblearray1 = worldlightmanager.func_215569_a(LightType.SKY).func_215612_a(SectionPos.func_218156_a(chunkpos, j));
++         // Paper start - async chunk save for unload
++         NibbleArray nibblearray; // block light
++         NibbleArray nibblearray1; // sky light
++         if (asyncsavedata == null) {
++            nibblearray = worldlightmanager.func_215569_a(LightType.BLOCK).func_215612_a(SectionPos.func_218156_a(chunkpos, j));
++            nibblearray1= worldlightmanager.func_215569_a(LightType.SKY).func_215612_a(SectionPos.func_218156_a(chunkpos, j));
++         } else {
++            nibblearray = asyncsavedata.blockLight[i + 1]; // +1 to offset the -1 starting index
++            nibblearray1 = asyncsavedata.skyLight[i + 1]; // +1 to offset the -1 starting index
++         }
++         // Paper end
+          if (chunksection != Chunk.field_186036_a || nibblearray != null || nibblearray1 != null) {
+             CompoundNBT compoundnbt2 = new CompoundNBT();
+             compoundnbt2.func_74774_a("Y", (byte)(j & 255));
 @@ -295,11 +_,21 @@
           for(int k = 0; k < chunk.func_177429_s().length; ++k) {
              for(Entity entity : chunk.func_177429_s()[k]) {
@@ -65,3 +285,25 @@
           }
        } else {
           ChunkPrimer chunkprimer = (ChunkPrimer)p_222645_1_;
+@@ -323,6 +_,10 @@
+          compoundnbt1.func_218657_a("ToBeTicked", ((ChunkPrimerTickList)iticklist).func_205379_a());
+       } else if (iticklist instanceof SerializableTickList) {
+          compoundnbt1.func_218657_a("TileTicks", ((SerializableTickList)iticklist).func_234857_b_());
++         // Paper start - async chunk save for unload
++      } else if (asyncsavedata != null) {
++         compoundnbt1.func_218657_a("TileTicks", asyncsavedata.blockTickList);
++         // Paper end
+       } else {
+          compoundnbt1.func_218657_a("TileTicks", p_222645_0_.func_205220_G_().func_219503_a(chunkpos));
+       }
+@@ -332,6 +_,10 @@
+          compoundnbt1.func_218657_a("LiquidsToBeTicked", ((ChunkPrimerTickList)iticklist1).func_205379_a());
+       } else if (iticklist1 instanceof SerializableTickList) {
+          compoundnbt1.func_218657_a("LiquidTicks", ((SerializableTickList)iticklist1).func_234857_b_());
++         // Paper start - async chunk save for unload
++      } else if (asyncsavedata != null) {
++         compoundnbt1.func_218657_a("LiquidTicks", asyncsavedata.fluidTickList);
++         // Paper end
+       } else {
+          compoundnbt1.func_218657_a("LiquidTicks", p_222645_0_.func_205219_F_().func_219503_a(chunkpos));
+       }

@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/chunk/storage/RegionFileVersion.java
++++ b/net/minecraft/world/chunk/storage/RegionFileVersion.java
+@@ -12,7 +_,7 @@
+ import javax.annotation.Nullable;
+ 
+ public class RegionFileVersion {
+-   private static final Int2ObjectMap<RegionFileVersion> field_227161_d_ = new Int2ObjectOpenHashMap<>();
++   public static final Int2ObjectMap<RegionFileVersion> field_227161_d_ = new Int2ObjectOpenHashMap<>();
+    public static final RegionFileVersion field_227158_a_ = func_227167_a_(new RegionFileVersion(1, GZIPInputStream::new, GZIPOutputStream::new));
+    public static final RegionFileVersion field_227159_b_ = func_227167_a_(new RegionFileVersion(2, InflaterInputStream::new, DeflaterOutputStream::new));
+    public static final RegionFileVersion field_227160_c_ = func_227167_a_(new RegionFileVersion(3, (p_227171_0_) -> {

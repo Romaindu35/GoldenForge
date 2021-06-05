@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/NextTickListEntry.java
 +++ b/net/minecraft/world/NextTickListEntry.java
-@@ -4,23 +_,27 @@
+@@ -4,23 +_,26 @@
  import net.minecraft.util.math.BlockPos;
  
  public class NextTickListEntry<T> {
@@ -11,7 +11,6 @@
 -   public final TickPriority field_82754_f;
 -   private final long field_77178_g;
 +   private static final java.util.concurrent.atomic.AtomicLong COUNTER = new java.util.concurrent.atomic.AtomicLong(); // Paper - async chunk loading
-+   private static long field_77177_f; // GoldenForge - keep compatibility with C2ME
 +   private final T field_151352_g; public final T getData() { return this.field_151352_g; } // Paper - OBFHELPER
 +   public final BlockPos field_180282_a; public final BlockPos getPosition() { return this.field_180282_a; } // Paper - OBFHELPER
 +   public final long field_235017_b_; public final long getTargetTick() { return this.field_235017_b_; } // Paper - OBFHELPER

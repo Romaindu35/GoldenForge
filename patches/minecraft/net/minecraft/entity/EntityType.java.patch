@@ -17,6 +17,15 @@
     private static final Logger field_200731_aJ = LogManager.getLogger();
     public static final EntityType<AreaEffectCloudEntity> field_200788_b = func_200712_a("area_effect_cloud", EntityType.Builder.<AreaEffectCloudEntity>func_220322_a(AreaEffectCloudEntity::new, EntityClassification.MISC).func_220320_c().func_220321_a(6.0F, 0.5F).func_233606_a_(10).func_233608_b_(Integer.MAX_VALUE));
     public static final EntityType<ArmorStandEntity> field_200789_c = func_200712_a("armor_stand", EntityType.Builder.<ArmorStandEntity>func_220322_a(ArmorStandEntity::new, EntityClassification.MISC).func_220321_a(0.5F, 1.975F).func_233606_a_(10));
+@@ -260,7 +_,7 @@
+    private final boolean field_200734_aM;
+    private final boolean field_220357_bd;
+    private final boolean field_225438_be;
+-   private final int field_233594_bl_;
++   public final int field_233594_bl_;
+    private final int field_233595_bm_;
+    @Nullable
+    private String field_210762_aX;
 @@ -270,6 +_,12 @@
     private ResourceLocation field_220358_bg;
     private final EntitySize field_220359_bi;

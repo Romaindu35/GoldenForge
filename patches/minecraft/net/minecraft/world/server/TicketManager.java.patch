@@ -1,63 +1,624 @@
 --- a/net/minecraft/world/server/TicketManager.java
 +++ b/net/minecraft/world/server/TicketManager.java
-@@ -49,6 +_,8 @@
+@@ -1,18 +_,10 @@
+ package net.minecraft.world.server;
+ 
++import com.destroystokyo.paper.util.MCUtil;
+ import com.google.common.collect.ImmutableList;
+ import com.google.common.collect.Sets;
+ import com.mojang.datafixers.util.Either;
+-import it.unimi.dsi.fastutil.longs.Long2ByteMap;
+-import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.Long2IntMap;
+-import it.unimi.dsi.fastutil.longs.Long2IntMaps;
+-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.LongIterator;
+-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+-import it.unimi.dsi.fastutil.longs.LongSet;
++import it.unimi.dsi.fastutil.longs.*;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
+ import it.unimi.dsi.fastutil.objects.ObjectIterator;
+ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+@@ -32,23 +_,117 @@
+ import net.minecraft.world.chunk.ChunkTaskPriorityQueueSorter;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
++import org.spigotmc.AsyncCatcher;
+ 
+ public abstract class TicketManager {
+    private static final Logger field_219373_a = LogManager.getLogger();
+    private static final int field_219374_b = 33 + ChunkStatus.func_222599_a(ChunkStatus.field_222617_m) - 2;
+    private final Long2ObjectMap<ObjectSet<ServerPlayerEntity>> field_219375_c = new Long2ObjectOpenHashMap<>();
+    private final Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> field_219377_e = new Long2ObjectOpenHashMap<>();
+-   private final TicketManager.ChunkTicketTracker field_219378_f = new TicketManager.ChunkTicketTracker();
+-   private final TicketManager.PlayerChunkTracker field_219381_i = new TicketManager.PlayerChunkTracker(8);
+-   private final TicketManager.PlayerTicketTracker field_219382_j = new TicketManager.PlayerTicketTracker(33);
+-   private final Set<ChunkHolder> field_219383_k = Sets.newHashSet();
++//   private final TicketManager.ChunkTicketTracker ticketTracker = new TicketManager.ChunkTicketTracker();
++//   private final TicketManager.PlayerChunkTracker naturalSpawnChunkCounter = new TicketManager.PlayerChunkTracker(8);
++//   private final TicketManager.PlayerTicketTracker playerTicketManager = new TicketManager.PlayerTicketTracker(33);
++   public static final int MOB_SPAWN_RANGE = 8;
++   // Paper start use a queue, but still keep unique requirement
++   public final java.util.Queue<ChunkHolder> field_219383_k = new java.util.ArrayDeque<ChunkHolder>() {
++      @Override
++      public boolean add(ChunkHolder o) {
++         if (o.isUpdateQueued) return true;
++         o.isUpdateQueued = true;
++         return super.add(o);
++      }
++   };
++   // Paper end
+    private final ChunkTaskPriorityQueueSorter field_219384_l;
+    private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219385_m;
+    private final ITaskExecutor<ChunkTaskPriorityQueueSorter.RunnableEntry> field_219386_n;
+-   private final LongSet field_219387_o = new LongOpenHashSet();
++   private final LongSet field_219387_o = new LongOpenHashSet(); public final LongSet getOnPlayerTicketAddQueue() { return field_219387_o; } // Paper - OBFHELPER
     private final Executor field_219388_p;
     private long field_219389_q;
  
-+   private final Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> forcedTickets = new Long2ObjectOpenHashMap<>();
++   //private final Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> forcedTickets = new Long2ObjectOpenHashMap<>();
++   ChunkManager chunkMap; // Paper
++
++   // Tuinity start - delay chunk unloads
++   private long nextUnloadId; // delay chunk unloads
++   private final Long2ObjectOpenHashMap<Ticket<Long>> delayedChunks = new Long2ObjectOpenHashMap<>();
++   public final void removeTickets(long chunk, TicketType<?> type) {
++      SortedArraySet<Ticket<?>> tickets = this.field_219377_e.get(chunk);
++      if (tickets == null) {
++         return;
++      }
++      if (type == TicketType.DELAYED_UNLOAD) {
++         this.delayedChunks.remove(chunk);
++      }
++      boolean changed = tickets.removeIf((Ticket<?> ticket) -> {
++         return ticket.func_219479_a() == type;
++      });
++      if (changed) {
++         this.updateTicketLevel(chunk, func_229844_a_(tickets)); // Tuinity - replace ticket level propagator
++      }
++   }
++
++   private final java.util.function.LongFunction<Ticket<Long>> computeFuntion = (long key) -> {
++      Ticket<Long> ret = new Ticket<>(TicketType.DELAYED_UNLOAD, -1, ++TicketManager.this.nextUnloadId);
++      ret.isCached = true;
++      return ret;
++   };
++
++   private void computeDelayedTicketFor(long chunk, int removedLevel, SortedArraySet<Ticket<?>> tickets) {
++      int lowestLevel = func_229844_a_(tickets);
++      if (removedLevel > lowestLevel) {
++         return;
++      }
++      final Ticket<Long> ticket = this.delayedChunks.computeIfAbsent(chunk, this.computeFuntion);
++      if (ticket.func_219477_b() != -1) {
++         // since we modify data used in sorting, we need to remove before
++         tickets.remove(ticket);
++      }
++      ticket.func_229861_a_(this.field_219389_q);
++      ticket.setTicketLevel(removedLevel);
++      tickets.add(ticket); // re-add with new expire time and ticket level
++   }
++   // Tuinity end - delay chunk unloads
++   // Tuinity start - replace ticket level propagator
++   protected final Long2IntLinkedOpenHashMap ticketLevelUpdates = new Long2IntLinkedOpenHashMap() {
++      @Override
++      protected void rehash(int newN) {
++         // no downsizing allowed
++         if (newN < this.n) {
++            return;
++         }
++         super.rehash(newN);
++      }
++   };
++   protected final com.tuinity.tuinity.util.misc.Delayed8WayDistancePropagator2D ticketLevelPropagator = new com.tuinity.tuinity.util.misc.Delayed8WayDistancePropagator2D(
++           (long coordinate, byte oldLevel, byte newLevel) -> {
++              TicketManager.this.ticketLevelUpdates.putAndMoveToLast(coordinate, convertBetweenTicketLevels(newLevel));
++           }
++   );
++   // function for converting between ticket levels and propagator levels and vice versa
++   // the problem is the ticket level propagator will propagate from a set source down to zero, whereas mojang expects
++   // levels to propagate from a set value up to a maximum value. so we need to convert the levels we put into the propagator
++   // and the levels we get out of the propagator
++
++   // this maps so that GOLDEN_TICKET + 1 will be 0 in the propagator, GOLDEN_TICKET will be 1, and so on
++   // we need GOLDEN_TICKET+1 as 0 because anything >= GOLDEN_TICKET+1 should be unloaded
++   public static int convertBetweenTicketLevels(final int level) {
++      return ChunkManager.field_219249_a - level + 1;
++   }
++
++   protected final int getPropagatedTicketLevel(final long coordinate) {
++      return convertBetweenTicketLevels(this.ticketLevelPropagator.getLevel(coordinate));
++   }
++
++   protected final void updateTicketLevel(final long coordinate, final int ticketLevel) {
++      if (ticketLevel > TicketManager.field_219374_b) {
++         this.ticketLevelPropagator.removeSource(coordinate);
++      } else {
++         this.ticketLevelPropagator.setSource(coordinate, convertBetweenTicketLevels(ticketLevel));
++      }
++   }
++   // Tuinity end - replace ticket level propagator
 +
     protected TicketManager(Executor p_i50707_1_, Executor p_i50707_2_) {
        ITaskExecutor<Runnable> itaskexecutor = ITaskExecutor.func_213140_a("player ticket throttler", p_i50707_2_::execute);
        ChunkTaskPriorityQueueSorter chunktaskpriorityqueuesorter = new ChunkTaskPriorityQueueSorter(ImmutableList.of(itaskexecutor), p_i50707_1_, 4);
-@@ -143,6 +_,10 @@
-          this.field_219378_f.func_215491_b(p_219347_1_, p_219347_3_.func_219477_b(), true);
-       }
+@@ -61,23 +_,153 @@
+    protected void func_219340_a() {
+       ++this.field_219389_q;
+       ObjectIterator<Entry<SortedArraySet<Ticket<?>>>> objectiterator = this.field_219377_e.long2ObjectEntrySet().fastIterator();
+-
++      // Tuinity start - delay chunk unloads
++      int[] tempLevel = new int[] { ChunkManager.field_219249_a + 1 };
++      Entry<SortedArraySet<Ticket<?>>>[] entryPass = new Entry[1];
++      java.util.function.Predicate<Ticket<?>> isExpired = (ticket) -> { // CraftBukkit - decompile error
++         // Tuinity start - delay chunk unloads
++         boolean ret = ticket.func_223182_a(this.field_219389_q);
++         if (com.tuinity.tuinity.config.TuinityConfig.delayChunkUnloadsBy <= 0) {
++            return ret;
++         }
++         if (ret && ticket.func_219479_a().delayUnloadViable && ticket.func_219477_b() < tempLevel[0]) {
++            tempLevel[0] = ticket.func_219477_b();
++         }
++         if (ret && ticket.func_219479_a() == TicketType.DELAYED_UNLOAD && ticket.isCached) {
++            this.delayedChunks.remove(entryPass[0].getLongKey(), ticket); // clean up ticket...
++         }
++         return ret;
++      };
++      // Tuinity end - delay chunk unloads
+       while(objectiterator.hasNext()) {
+-         Entry<SortedArraySet<Ticket<?>>> entry = objectiterator.next();
+-         if (entry.getValue().removeIf((p_219370_1_) -> {
+-            return p_219370_1_.func_223182_a(this.field_219389_q);
+-         })) {
+-            this.field_219378_f.func_215491_b(entry.getLongKey(), func_229844_a_(entry.getValue()), false);
++         Entry<SortedArraySet<Ticket<?>>> entry = objectiterator.next(); entryPass[0] = entry; // Tuinity - only allocate lambda once
++
++         if ((entry.getValue()).removeIf(isExpired)) { // Tuinity - move above - only allocate once
++            // Tuinity start - delay chunk unloads
++            if (tempLevel[0] < (ChunkManager.field_219249_a + 1)) {
++               this.computeDelayedTicketFor(entry.getLongKey(), tempLevel[0], entry.getValue());
++            }
++            // Tuinity end - delay chunk unloads
++            this.updateTicketLevel(entry.getLongKey(), func_229844_a_((SortedArraySet) entry.getValue())); // Tuinity - replace ticket level propagator
+          }
  
-+      if (p_219347_3_.isForceTicks()) {
-+          SortedArraySet<Ticket<?>> tickets = forcedTickets.computeIfAbsent(p_219347_1_, e -> SortedArraySet.func_226172_a_(4));
-+          tickets.func_226175_a_(ticket);
+-         if (entry.getValue().isEmpty()) {
++         if (((SortedArraySet) entry.getValue()).isEmpty()) {
+             objectiterator.remove();
+          }
+-      }
+-
++
++         tempLevel[0] = ChunkManager.field_219249_a + 1; // Tuinity - reset
 +      }
++
++   }
++
++   public static final int PRIORITY_TICKET_LEVEL = ChunkManager.field_219249_a;
++   public static final int URGENT_PRIORITY = 29;
++   public boolean delayDistanceManagerTick = false;
++   public boolean markUrgent(ChunkPos coords) {
++      return addPriorityTicket(coords, TicketType.URGENT, URGENT_PRIORITY);
++   }
++
++   public boolean markHighPriority(ChunkPos coords, int priority) {
++      priority = Math.min(URGENT_PRIORITY - 1, Math.max(1, priority));
++      return addPriorityTicket(coords, TicketType.PRIORITY, priority);
++   }
++
++   public void markAreaHighPriority(ChunkPos center, int priority, int radius) {
++      delayDistanceManagerTick = true;
++      priority = Math.min(URGENT_PRIORITY - 1, Math.max(1, priority));
++      int finalPriority = priority;
++      MCUtil.getSpiralOutChunks(center.func_206849_h(), radius).forEach(coords -> {
++         addPriorityTicket(coords, TicketType.PRIORITY, finalPriority);
++      });
++      delayDistanceManagerTick = false;
++      chunkMap.field_219255_i.func_72863_F().func_217235_l();
++   }
++
++   public void clearPriorityTickets(ChunkPos coords) {
++      AsyncCatcher.catchOp("ChunkMapDistance::clearPriority");
++      this.removeTicket(coords.func_201841_a(), new Ticket<ChunkPos>(TicketType.PRIORITY, PRIORITY_TICKET_LEVEL, coords));
++   }
++
++   public void clearUrgent(ChunkPos coords) {
++      AsyncCatcher.catchOp("ChunkMapDistance::clearUrgent");
++      this.removeTicket(coords.func_201841_a(), new Ticket<ChunkPos>(TicketType.URGENT, PRIORITY_TICKET_LEVEL, coords));
++   }
++
++   private boolean addPriorityTicket(ChunkPos coords, TicketType<ChunkPos> ticketType, int priority) {
++      AsyncCatcher.catchOp("ChunkMapDistance::addPriorityTicket");
++      long pair = coords.hashCode();
++      ChunkHolder chunk = chunkMap.func_219220_a(pair);
++      boolean needsTicket = false; // Tuinity - replace old loader system
++
++      if (needsTicket) {
++         Ticket<?> ticket = new Ticket<>(TicketType.field_219490_c, 33, coords);
++         getOnPlayerTicketAddQueue().add(pair);
++         addTicket(pair, ticket);
++      }
++      if ((chunk != null && chunk.isFullChunkReady())) {
++         if (needsTicket) {
++            chunkMap.field_219255_i.func_72863_F().func_217235_l();
++         }
++         return needsTicket;
++      }
++
++      boolean success;
++      if (!(success = updatePriorityTicket(coords, ticketType, priority))) {
++         Ticket<ChunkPos> ticket = new Ticket<ChunkPos>(ticketType, PRIORITY_TICKET_LEVEL, coords);
++         ticket.priority = priority;
++         success = this.addTicket(pair, ticket);
++      } else {
++         if (chunk == null) {
++            chunk = chunkMap.func_219220_a(pair);
++         }
++         chunkMap.queueHolderUpdate(chunk);
++      }
++
++      //chunkMap.world.getWorld().spawnParticle(priority <= 15 ? org.bukkit.Particle.EXPLOSION_HUGE : org.bukkit.Particle.EXPLOSION_NORMAL, chunkMap.world.getWorld().getPlayers(), null, coords.x << 4, 70, coords.z << 4, 2, 0, 0, 0, 1, null, true);
++
++      chunkMap.field_219255_i.func_72863_F().func_217235_l();
++
++      return success;
++   }
++
++   public int getChunkPriority(ChunkPos coords) {
++      AsyncCatcher.catchOp("ChunkMapDistance::getChunkPriority");
++      SortedArraySet<Ticket<?>> tickets = this.field_219377_e.get(coords.func_201841_a());
++      if (tickets == null) {
++         return 0;
++      }
++      for (Ticket<?> ticket : tickets) {
++         if (ticket.func_219479_a() == TicketType.URGENT) {
++            return URGENT_PRIORITY;
++         }
++      }
++      for (Ticket<?> ticket : tickets) {
++         if (ticket.func_219479_a() == TicketType.PRIORITY && ticket.priority > 0) {
++            return ticket.priority;
++         }
++      }
++      return 0;
++   }
++
++   private boolean updatePriorityTicket(ChunkPos coords, TicketType<ChunkPos> type, int priority) {
++      SortedArraySet<Ticket<?>> tickets = this.field_219377_e.get(coords.func_201841_a());
++      if (tickets == null) {
++         return false;
++      }
++      for (Ticket<?> ticket : tickets) {
++         if (ticket.func_219479_a() == type) {
++            // We only support increasing, not decreasing, too complicated
++            ticket.setCreationTick(this.field_219389_q);
++            ticket.priority = Math.max(ticket.priority, priority);
++            return true;
++         }
++      }
++
++      return false;
     }
  
-    private void func_219349_b(long p_219349_1_, Ticket<?> p_219349_3_) {
-@@ -155,6 +_,13 @@
+    private static int func_229844_a_(SortedArraySet<Ticket<?>> p_229844_0_) {
++      AsyncCatcher.catchOp("ChunkMapDistance::getLowestTicketLevel"); // Paper
+       return !p_229844_0_.isEmpty() ? p_229844_0_.func_226178_b_().func_219477_b() : ChunkManager.field_219249_a + 1;
+    }
+ 
+@@ -88,91 +_,168 @@
+ 
+    @Nullable
+    protected abstract ChunkHolder func_219372_a(long p_219372_1_, int p_219372_3_, @Nullable ChunkHolder p_219372_4_, int p_219372_5_);
+-
++   protected final ChunkHolder updateTicketLevel(long coord, int newLevel, @Nullable ChunkHolder playerchunk, int oldLevel) { return this.func_219372_a(coord, newLevel, playerchunk, oldLevel); } // Tuinity - OBFHELPER
++
++
++   boolean pollingPendingChunkUpdates = false; // Paper
++   protected long ticketLevelUpdateCount; // Tuinity - replace ticket level propagator
+    public boolean func_219353_a(ChunkManager p_219353_1_) {
+-      this.field_219381_i.func_215497_a();
+-      this.field_219382_j.func_215497_a();
+-      int i = Integer.MAX_VALUE - this.field_219378_f.func_215493_a(Integer.MAX_VALUE);
+-      boolean flag = i != 0;
+-      if (flag) {
+-      }
+-
+-      if (!this.field_219383_k.isEmpty()) {
+-         this.field_219383_k.forEach((p_219343_1_) -> {
+-            p_219343_1_.func_219291_a(p_219353_1_);
+-         });
+-         this.field_219383_k.clear();
+-         return true;
+-      } else {
+-         if (!this.field_219387_o.isEmpty()) {
+-            LongIterator longiterator = this.field_219387_o.iterator();
+-
+-            while(longiterator.hasNext()) {
+-               long j = longiterator.nextLong();
+-               if (this.func_229848_e_(j).stream().anyMatch((p_219369_0_) -> {
+-                  return p_219369_0_.func_219479_a() == TicketType.field_219490_c;
+-               })) {
+-                  ChunkHolder chunkholder = p_219353_1_.func_219220_a(j);
+-                  if (chunkholder == null) {
+-                     throw new IllegalStateException();
++      com.tuinity.tuinity.util.TickThread.softEnsureTickThread("Cannot tick ChunkMapDistance off of the main-thread");// Tuinity
++//      this.naturalSpawnChunkCounter.runAllUpdates();
++//      this.playerTicketManager.runAllUpdates();
++//      int i = Integer.MAX_VALUE - this.ticketTracker.runDistanceUpdates(Integer.MAX_VALUE);
++      boolean flag = this.ticketLevelPropagator.propagateUpdates(); // Tuinity - replace ticket level propagator
++      // Tuinity start - replace level propagator
++      ticket_update_loop:
++      while (!this.ticketLevelUpdates.isEmpty()) {
++         flag = true;
++
++         boolean oldPolling = this.pollingPendingChunkUpdates;
++         this.pollingPendingChunkUpdates = true;
++         try {
++            for (java.util.Iterator<Long2IntMap.Entry> iterator = this.ticketLevelUpdates.long2IntEntrySet().fastIterator(); iterator.hasNext();) {
++               Long2IntMap.Entry entry = iterator.next();
++               long key = entry.getLongKey();
++               int newLevel = entry.getIntValue();
++               ChunkHolder chunk = this.func_219335_b(key);
++
++               if (chunk == null && newLevel > ChunkManager.field_219249_a) {
++                  // not loaded and it shouldn't be loaded!
++                  continue;
++               }
++
++               int currentLevel = chunk == null ? ChunkManager.field_219249_a + 1 : chunk.func_219299_i();
++
++               if (currentLevel == newLevel) {
++                  // nothing to do
++                  continue;
++               }
++
++               this.updateTicketLevel(key, newLevel, chunk, currentLevel);
++            }
++
++            long recursiveCheck = ++this.ticketLevelUpdateCount;
++            while (!this.ticketLevelUpdates.isEmpty()) {
++               long key = this.ticketLevelUpdates.firstLongKey();
++               int newLevel = this.ticketLevelUpdates.removeFirstInt();
++               ChunkHolder chunk = this.func_219335_b(key);
++
++               if (chunk == null) {
++                  if (newLevel <= ChunkManager.field_219249_a) {
++                     throw new IllegalStateException("Expected chunk holder to be created");
+                   }
+-
+-                  CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> completablefuture = chunkholder.func_219297_b();
+-                  completablefuture.thenAccept((p_219363_3_) -> {
+-                     this.field_219388_p.execute(() -> {
+-                        this.field_219386_n.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219073_a(() -> {
+-                        }, j, false));
+-                     });
+-                  });
+-               }
+-            }
+-
+-            this.field_219387_o.clear();
++                  // not loaded and it shouldn't be loaded!
++                  continue;
++               }
++
++               int currentLevel = chunk.field_219316_k;
++
++               if (currentLevel == newLevel) {
++                  // nothing to do
++                  continue;
++               }
++
++               chunk.func_219291_a(p_219353_1_);
++               if (recursiveCheck != this.ticketLevelUpdateCount) {
++                  // back to the start, we must create player chunks and update the ticket level fields before
++                  // processing the actual level updates
++                  continue ticket_update_loop;
++               }
++            }
++
++            for (;;) {
++               if (recursiveCheck != this.ticketLevelUpdateCount) {
++                  continue ticket_update_loop;
++               }
++               ChunkHolder pendingUpdate = this.field_219383_k.poll();
++               if (pendingUpdate == null) {
++                  break;
++               }
++
++               pendingUpdate.func_219291_a(p_219353_1_);
++            }
++         } finally {
++            this.pollingPendingChunkUpdates = oldPolling;
+          }
+-
+-         return flag;
+       }
++
++      return flag;
++      // Tuinity end - replace level propagator
+    }
+ 
+-   private void func_219347_a(long p_219347_1_, Ticket<?> p_219347_3_) {
++   private boolean addTicket(long p_219347_1_, Ticket<?> p_219347_3_) {
++      AsyncCatcher.catchOp("ChunkMapDistance::addTicket"); // Paper
+       SortedArraySet<Ticket<?>> sortedarrayset = this.func_229848_e_(p_219347_1_);
+       int i = func_229844_a_(sortedarrayset);
+       Ticket<?> ticket = sortedarrayset.func_226175_a_(p_219347_3_);
+       ticket.func_229861_a_(this.field_219389_q);
+       if (p_219347_3_.func_219477_b() < i) {
+-         this.field_219378_f.func_215491_b(p_219347_1_, p_219347_3_.func_219477_b(), true);
++         this.updateTicketLevel(p_219347_1_, p_219347_3_.func_219477_b()); // Tuinity - replace ticket level propagator
        }
  
-       this.field_219378_f.func_215491_b(p_219349_1_, func_229844_a_(sortedarrayset), false);
++//      if (p_219347_3_.isForceTicks()) {
++//          SortedArraySet<Ticket<?>> tickets = forcedTickets.computeIfAbsent(p_219347_1_, e -> SortedArraySet.create(4));
++//          tickets.addOrGet(ticket);
++//      }
 +
-+      if (p_219349_3_.isForceTicks()) {
-+          SortedArraySet<Ticket<?>> tickets = forcedTickets.get(p_219349_1_);
-+          if (tickets != null) {
-+              tickets.remove(p_219349_3_);
-+          }
-+      }
++      return ticket == p_219347_3_; // CraftBukkit
+    }
+ 
+-   private void func_219349_b(long p_219349_1_, Ticket<?> p_219349_3_) {
++   private boolean removeTicket(long p_219349_1_, Ticket<?> p_219349_3_) { // CraftBukkit - void -> boolean
++      AsyncCatcher.catchOp("ChunkMapDistance::removeTicket"); // Paper
+       SortedArraySet<Ticket<?>> sortedarrayset = this.func_229848_e_(p_219349_1_);
++      int oldLevel = func_229844_a_(sortedarrayset); // Paper
++
++      boolean removed = false; // CraftBukkit
+       if (sortedarrayset.remove(p_219349_3_)) {
++         removed = true; // CraftBukkit
++         // Tuinity start - delay chunk unloads
++         if (com.tuinity.tuinity.config.TuinityConfig.delayChunkUnloadsBy > 0 && p_219349_3_.func_219479_a().delayUnloadViable) {
++            this.computeDelayedTicketFor(p_219349_1_, p_219349_3_.func_219477_b(), sortedarrayset);
++         }
++         // Tuinity end - delay chunk unloads
+       }
+ 
+       if (sortedarrayset.isEmpty()) {
+          this.field_219377_e.remove(p_219349_1_);
+       }
+ 
+-      this.field_219378_f.func_215491_b(p_219349_1_, func_229844_a_(sortedarrayset), false);
++//      if (p_219349_3_.isForceTicks()) {
++//         SortedArraySet<Ticket<?>> tickets = forcedTickets.get(p_219349_1_);
++//         if (tickets != null) {
++//            tickets.remove(p_219349_3_);
++//         }
++//      }
++
++      int newLevel = func_229844_a_(sortedarrayset); // Paper
++      if (newLevel > oldLevel) this.updateTicketLevel(p_219349_1_, newLevel); // Paper // Tuinity - replace ticket level propagator
++      return removed; // CraftBukkit
     }
  
     public <T> void func_219356_a(TicketType<T> p_219356_1_, ChunkPos p_219356_2_, int p_219356_3_, T p_219356_4_) {
-@@ -175,6 +_,14 @@
-       this.func_219349_b(p_219362_2_.func_201841_a(), ticket);
+-      this.func_219347_a(p_219356_2_.func_201841_a(), new Ticket<>(p_219356_1_, p_219356_3_, p_219356_4_));
++      this.addTicket(p_219356_2_.func_201841_a(), new Ticket<>(p_219356_1_, p_219356_3_, p_219356_4_));
     }
  
+    public <T> void func_219345_b(TicketType<T> p_219345_1_, ChunkPos p_219345_2_, int p_219345_3_, T p_219345_4_) {
+       Ticket<T> ticket = new Ticket<>(p_219345_1_, p_219345_3_, p_219345_4_);
+-      this.func_219349_b(p_219345_2_.func_201841_a(), ticket);
++      this.removeTicket(p_219345_2_.func_201841_a(), ticket);
+    }
+ 
+    public <T> void func_219331_c(TicketType<T> p_219331_1_, ChunkPos p_219331_2_, int p_219331_3_, T p_219331_4_) {
+-      this.func_219347_a(p_219331_2_.func_201841_a(), new Ticket<>(p_219331_1_, 33 - p_219331_3_, p_219331_4_));
++      this.addTicket(p_219331_2_.func_201841_a(), new Ticket<>(p_219331_1_, 33 - p_219331_3_, p_219331_4_));
+    }
+ 
+    public <T> void func_219362_d(TicketType<T> p_219362_1_, ChunkPos p_219362_2_, int p_219362_3_, T p_219362_4_) {
+       Ticket<T> ticket = new Ticket<>(p_219362_1_, 33 - p_219362_3_, p_219362_4_);
+-      this.func_219349_b(p_219362_2_.func_201841_a(), ticket);
++      this.removeTicket(p_219362_2_.func_201841_a(), ticket);
++   }
++
 +   public <T> void registerTicking(TicketType<T> type, ChunkPos pos, int distance, T value) {
-+      this.func_219347_a(pos.func_201841_a(), new Ticket<>(type, 33 - distance, value, true));
++      this.addTicket(pos.func_201841_a(), new Ticket<>(type, 33 - distance, value, true));
 +   }
 +
 +   public <T> void releaseTicking(TicketType<T> type, ChunkPos pos, int distance, T value) {
-+      this.func_219349_b(pos.func_201841_a(), new Ticket<>(type, 33 - distance, value, true));
-+   }
-+
++      this.removeTicket(pos.func_201841_a(), new Ticket<>(type, 33 - distance, value, true));
+    }
+ 
     private SortedArraySet<Ticket<?>> func_229848_e_(long p_229848_1_) {
-       return this.field_219377_e.computeIfAbsent(p_229848_1_, (p_229851_0_) -> {
-          return SortedArraySet.func_226172_a_(4);
-@@ -240,6 +_,11 @@
+@@ -184,30 +_,32 @@
+    protected void func_219364_a(ChunkPos p_219364_1_, boolean p_219364_2_) {
+       Ticket<ChunkPos> ticket = new Ticket<>(TicketType.field_219491_d, 31, p_219364_1_);
+       if (p_219364_2_) {
+-         this.func_219347_a(p_219364_1_.func_201841_a(), ticket);
++         this.addTicket(p_219364_1_.func_201841_a(), ticket);
+       } else {
+-         this.func_219349_b(p_219364_1_.func_201841_a(), ticket);
++         this.removeTicket(p_219364_1_.func_201841_a(), ticket);
+       }
+ 
+    }
+ 
+    public void func_219341_a(SectionPos p_219341_1_, ServerPlayerEntity p_219341_2_) {
++      com.tuinity.tuinity.util.TickThread.softEnsureTickThread("Async player add"); // Tuinity
+       long i = p_219341_1_.func_218155_u().func_201841_a();
+       this.field_219375_c.computeIfAbsent(i, (p_219361_0_) -> {
+          return new ObjectOpenHashSet();
+       }).add(p_219341_2_);
+-      this.field_219381_i.func_215491_b(i, 0, true);
+-      this.field_219382_j.func_215491_b(i, 0, true);
++//      this.naturalSpawnChunkCounter.update(i, 0, true);
++//      this.playerTicketManager.update(i, 0, true);
+    }
+ 
+    public void func_219367_b(SectionPos p_219367_1_, ServerPlayerEntity p_219367_2_) {
++      com.tuinity.tuinity.util.TickThread.softEnsureTickThread("Async player remove"); // Tuinity
+       long i = p_219367_1_.func_218155_u().func_201841_a();
+       ObjectSet<ServerPlayerEntity> objectset = this.field_219375_c.get(i);
+       objectset.remove(p_219367_2_);
+       if (objectset.isEmpty()) {
+          this.field_219375_c.remove(i);
+-         this.field_219381_i.func_215491_b(i, Integer.MAX_VALUE, false);
+-         this.field_219382_j.func_215491_b(i, Integer.MAX_VALUE, false);
++//         this.naturalSpawnChunkCounter.update(i, Integer.MAX_VALUE, false);
++//         this.playerTicketManager.update(i, Integer.MAX_VALUE, false);
+       }
+ 
+    }
+@@ -224,24 +_,34 @@
+       return s;
+    }
+ 
+-   protected void func_219354_b(int p_219354_1_) {
+-      this.field_219382_j.func_215508_a(p_219354_1_);
++   protected void setNoTickViewDistance(int p_219354_1_) {
++      throw new UnsupportedOperationException(); // Tuinity - no longer relevant
++      //this.playerTicketManager.updateViewDistance(p_219354_1_);
+    }
+ 
+    public int func_219358_b() {
+-      this.field_219381_i.func_215497_a();
+-      return this.field_219381_i.field_215498_a.size();
++      // Paper start - use distance map to implement
++      // note: this is the spawn chunk count
++      return this.chunkMap.playerChunkTickRangeMap.size();
++      // Paper end - use distance map to implement
+    }
+ 
+    public boolean func_223494_d(long p_223494_1_) {
+-      this.field_219381_i.func_215497_a();
+-      return this.field_219381_i.field_215498_a.containsKey(p_223494_1_);
++      // Paper start - use distance map to implement
++      // note: this is the is spawn chunk method
++      return this.chunkMap.playerChunkTickRangeMap.getObjectsInRange(p_223494_1_) != null;
++      // Paper end - use distance map to implement
+    }
  
     public String func_225412_c() {
        return this.field_219384_l.func_225396_a();
-+   }
-+
-+   public boolean shouldForceTicks(long chunkPos) {
-+       SortedArraySet<Ticket<?>> tickets = forcedTickets.get(chunkPos);
-+       return tickets != null && !tickets.isEmpty();
     }
  
++//   public boolean shouldForceTicks(long chunkPos) {
++//       SortedArraySet<Ticket<?>> tickets = forcedTickets.get(chunkPos);
++//       return tickets != null && !tickets.isEmpty();
++//   }
++
     class ChunkTicketTracker extends ChunkDistanceGraph {
+       public ChunkTicketTracker() {
+          super(ChunkManager.field_219249_a + 2, 16, 256);
+@@ -358,7 +_,7 @@
+                TicketManager.this.field_219385_m.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219069_a(() -> {
+                   TicketManager.this.field_219388_p.execute(() -> {
+                      if (this.func_215505_c(this.func_215471_c(p_215504_1_))) {
+-                        TicketManager.this.func_219347_a(p_215504_1_, ticket);
++                        TicketManager.this.addTicket(p_215504_1_, ticket);
+                         TicketManager.this.field_219387_o.add(p_215504_1_);
+                      } else {
+                         TicketManager.this.field_219386_n.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219073_a(() -> {
+@@ -372,7 +_,7 @@
+             } else {
+                TicketManager.this.field_219386_n.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219073_a(() -> {
+                   TicketManager.this.field_219388_p.execute(() -> {
+-                     TicketManager.this.func_219349_b(p_215504_1_, ticket);
++                     TicketManager.this.removeTicket(p_215504_1_, ticket);
+                   });
+                }, p_215504_1_, true));
+             }

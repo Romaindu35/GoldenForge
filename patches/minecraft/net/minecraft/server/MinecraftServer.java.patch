@@ -1,11 +1,12 @@
 --- a/net/minecraft/server/MinecraftServer.java
 +++ b/net/minecraft/server/MinecraftServer.java
-@@ -155,9 +_,13 @@
+@@ -155,9 +_,14 @@
  import org.apache.commons.lang3.Validate;
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
 +import org.goldenforge.scheduler.GoldenScheduler;
 +import org.goldenforge.threads.ServerShutdownThread;
++import org.spigotmc.SlackActivityAccountant;
 +import org.spigotmc.SpigotConfig;
  
  public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask> implements ISnooperInfo, ICommandSource, AutoCloseable {
@@ -24,11 +25,12 @@
     protected long field_211151_aa = Util.func_211177_b();
     private long field_213213_ab;
     private boolean field_213214_ac;
-@@ -226,9 +_,77 @@
+@@ -226,9 +_,78 @@
     private final TemplateManager field_240765_ak_;
     protected final IServerConfiguration field_240768_i_;
  
 +   // GoldenForge start - Paper - Further improve tick loop
++   public final SlackActivityAccountant slackActivityAccountant = new SlackActivityAccountant();
 +   public static int currentTick = 0; // Paper - Further improve tick loop
 +   public static final int TPS = 20;
 +   public static final int TICK_TIME = 1000000000 / TPS;
@@ -119,6 +121,84 @@
     }
  
     private void func_213204_a(DimensionSavedDataManager p_213204_1_) {
+@@ -307,9 +_,77 @@
+       IChunkStatusListener ichunkstatuslistener = this.field_213220_d.create(11);
+       this.func_240787_a_(ichunkstatuslistener);
+       this.func_230543_p_();
++
++      net.minecraftforge.common.world.StructureSpawnManager.gatherEntitySpawns();
++      for (ServerWorld worldserver : this.func_212370_w()) {
++         this.loadSpawn(worldserver.func_72863_F().field_217237_a.field_219266_t, worldserver);
++      }
++
+       this.func_213186_a(ichunkstatuslistener);
+    }
+ 
++   public void loadSpawn(IChunkStatusListener worldloadlistener, ServerWorld worldserver) {
++      ServerChunkProvider chunkproviderserver = worldserver.func_72863_F(); // Paper
++
++      // WorldServer worldserver = this.E();
++      //this.forceTicks = true;
++      // CraftBukkit end
++      if (worldserver.paperConfig.keepSpawnInMemory) { // Paper
++
++         MinecraftServer.field_147145_h.info("Preparing start region for dimension {}", worldserver.func_234923_W_().func_240901_a_());
++         BlockPos blockposition = worldserver.func_241135_u_();
++
++         worldloadlistener.func_219509_a(new ChunkPos(blockposition));
++         //ChunkProviderServer chunkproviderserver = worldserver.getChunkProvider(); // Paper - move up
++
++         chunkproviderserver.func_212863_j_().func_215598_a(500);
++         this.field_211151_aa = Util.func_211177_b();
++         // Paper start - configurable spawn reason
++         int radiusBlocks = worldserver.paperConfig.keepLoadedRange;
++         int radiusChunks = radiusBlocks / 16 + ((radiusBlocks & 15) != 0 ? 1 : 0);
++         int totalChunks = ((radiusChunks) * 2 + 1);
++         totalChunks *= totalChunks;
++         worldloadlistener.setChunkRadius(radiusBlocks / 16);
++
++         worldserver.addTicketsForSpawn(radiusBlocks, blockposition);
++         field_147145_h.info("Loaded " + chunkproviderserver.func_217229_b() + " spawn chunks for world " + worldserver.func_234923_W_().func_240901_a_()); // Paper
++         // Paper end
++         // CraftBukkit start
++         // this.nextTick = SystemUtils.getMonotonicMillis() + 10L;
++         this.func_213160_bf();
++         java.util.concurrent.locks.LockSupport.parkNanos("executing tasks", 1000L);
++         // Iterator iterator = this.worldServer.values().iterator();
++      }
++
++      if (true) {
++         ForcedChunksSaveData forcedchunkssavedata = worldserver.func_217481_x().func_215753_b(ForcedChunksSaveData::new, "chunks");
++         if (forcedchunkssavedata != null) {
++            LongIterator longiterator = forcedchunkssavedata.func_212438_a().iterator();
++
++            while(longiterator.hasNext()) {
++               long i = longiterator.nextLong();
++               ChunkPos chunkpos = new ChunkPos(i);
++               worldserver.func_72863_F().func_217206_a(chunkpos, true);
++            }
++            net.minecraftforge.common.world.ForgeChunkManager.reinstatePersistentChunks(worldserver, forcedchunkssavedata);
++         }
++      }
++
++      // CraftBukkit start
++      // this.nextTick = SystemUtils.getMonotonicMillis() + 10L;
++      this.func_213160_bf();
++      java.util.concurrent.locks.LockSupport.parkNanos("executing tasks", 1000L);
++      // CraftBukkit end
++      if (worldserver.paperConfig.keepSpawnInMemory) worldloadlistener.func_219510_b(); // Paper
++      chunkproviderserver.func_212863_j_().func_215598_a(worldserver.paperConfig.lightQueueSize); // Paper - increase light queue size
++      // CraftBukkit start
++      // this.updateSpawnFlags();
++      worldserver.func_72891_a(this.func_230536_N_(), this.func_230537_U_());
++
++      //this.forceTicks = false;
++      // CraftBukkit end
++   }
++
+    protected void func_230543_p_() {
+    }
+ 
 @@ -376,6 +_,7 @@
              worldborder.func_177737_a(new IBorderListener.Impl(serverworld1.func_175723_af()));
              this.field_71305_c.put(registrykey1, serverworld1);
@@ -212,10 +292,13 @@
                 serverworld1.close();
              } catch (IOException ioexception1) {
                 field_147145_h.error("Exception closing the level", (Throwable)ioexception1);
-@@ -585,6 +_,7 @@
+@@ -585,6 +_,10 @@
           field_147145_h.error("Failed to unlock level {}", this.field_71310_m.func_237282_a_(), ioexception);
        }
  
++      field_147145_h.info("Flushing Chunk IO");
++      com.destroystokyo.paper.io.PaperFileIOThread.Holder.INSTANCE.close(true, true); // Paper
++
 +      this.func_71240_o();
     }
  
@@ -309,9 +392,78 @@
           }
  
        }
-@@ -689,6 +_,12 @@
+@@ -688,7 +_,81 @@
+       });
     }
  
++   // Tuinity start - execute chunk tasks mid tick
++   static final long CHUNK_TASK_QUEUE_BACKOFF_MIN_TIME = 25L * 1000L; // 25us
++   static final long MAX_CHUNK_EXEC_TIME = 1000L; // 1us
++
++   static final long TASK_EXECUTION_FAILURE_BACKOFF = 5L * 1000L; // 5us
++
++   private static long lastMidTickExecute;
++   private static long lastMidTickExecuteFailure;
++
++   private boolean tickMidTickTasks() {
++      // give all worlds a fair chance at by targetting them all.
++      // if we execute too many tasks, that's fine - we have logic to correctly handle overuse of allocated time.
++      boolean executed = false;
++      for (ServerWorld world : this.func_212370_w()) {
++         long currTime = System.nanoTime();
++         if (currTime - world.lastMidTickExecuteFailure <= TASK_EXECUTION_FAILURE_BACKOFF) {
++            continue;
++         }
++         if (!world.func_72863_F().func_217234_d()) {
++            // we need to back off if this fails
++            world.lastMidTickExecuteFailure = currTime;
++         } else {
++            executed = true;
++         }
++      }
++
++      return executed;
++   }
++
++   public final void executeMidTickTasks() {
++      org.spigotmc.AsyncCatcher.catchOp("mid tick chunk task execution");
++      long startTime = System.nanoTime();
++      if ((startTime - lastMidTickExecute) <= CHUNK_TASK_QUEUE_BACKOFF_MIN_TIME || (startTime - lastMidTickExecuteFailure) <= TASK_EXECUTION_FAILURE_BACKOFF) {
++         // it's shown to be bad to constantly hit the queue (chunk loads slow to a crawl), even if no tasks are executed.
++         // so, backoff to prevent this
++         return;
++      }
++
++      try {
++         for (;;) {
++            boolean moreTasks = this.tickMidTickTasks();
++            long currTime = System.nanoTime();
++            long diff = currTime - startTime;
++
++            if (!moreTasks || diff >= MAX_CHUNK_EXEC_TIME) {
++               if (!moreTasks) {
++                  lastMidTickExecuteFailure = currTime;
++               }
++
++               // note: negative values reduce the time
++               long overuse = diff - MAX_CHUNK_EXEC_TIME;
++               if (overuse >= (10L * 1000L * 1000L)) { // 10ms
++                  // make sure something like a GC or dumb plugin doesn't screw us over...
++                  overuse = 10L * 1000L * 1000L; // 10ms
++               }
++
++               double overuseCount = (double)overuse/(double)MAX_CHUNK_EXEC_TIME;
++               long extraSleep = (long)Math.round(overuseCount*CHUNK_TASK_QUEUE_BACKOFF_MIN_TIME);
++
++               lastMidTickExecute = currTime + extraSleep;
++               return;
++            }
++         }
++      } finally {
++      }
++   }
++   // Tuinity end - execute chunk tasks mid tick
++
     protected TickDelayedTask func_212875_d_(Runnable p_212875_1_) {
 +      // Paper start - anything that does try to post to main during watchdog crash, run on watchdog
 +      if (this.hasStopped && Thread.currentThread().equals(shutdownThread)) {
@@ -322,9 +474,19 @@
        return new TickDelayedTask(this.field_71315_w, p_212875_1_);
     }
  
-@@ -771,12 +_,13 @@
+@@ -704,6 +_,7 @@
+ 
+    private boolean func_213205_aW() {
+       if (super.func_213168_p()) {
++         this.executeMidTickTasks(); // Tuinity - execute chunk tasks mid tick
+          return true;
+       } else {
+          if (this.func_212379_aT()) {
+@@ -770,13 +_,15 @@
+    }
  
     protected void func_71217_p(BooleanSupplier p_71217_1_) {
++      this.slackActivityAccountant.tickStarted(); // Spigot
        long i = Util.func_211178_c();
 +      net.minecraftforge.fml.hooks.BasicEventHooks.onPreServerTick();
        ++this.field_71315_w;
@@ -345,12 +507,14 @@
        }
  
        if (this.field_71315_w % 6000 == 0) {
-@@ -812,6 +_,8 @@
+@@ -812,6 +_,10 @@
        long i1 = Util.func_211178_c();
        this.field_213215_ap.func_181747_a(i1 - i);
        this.field_71304_b.func_76319_b();
 +      org.spigotmc.WatchdogThread.tick(); // Spigot
 +      net.minecraftforge.fml.hooks.BasicEventHooks.onPostServerTick();
++      this.slackActivityAccountant.tickEnded(l); // Spigot
++
     }
  
     protected void func_71190_q(BooleanSupplier p_71190_1_) {

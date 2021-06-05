@@ -1,0 +1,39 @@
+--- a/net/minecraft/world/chunk/storage/RegionBitmap.java
++++ b/net/minecraft/world/chunk/storage/RegionBitmap.java
+@@ -3,7 +_,7 @@
+ import java.util.BitSet;
+ 
+ public class RegionBitmap {
+-   private final BitSet field_227118_a_ = new BitSet();
++   private final BitSet field_227118_a_ = new BitSet(); private final BitSet getBitset() { return this.field_227118_a_; } // Tuinity - OBFHELPER
+ 
+    public void func_227120_a_(int p_227120_1_, int p_227120_2_) {
+       this.field_227118_a_.set(p_227120_1_, p_227120_1_ + p_227120_2_);
+@@ -12,6 +_,27 @@
+    public void func_227121_b_(int p_227121_1_, int p_227121_2_) {
+       this.field_227118_a_.clear(p_227121_1_, p_227121_1_ + p_227121_2_);
+    }
++
++   // Tuinity start
++   public final void copyFrom(RegionBitmap other) {
++      BitSet thisBitset = this.getBitset();
++      BitSet otherBitset = other.getBitset();
++
++      for (int i = 0; i < Math.max(thisBitset.size(), otherBitset.size()); ++i) {
++         thisBitset.set(i, otherBitset.get(i));
++      }
++   }
++
++   public final boolean tryAllocate(int from, int length) {
++      BitSet bitset = this.getBitset();
++      int firstSet = bitset.nextSetBit(from);
++      if (firstSet > 0 && firstSet < (from + length)) {
++         return false;
++      }
++      bitset.set(from, from + length);
++      return true;
++   }
++   // Tuinity end
+ 
+    public int func_227119_a_(int p_227119_1_) {
+       int i = 0;

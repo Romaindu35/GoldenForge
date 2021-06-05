@@ -296,7 +296,7 @@
              }
           }
        }
-@@ -495,12 +_,15 @@
+@@ -495,13 +_,17 @@
  
     public void func_217390_a(Consumer<Entity> p_217390_1_, Entity p_217390_2_) {
        try {
@@ -310,8 +310,10 @@
 +      } finally {
 +         net.minecraftforge.server.timings.TimeTracker.ENTITY_UPDATE.trackEnd(p_217390_2_);
        }
++      MinecraftServer.getServer().executeMidTickTasks(); // Tuinity - execute chunk tasks mid tick
     }
  
+    public Explosion func_217385_a(@Nullable Entity p_217385_1_, double p_217385_2_, double p_217385_4_, double p_217385_6_, float p_217385_8_, Explosion.Mode p_217385_9_) {
 @@ -514,6 +_,7 @@
  
     public Explosion func_230546_a_(@Nullable Entity p_230546_1_, @Nullable DamageSource p_230546_2_, @Nullable ExplosionContext p_230546_3_, double p_230546_4_, double p_230546_6_, double p_230546_8_, float p_230546_10_, boolean p_230546_11_, Explosion.Mode p_230546_12_) {

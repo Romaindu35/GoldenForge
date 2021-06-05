@@ -295,6 +295,7 @@ public final class PaperTickList<T> extends ServerTickList<T> { // extend to avo
                     if (toTick.tickState == STATE_TICKING) {
                         toTick.tickState = STATE_TICKED;
                     } // else it's STATE_CANCELLED_TICK
+                    MinecraftServer.getServer().executeMidTickTasks(); // Tuinity - exec chunk tasks during world tick
                 } else {
                     // re-schedule eventually
                     toTick.tickState = STATE_SCHEDULED;

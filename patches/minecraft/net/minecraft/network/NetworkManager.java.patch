@@ -1,10 +1,33 @@
 --- a/net/minecraft/network/NetworkManager.java
 +++ b/net/minecraft/network/NetworkManager.java
-@@ -74,6 +_,7 @@
+@@ -74,6 +_,30 @@
     private float field_211397_t;
     private int field_211398_u;
     private boolean field_211399_v;
 +   private java.util.function.Consumer<NetworkManager> activationHandler;
++
++   // Tuinity start - add pending task queue
++   private final Queue<Runnable> pendingTasks = new java.util.concurrent.ConcurrentLinkedQueue<>();
++   public void execute(final Runnable run) {
++      if (this.field_150746_k == null || !this.field_150746_k.isRegistered()) {
++         run.run();
++         return;
++      }
++      final boolean queue = !this.field_150745_j.isEmpty();
++      if (!queue) {
++         this.field_150746_k.eventLoop().execute(run);
++      } else {
++         this.pendingTasks.add(run);
++         if (this.field_150745_j.isEmpty()) {
++            // something flushed async, dump tasks now
++            Runnable r;
++            while ((r = this.pendingTasks.poll()) != null) {
++               this.field_150746_k.eventLoop().execute(r);
++            }
++         }
++      }
++   }
++   // Tuinity end - add pending task queue
  
     public NetworkManager(PacketDirection p_i46004_1_) {
        this.field_179294_g = p_i46004_1_;

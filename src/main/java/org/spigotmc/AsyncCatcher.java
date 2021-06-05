@@ -1,6 +1,7 @@
 package org.spigotmc;
 
 import net.minecraft.server.MinecraftServer;
+import org.goldenforge.GoldenForge;
 
 public class AsyncCatcher
 {
@@ -10,10 +11,10 @@ public class AsyncCatcher
 
     public static void catchOp(String reason)
     {
-        if ( enabled && Thread.currentThread() != MinecraftServer.getServer().serverThread )
+        if ( ( enabled || com.tuinity.tuinity.util.TickThread.STRICT_THREAD_CHECKS ) && !GoldenForge.isPrimaryThread() ) // Tuinity
         {
-            if (!Thread.currentThread().getName().equals("C2ME scheduler"))
-                throw new IllegalStateException( "Asynchronous " + reason + "!" );
+            MinecraftServer.LOGGER.fatal("Thread " + Thread.currentThread().getName() + " failed thread check for reason: Asynchronous " + reason, new Throwable()); // Tuinity - not all exceptions are printed
+            throw new IllegalStateException( "Asynchronous " + reason + "!" );
         }
     }
 }

@@ -24,13 +24,14 @@
              BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
  
              String s1;
-@@ -102,6 +_,10 @@
+@@ -102,6 +_,11 @@
           field_155771_h.warn("To start the server with more ram, launch it as \"java -Xmx1024M -Xms1024M -jar minecraft_server.jar\"");
        }
  
 +      org.goldenforge.BukkitConfig.init(new File(FMLPaths.GFDIR.get().toFile(), "bukkit.yml"));
 +      org.spigotmc.SpigotConfig.init(new File(FMLPaths.GFDIR.get().toFile(), "spigot.yml"));
 +      com.destroystokyo.paper.PaperConfig.init(new File(FMLPaths.GFDIR.get().toFile(), "paper.yml"));
++      com.tuinity.tuinity.config.TuinityConfig.init(new File(FMLPaths.GFDIR.get().toFile(), "tuinity.yml"));
 +
        field_155771_h.info("Loading properties");
        ServerProperties serverproperties = this.field_71340_o.func_219034_a();
